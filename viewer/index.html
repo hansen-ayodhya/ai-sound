@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Penampil Dump Mixer</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1c2430; --muted: #6a7585;
+    --line: #dde2e9; --accent: #1f5fbf; --accent-soft: #e6eefb;
+    --ok: #17794a; --warn: #a15c00; --warn-soft: #fff3df; --bad: #b3261e;
+    --diff: #fff1c9; --missing: #98a2b3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161c; --panel: #1a2029; --text: #e6eaf0; --muted: #98a2b3;
+      --line: #2b3441; --accent: #6ea2ff; --accent-soft: #1d2a40;
+      --ok: #4cc38a; --warn: #f0b04a; --warn-soft: #33270f; --bad: #ff8a80;
+      --diff: #4a3d12; --missing: #667085;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 12px; }
+  .pick { display: flex; flex-wrap: wrap; gap: 12px; }
+  .pick label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; min-width: 220px; flex: 1; }
+  .pick input { font-weight: 400; }
+  .banner { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn);
+    border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); }
+  .stats b { color: var(--text); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    padding: 7px 12px; border-radius: 8px; cursor: pointer; font: inherit; }
+  .tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; background: var(--panel); }
+  th, td { padding: 6px 9px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--panel); font-size: 12px; color: var(--muted); }
+  tr.row { cursor: pointer; }
+  tr.row:hover td { background: var(--accent-soft); }
+  td.num { font-variant-numeric: tabular-nums; }
+  .miss { color: var(--missing); }
+  .on { color: var(--ok); font-weight: 600; }
+  .off { color: var(--muted); }
+  .detail td { background: var(--bg); white-space: normal; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2px 18px; }
+  .grid div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dotted var(--line); padding: 2px 0; }
+  .grid span:first-child { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .diff { background: var(--diff); }
+  input[type="search"] { width: 100%; max-width: 360px; padding: 7px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; margin-bottom: 10px; }
+  .note { color: var(--muted); font-size: 12px; margin: 8px 0; }
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  @media (max-width: 600px) { .wrap { padding: 12px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Penampil Dump Mixer <span class="badge">HANYA MENAMPILKAN</span></h1>
+  <p class="sub">Membuka file <code>dump*.json</code> dari <code>python -m aise.dump</code>. Data dibaca di browser ini saja; tidak ada yang dikirim ke mixer atau internet.</p>
+
+  <div class="card pick">
+    <label>Dump A (utama)
+      <input type="file" id="fileA" accept=".json,application/json">
+    </label>
+    <label>Dump B (pembanding, opsional)
+      <input type="file" id="fileB" accept=".json,application/json">
+    </label>
+  </div>
+
+  <div id="banner"></div>
+  <div id="summary"></div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div id="view"><div class="card empty">Pilih file Dump A untuk mulai.</div></div>
+</div>
+
+<script>
+"use strict";
+
+const state = { a: null, b: null, tab: "channel", filter: "" };
+
+// ---------- util ----------
+const $ = (id) => document.getElementById(id);
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  if (props) for (const [k, v] of Object.entries(props)) {
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids) if (kid != null) n.append(kid);
+  return n;
+}
+const pad2 = (n) => String(n).padStart(2, "0");
+
+function fmtVal(v) {
+  if (v === null || v === undefined) return null;
+  if (!Array.isArray(v)) v = [v];
+  return v.map((x) => (typeof x === "number" && !Number.isInteger(x) ? x.toFixed(3) : String(x))).join(", ");
+}
+function cell(v, opts = {}) {
+  const f = fmtVal(v);
+  if (f === null) return el("td", { class: "miss", text: "—", title: "Tidak dijawab mixer" });
+  if (opts.onoff) {
+    const on = Number(v[0]) === 1;
+    return el("td", { class: on ? "on" : "off", text: on ? "ON" : "OFF" });
+  }
+  return el("td", { class: "num", text: f });
+}
+
+function validate(d) {
+  return d && typeof d === "object" && d.values && typeof d.values === "object" && !Array.isArray(d.values);
+}
+function loadFile(file, slot) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const d = JSON.parse(reader.result);
+      if (!validate(d)) throw new Error("Bukan file dump yang valid (tidak ada 'values').");
+      d._name = file.name;
+      state[slot] = d;
+    } catch (e) {
+      state[slot] = null;
+      alert("Gagal membaca " + file.name + ": " + e.message);
+    }
+    render();
+  };
+  reader.readAsText(file);
+}
+$("fileA").addEventListener("change", (e) => e.target.files[0] && loadFile(e.target.files[0], "a"));
+$("fileB").addEventListener("change", (e) => e.target.files[0] && loadFile(e.target.files[0], "b"));
+
+// ---------- data helpers ----------
+function channelNumbers(values) {
+  const set = new Set();
+  for (const k of Object.keys(values)) {
+    const m = k.match(/^\/ch\/(\d+)\//);
+    if (m) set.add(parseInt(m[1], 10));
+  }
+  return [...set].sort((x, y) => x - y);
+}
+function busNumbers(values) {
+  const set = new Set();
+  for (const k of Object.keys(values)) {
+    const m = k.match(/^\/bus\/(\d+)\//);
+    if (m) set.add(parseInt(m[1], 10));
+  }
+  return [...set].sort((x, y) => x - y);
+}
+const get = (d, addr) => (addr in d.values ? d.values[addr] : null);
+
+// ---------- views ----------
+function renderSummary() {
+  const box = $("summary");
+  box.replaceChildren();
+  $("banner").replaceChildren();
+  const d = state.a;
+  if (!d) return;
+  if (d.sample === true) {
+    $("banner").append(el("div", { class: "banner",
+      text: "DATA CONTOH – ini bukan dari mixer Anda. Hanya untuk melihat tampilan." }));
+  }
+  const total = Object.keys(d.values).length;
+  const answered = Object.values(d.values).filter((v) => v !== null).length;
+  const stats = el("div", { class: "card stats" },
+    el("span", null, "File: ", el("b", { text: d._name })),
+    el("span", null, "Dibuat: ", el("b", { text: d.created || "?" })),
+    el("span", null, "Dijawab: ", el("b", { text: answered + " / " + total })),
+    el("span", null, "Hash: ", el("b", { text: (d.sha256 || "?").slice(0, 12) }))
+  );
+  box.append(stats);
+  if (answered === 0) {
+    box.append(el("div", { class: "banner",
+      text: "Tidak ada alamat yang dijawab. Kemungkinan port/alamat berbeda dari dugaan; ini bukan kerusakan. Kirim ringkasannya untuk dikoreksi." }));
+  }
+}
+
+function renderTabs() {
+  const tabs = $("tabs");
+  tabs.replaceChildren();
+  if (!state.a) return;
+  const defs = [["channel", "Channel"], ["bus", "Bus & Main"], ["all", "Semua nilai"]];
+  if (state.b) defs.push(["compare", "Bandingkan A ↔ B"]);
+  if (state.tab === "compare" && !state.b) state.tab = "channel";
+  for (const [key, label] of defs) {
+    tabs.append(el("button", {
+      role: "tab", "aria-selected": String(state.tab === key), text: label,
+      onclick: () => { state.tab = key; render(); },
+    }));
+  }
+}
+
+function channelView(d) {
+  const nums = channelNumbers(d.values);
+  if (!nums.length) return el("div", { class: "card empty", text: "Tidak ada data channel di dump ini." });
+  const heads = ["Ch", "Nama", "Gain", "48V", "HPF", "HPF Hz", "Gate", "Gate thr", "Komp", "Komp thr",
+    "Rasio", "EQ", "Fader", "Aktif", "→ Main", "Kosong"];
+  const thead = el("thead", null, el("tr", null, ...heads.map((h) => el("th", { text: h }))));
+  const tbody = el("tbody");
+  for (const n of nums) {
+    const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
+    const name = get(d, c + "/config/name");
+    const own = Object.keys(d.values).filter((k) => k.startsWith(c + "/") || k.startsWith(h + "/"));
+    const miss = own.filter((k) => d.values[k] === null).length;
+    const row = el("tr", { class: "row", title: "Klik untuk detail" },
+      el("td", { class: "num", text: pad2(n) }),
+      name ? el("td", { text: fmtVal(name) }) : el("td", { class: "miss", text: "—" }),
+      cell(get(d, h + "/gain")),
+      cell(get(d, h + "/phantom"), { onoff: true }),
+      cell(get(d, c + "/preamp/hpon"), { onoff: true }),
+      cell(get(d, c + "/preamp/hpf")),
+      cell(get(d, c + "/gate/on"), { onoff: true }),
+      cell(get(d, c + "/gate/thr")),
+      cell(get(d, c + "/dyn/on"), { onoff: true }),
+      cell(get(d, c + "/dyn/thr")),
+      cell(get(d, c + "/dyn/ratio")),
+      cell(get(d, c + "/eq/on"), { onoff: true }),
+      cell(get(d, c + "/mix/fader")),
+      cell(get(d, c + "/mix/on"), { onoff: true }),
+      cell(get(d, c + "/mix/lr"), { onoff: true }),
+      el("td", { class: miss ? "miss" : "num", text: own.length ? miss + "/" + own.length : "—" })
+    );
+    const detail = el("tr", { class: "detail", hidden: "" },
+      el("td", { colspan: String(heads.length) }, kvGrid(own, d.values)));
+    row.addEventListener("click", () => { detail.hidden = !detail.hidden; });
+    tbody.append(row, detail);
+  }
+  return el("div", null,
+    el("div", { class: "scroll card" }, el("table", null, thead, tbody)),
+    el("p", { class: "note", text: "Nilai ditampilkan mentah seperti dari mixer (umumnya skala 0–1), belum dikonversi ke dB/Hz. " +
+      "Arti ON/OFF dan skala belum diverifikasi pada MR18 ini; jangan dipakai sebagai angka final sebelum audit memastikannya." }));
+}
+
+function kvGrid(keys, values) {
+  const g = el("div", { class: "grid" });
+  for (const k of keys.sort()) {
+    const f = fmtVal(values[k]);
+    g.append(el("div", null, el("span", { text: k }), el("span", { class: f === null ? "miss" : "", text: f === null ? "—" : f })));
+  }
+  return g;
+}
+
+function busView(d) {
+  const parts = [];
+  const mainKeys = Object.keys(d.values).filter((k) => k.startsWith("/lr/"));
+  if (mainKeys.length) parts.push(el("div", { class: "card" }, el("h3", { text: "Main L/R" }), kvGrid(mainKeys, d.values)));
+  for (const n of busNumbers(d.values)) {
+    const keys = Object.keys(d.values).filter((k) => k.startsWith("/bus/" + n + "/"));
+    const name = fmtVal(get(d, "/bus/" + n + "/config/name"));
+    parts.push(el("div", { class: "card" }, el("h3", { text: "Bus " + n + (name ? " – " + name : "") }), kvGrid(keys, d.values)));
+  }
+  const fx = Object.keys(d.values).filter((k) => k.startsWith("/fx/"));
+  if (fx.length) parts.push(el("div", { class: "card" }, el("h3", { text: "FX" }), kvGrid(fx, d.values)));
+  const gl = Object.keys(d.values).filter((k) => ["/info", "/xinfo", "/status"].includes(k));
+  if (gl.length) parts.push(el("div", { class: "card" }, el("h3", { text: "Info mixer" }), kvGrid(gl, d.values)));
+  return parts.length ? el("div", null, ...parts) : el("div", { class: "card empty", text: "Tidak ada data bus/main." });
+}
+
+function allView(d) {
+  const input = el("input", { type: "search", placeholder: "Cari alamat atau nilai…", value: state.filter });
+  const holder = el("div", { class: "card scroll" });
+  const draw = () => {
+    const q = state.filter.toLowerCase();
+    const keys = Object.keys(d.values).sort().filter((k) =>
+      !q || k.toLowerCase().includes(q) || (fmtVal(d.values[k]) || "").toLowerCase().includes(q));
+    const tb = el("tbody");
+    for (const k of keys.slice(0, 1500)) {
+      const f = fmtVal(d.values[k]);
+      tb.append(el("tr", null, el("td", { text: k }), el("td", { class: f === null ? "miss" : "num", text: f === null ? "— (tidak dijawab)" : f })));
+    }
+    holder.replaceChildren(el("table", null, el("thead", null, el("tr", null, el("th", { text: "Alamat" }), el("th", { text: "Nilai" }))), tb),
+      el("p", { class: "note", text: keys.length + " baris" + (keys.length > 1500 ? " (menampilkan 1500 pertama; persempit pencarian)" : "") }));
+  };
+  input.addEventListener("input", () => { state.filter = input.value; draw(); });
+  draw();
+  return el("div", null, input, holder);
+}
+
+function compareView(a, b) {
+  const keys = [...new Set([...Object.keys(a.values), ...Object.keys(b.values)])].sort();
+  const diffs = keys.filter((k) => JSON.stringify(a.values[k] ?? null) !== JSON.stringify(b.values[k] ?? null));
+  const head = el("div", { class: "card" },
+    diffs.length === 0
+      ? el("b", { class: "on", text: "IDENTIK – tidak ada perbedaan." })
+      : el("b", { text: diffs.length + " perbedaan dari " + keys.length + " alamat." }));
+  if (!diffs.length) return head;
+  const tb = el("tbody");
+  for (const k of diffs.slice(0, 1500)) {
+    const fa = fmtVal(a.values[k]), fb = fmtVal(b.values[k]);
+    tb.append(el("tr", { class: "diff" }, el("td", { text: k }),
+      el("td", { class: fa === null ? "miss" : "num", text: fa === null ? "—" : fa }),
+      el("td", { class: fb === null ? "miss" : "num", text: fb === null ? "—" : fb })));
+  }
+  return el("div", null, head, el("div", { class: "card scroll" },
+    el("table", null, el("thead", null, el("tr", null, el("th", { text: "Alamat" }),
+      el("th", { text: "A: " + a._name }), el("th", { text: "B: " + b._name }))), tb)));
+}
+
+function render() {
+  renderSummary();
+  renderTabs();
+  const view = $("view");
+  view.replaceChildren();
+  if (!state.a) { view.append(el("div", { class: "card empty", text: "Pilih file Dump A untuk mulai." })); return; }
+  if (state.tab === "channel") view.append(channelView(state.a));
+  else if (state.tab === "bus") view.append(busView(state.a));
+  else if (state.tab === "all") view.append(allView(state.a));
+  else if (state.tab === "compare" && state.b) view.append(compareView(state.a, state.b));
+}
+render();
+</script>
+</body>
+</html>
