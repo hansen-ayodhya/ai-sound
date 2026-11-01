@@ -6,7 +6,7 @@ Jangan mengarang. Biarkan "belum diketahui" sampai ada data/foto.
 
 | # | Informasi | Cara memberikan | Status |
 |---|---|---|---|
-| 1 | Speaker management / DSP: merek, model, port USB/LAN, software kontrol | Foto panel depan + belakang | Belum diketahui |
+| 1 | Speaker management / DSP: merek, model, port USB/LAN, software kontrol | Foto panel depan + belakang | **Ashly Protea 4.8SP** (4 in × 8 out). Kontrol via USB + software Protea (Windows) dan RS-232; Ethernet belum terkonfirmasi (sumber pihak ketiga). Konfigurasi aktual belum dibaca. |
 | 2 | Routing output MR18 → DSP, dan routing monitor panggung | Foto panel belakang MR18 + kabel mana ke mana | Belum diketahui |
 | 3 | Software kontrol MR18 yang dipakai (M-AIR / X AIR Edit?), versi firmware, perangkat | Setup > Info di aplikasi | Belum diketahui |
 | 4 | PC EasyWorship: OS, CPU/RAM, port USB bebas, bagaimana audio EasyWorship masuk ke mixer | Spesifikasi sistem | Belum diketahui |

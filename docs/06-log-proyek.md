@@ -22,6 +22,14 @@
 2. Simpan scene baseline MR18 lewat aplikasi resmi (di luar ibadah) dan simpan file-nya di penyimpanan aman.
 3. Mulai Tahap 1 sesuai [02](02-rencana-audit-readonly.md): hanya setelah informasi minimum tersedia.
 
+## Update 2026-11-01 (malam, laptop Windows 11, MR18 tidak di dekat laptop)
+
+- DSP teridentifikasi: **Ashly Protea 4.8SP** (sudah discontinued).
+- Kontrol: USB dengan software Protea (Windows), RS-232 untuk kontrol pihak ketiga; dokumen "4.8SP, 3.6SP Control Protocol" ada di situs Ashly. Ethernet **tidak** ditemukan di sumber; anggap tidak ada sampai dicek di unit.
+- Konsekuensi: DSP tidak bisa dibaca lewat LAN seperti MR18. Pembacaan konfigurasi DSP kemungkinan lewat USB dari laptop, saat laptop terhubung ke DSP. Jalur ini juga bisa menulis, jadi aturan read-only berlaku: hanya simpan/baca preset, jangan kirim apa pun.
+- Cek dulu: unit mungkin memakai proteksi password; jangan reset atau menebak password.
+- Laptop: Windows 11. Pekerjaan offline sebelum mixer terjangkau: lihat daftar di sesi.
+
 ## Catatan
 
 Repositori ini awalnya berisi proyek lain (aplikasi POS); proyek ini ditempatkan di folder `ai-sound-engineer/` agar terpisah dan tidak menyentuh file yang sudah ada. Bila ingin repositori sendiri, folder ini bisa dipindahkan utuh.
