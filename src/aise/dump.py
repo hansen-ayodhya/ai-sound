@@ -3,6 +3,7 @@
 Pemakaian:
     python -m aise.dump --host 192.168.x.x --out data/dump1.json
     python -m aise.dump --diff data/dump1.json data/dump2.json
+    python -m aise.dump --host 192.168.x.x --only /info /ch/01/config/name   # uji kecil
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from pathlib import Path
 
 from .addresses import all_addresses
 from .client import DEFAULT_PORT, ReadOnlyClient
+from .guard import ReadOnlyViolation, check
 
 
 def _hash(values: dict) -> str:
@@ -52,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--host")
     p.add_argument("--port", type=int, default=DEFAULT_PORT)
     p.add_argument("--out")
+    p.add_argument("--only", nargs="+", metavar="ALAMAT", help="uji kecil: hanya query alamat ini")
     p.add_argument("--log", default="data/osc_log.jsonl")
     p.add_argument("--diff", nargs=2, metavar=("A", "B"))
     args = p.parse_args(argv)
@@ -64,10 +67,24 @@ def main(argv: list[str] | None = None) -> int:
             print(" ", line)
         return 0 if not changes else 1
 
-    if not args.host or not args.out:
-        p.error("--host dan --out wajib untuk dump")
+    if not args.host:
+        p.error("--host wajib")
+    if not args.only and not args.out:
+        p.error("--out wajib untuk dump penuh (atau pakai --only untuk uji kecil)")
+    addresses = args.only or all_addresses()
+    try:
+        for a in addresses:
+            check(a, ())  # tolak alamat terlarang sebelum membuka koneksi
+    except ReadOnlyViolation as exc:
+        print(f"DITOLAK (read-only): {exc}", file=sys.stderr)
+        return 2
     with ReadOnlyClient(args.host, args.port, timeout=0.5, retries=1, log_path=args.log) as client:
-        result = run_dump(client, all_addresses())
+        result = run_dump(client, addresses)
+    if args.only and not args.out:
+        for addr, val in result["values"].items():
+            print(f"{addr} = {val if val is not None else '(tidak dijawab)'}")
+        print(f"{result['answered']}/{result['queried']} dijawab")
+        return 0
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")

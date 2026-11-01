@@ -6,6 +6,7 @@ Hanya pustaka standar Python (3.10+), tanpa instalasi paket.
     python -I -m unittest discover -s tests -v
 
 ## Dump konfigurasi MR18 (nanti, di jaringan yang sama dengan mixer, di luar ibadah)
+    (UJI KECIL DULU) python -m aise.dump --host <IP_MR18> --only /info /ch/01/config/name
     set PYTHONPATH=src            (Windows cmd)   /   $env:PYTHONPATH="src" (PowerShell)
     python -m aise.dump --host <IP_MR18> --out data/dump1.json
     python -m aise.dump --host <IP_MR18> --out data/dump2.json

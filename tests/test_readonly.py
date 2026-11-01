@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from aise import guard
 from aise.addresses import all_addresses
 from aise.client import ReadOnlyClient
+from aise import dump as dump_cli
 from aise.dump import diff, run_dump
 from aise.fake_mixer import FakeMixer
 from aise.guard import ReadOnlyViolation
@@ -84,6 +85,25 @@ class ClientAgainstFake(unittest.TestCase):
         a = {"values": {"/x/y": [1]}}
         b = {"values": {"/x/y": [2]}}
         self.assertEqual(len(diff(a, b)), 1)
+
+
+class OnlyOption(unittest.TestCase):
+    def test_only_queries_just_those_addresses(self):
+        with FakeMixer(STATE) as mixer, tempfile.TemporaryDirectory() as tmp:
+            rc = dump_cli.main(["--host", "127.0.0.1", "--port", str(mixer.port),
+                                "--only", "/info", "/ch/01/config/name",
+                                "--log", str(Path(tmp) / "l.jsonl")])
+            self.assertEqual(rc, 0)
+            self.assertEqual(mixer.queries, ["/info", "/ch/01/config/name"])
+            self.assertEqual(mixer.write_attempts, [])
+
+    def test_only_rejects_forbidden_before_any_traffic(self):
+        with FakeMixer(STATE) as mixer, tempfile.TemporaryDirectory() as tmp:
+            rc = dump_cli.main(["--host", "127.0.0.1", "--port", str(mixer.port),
+                                "--only", "/info", "/-snap/load",
+                                "--log", str(Path(tmp) / "l.jsonl")])
+            self.assertEqual(rc, 2)
+            self.assertEqual(mixer.queries, [])
 
 
 if __name__ == "__main__":
