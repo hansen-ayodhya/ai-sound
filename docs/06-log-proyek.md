@@ -30,6 +30,12 @@
 - Cek dulu: unit mungkin memakai proteksi password; jangan reset atau menebak password.
 - Laptop: Windows 11. Pekerjaan offline sebelum mixer terjangkau: lihat daftar di sesi.
 
+## Update: kode penjaga read-only (offline)
+
+- Ditambahkan `src/aise/` (klien OSC read-only, penjaga, mixer tiruan, dump + diff) dan `tests/`. 8 tes lulus melawan mixer tiruan, termasuk bukti nol pesan tulis.
+- BELUM diuji pada MR18 nyata. Yang harus diverifikasi saat di dekat mixer: port UDP, format balasan, daftar alamat, allowlist.
+- Langkah berikutnya: saat dekat MR18 (di luar ibadah) simpan scene baseline via aplikasi resmi, lalu jalankan dump dua kali dan diff.
+
 ## Catatan
 
 Repositori ini awalnya berisi proyek lain (aplikasi POS); proyek ini ditempatkan di folder `ai-sound-engineer/` agar terpisah dan tidak menyentuh file yang sudah ada. Bila ingin repositori sendiri, folder ini bisa dipindahkan utuh.
