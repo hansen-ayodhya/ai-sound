@@ -74,6 +74,10 @@
 </header>
 
 <main class="wrap" id="main">
+  <div class="alert" id="needRestart" hidden>
+    <b>Program sudah di-update, tapi mesinnya belum dimuat ulang.</b> Tutup semua jendela hitam AI Sound Engineer,
+    lalu klik dua kali AI-Sound-Engineer.bat lagi. Sampai itu dilakukan, sebagian fitur baru (misalnya pengecekan API key) belum berlaku.
+  </div>
   <div class="alert" id="noServer" hidden>
     Halaman ini harus dibuka lewat <b>AI-Sound-Engineer.bat</b> (klik dua kali). Kalau dibuka langsung dari file, tombol-tombolnya tidak bisa bekerja.
   </div>
@@ -302,7 +306,8 @@ $("btnUpdate").addEventListener("click", async () => {
   try {
     const r = await api("/api/update", {});
     say("maintOut", (r.ok ? "Selesai.\n" : "Gagal.\n") + r.output +
-      (r.ok ? "\n\nTutup jendela hitam aplikasi, lalu klik dua kali AI-Sound-Engineer.bat lagi supaya versi baru terpakai." : ""), r.ok ? "ok" : "bad");
+      (r.ok ? "\n\nPENTING: tutup jendela hitam aplikasi, lalu klik dua kali AI-Sound-Engineer.bat lagi supaya versi baru terpakai." : ""), r.ok ? "ok" : "bad");
+    if (r.ok) { const st2 = await api("/api/status"); $("needRestart").hidden = !st2.needs_restart; }
   } catch (e) { say("maintOut", e.message, "bad"); }
   setBusy(false);
 });
@@ -421,6 +426,7 @@ $("aiModel").addEventListener("change", async () => {
     const s = await api("/api/status");
     $("ip").value = s.ip || "";
     showLan(s);
+    $("needRestart").hidden = !s.needs_restart;
     loadAI(s.is_local);
     if (s.frozen) {
       $("btnUpdate").hidden = true; $("btnTests").hidden = true;

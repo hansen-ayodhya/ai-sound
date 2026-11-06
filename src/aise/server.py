@@ -220,6 +220,14 @@ class App:
             count = len(fnd)
         return {"ok": True, "findings": count, "profile": clean}
 
+    def disk_version(self) -> str:
+        """Versi kode di folder sekarang (bisa lebih baru dari yang sedang berjalan setelah 'Update program')."""
+        now = time.monotonic()
+        if now - getattr(self, "_disk_v_t", -1e9) > 10:
+            self._disk_v = self.version if self.frozen else _version(self.root)
+            self._disk_v_t = now
+        return self._disk_v
+
     def own_ips(self) -> set[str]:
         """Alamat milik komputer ini (localhost + IP jaringannya). Disimpan sebentar."""
         now = time.monotonic()
@@ -544,6 +552,7 @@ def make_handler(app: App, http_port: int):
                                             "port": app.load_port(), "job": app.job, "latest": app.latest(),
                                             "live": bool(app.live and app.live.running),
                                             "is_local": local, "lan": app.lan, "version": app.version, "frozen": app.frozen,
+                                            "needs_restart": app.disk_version().split(" ")[0] != app.version.split(" ")[0],
                                             "lan_url": app.lan_url if local else None,
                                             "pin": app.pin if (local and app.lan) else None})
                 if path == "/api/live":
