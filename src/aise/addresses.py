@@ -28,9 +28,12 @@ def channel_addresses(n: int) -> list[str]:
         f"{c}/preamp/hpf",
         f"{c}/gate/on",
         f"{c}/gate/thr",
+        f"{c}/gate/range",      # dugaan alamat; belum diverifikasi
         f"{c}/dyn/on",
         f"{c}/dyn/thr",
         f"{c}/dyn/ratio",
+        f"{c}/dyn/attack",      # dugaan alamat; belum diverifikasi
+        f"{c}/dyn/release",     # dugaan alamat; belum diverifikasi
         f"{c}/eq/on",
         f"{c}/mix/on",
         f"{c}/mix/fader",
@@ -43,6 +46,9 @@ def channel_addresses(n: int) -> list[str]:
             addrs.append(f"{c}/eq/{band}/{p}")
     for b in range(1, N_BUSES + 1):
         addrs.append(f"{c}/mix/{b:02d}/level")
+    # Kiriman ke FX 1..4: DUGAAN bahwa MR18 memakai mix/07..10 untuk FX send. Belum diverifikasi.
+    for fx in range(1, N_FX + 1):
+        addrs.append(f"{c}/mix/{N_BUSES + fx:02d}/level")
     return addrs
 
 

@@ -33,10 +33,29 @@
   "penyebab": "Level vokal naik-turun lebar; operator mengejar fader, hasil mixing tidak konsisten.",
   "data": "/ch/01/dyn/on = 0.",
   "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
-  "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
+  "rekomendasi": "Kompresi ringan sebagai titik awal: rasio 3:1, threshold diturunkan sampai pengurangan (gain reduction) sekitar 3–6 dB saat bernyanyi/berbicara normal. Threshold yang tepat bergantung pada level nyata, jadi angka usulan hanya titik awal.",
   "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
   "ch": 1,
-  "usulan": []
+  "usulan": [
+   {
+    "alamat": "/ch/01/dyn/on",
+    "sekarang": 0,
+    "usulan": 1,
+    "teks": "Kompresor: OFF → ON"
+   },
+   {
+    "alamat": "/ch/01/dyn/ratio",
+    "sekarang": 0.215,
+    "usulan": 5,
+    "teks": "Rasio: ≈1.5:1 → 3:1"
+   },
+   {
+    "alamat": "/ch/01/dyn/thr",
+    "sekarang": 0.91,
+    "usulan": 0.6667,
+    "teks": "Threshold: ≈-5 dB → ≈-20 dB (titik awal)"
+   }
+  ]
  },
  {
   "id": "tanpa-komp-ch02",
@@ -46,10 +65,29 @@
   "penyebab": "Level vokal naik-turun lebar; operator mengejar fader, hasil mixing tidak konsisten.",
   "data": "/ch/02/dyn/on = 0.",
   "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
-  "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
+  "rekomendasi": "Kompresi ringan sebagai titik awal: rasio 3:1, threshold diturunkan sampai pengurangan (gain reduction) sekitar 3–6 dB saat bernyanyi/berbicara normal. Threshold yang tepat bergantung pada level nyata, jadi angka usulan hanya titik awal.",
   "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
   "ch": 2,
-  "usulan": []
+  "usulan": [
+   {
+    "alamat": "/ch/02/dyn/on",
+    "sekarang": 0,
+    "usulan": 1,
+    "teks": "Kompresor: OFF → ON"
+   },
+   {
+    "alamat": "/ch/02/dyn/ratio",
+    "sekarang": 0.699,
+    "usulan": 5,
+    "teks": "Rasio: ≈7:1 → 3:1"
+   },
+   {
+    "alamat": "/ch/02/dyn/thr",
+    "sekarang": 0.794,
+    "usulan": 0.6667,
+    "teks": "Threshold: ≈-12 dB → ≈-20 dB (titik awal)"
+   }
+  ]
  },
  {
   "id": "boost-b1-ch03",
@@ -68,6 +106,26 @@
     "sekarang": 0.871,
     "usulan": 0.6,
     "teks": "EQ band 1 (≈298 Hz): ≈+11.1 dB → ≈+3.0 dB"
+   }
+  ]
+ },
+ {
+  "id": "rasio-tinggi-ch03",
+  "severity": "perhatian",
+  "channel": "Ch 03 'Vokal 3'",
+  "masalah": "Rasio kompresor sangat tinggi (≈20:1) pada channel suara: Ch 03 'Vokal 3'.",
+  "penyebab": "Rasio setinggi ini bekerja seperti limiter: suara terdengar tertekan/datar, dan saat penyanyi diam kompresor melepas sehingga suara panggung dan feedback ikut naik.",
+  "data": "/ch/03/dyn/ratio ≈ 20:1 (konversi perkiraan).",
+  "uji": "Dengarkan saat bernyanyi lalu diam; perhatikan apakah dengung/suara panggung naik ketika diam.",
+  "rekomendasi": "Turunkan rasio ke sekitar 4:1 dan atur threshold sampai gain reduction 3–6 dB.",
+  "risiko": "Puncak suara bisa lebih menonjol; cek tidak ada clipping setelahnya.",
+  "ch": 3,
+  "usulan": [
+   {
+    "alamat": "/ch/03/dyn/ratio",
+    "sekarang": 0.95,
+    "usulan": 6,
+    "teks": "Rasio: ≈20:1 → 4:1"
    }
   ]
  },
@@ -119,10 +177,89 @@
   "penyebab": "Level vokal naik-turun lebar; operator mengejar fader, hasil mixing tidak konsisten.",
   "data": "/ch/04/dyn/on = 0.",
   "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
-  "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
+  "rekomendasi": "Kompresi ringan sebagai titik awal: rasio 3:1, threshold diturunkan sampai pengurangan (gain reduction) sekitar 3–6 dB saat bernyanyi/berbicara normal. Threshold yang tepat bergantung pada level nyata, jadi angka usulan hanya titik awal.",
   "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
   "ch": 4,
-  "usulan": []
+  "usulan": [
+   {
+    "alamat": "/ch/04/dyn/on",
+    "sekarang": 0,
+    "usulan": 1,
+    "teks": "Kompresor: OFF → ON"
+   },
+   {
+    "alamat": "/ch/04/dyn/ratio",
+    "sekarang": 0.871,
+    "usulan": 5,
+    "teks": "Rasio: ≈20:1 → 3:1"
+   },
+   {
+    "alamat": "/ch/04/dyn/thr",
+    "sekarang": 0.457,
+    "usulan": 0.6667,
+    "teks": "Threshold: ≈-33 dB → ≈-20 dB (titik awal)"
+   }
+  ]
+ },
+ {
+  "id": "gate-ketat-ch04",
+  "severity": "perhatian",
+  "channel": "Ch 04 'Khotbah'",
+  "masalah": "Gate pada channel suara memakai threshold tinggi (≈-4 dB): Ch 04 'Khotbah'.",
+  "penyebab": "Gate yang terlalu tinggi memotong awal/akhir kata yang pelan, sehingga khotbah terdengar terputus-putus dan kurang jelas.",
+  "data": "/ch/04/gate/on = 1, /ch/04/gate/thr ≈ -4 dB (konversi perkiraan).",
+  "uji": "Minta orang berbicara pelan di jarak normal; perhatikan lampu gate dan apakah suku kata hilang.",
+  "rekomendasi": "Turunkan threshold ke sekitar -50 dB, atau matikan gate bila tidak ada masalah suara panggung yang perlu ditahan.",
+  "risiko": "Suara panggung/derau bisa sedikit lebih terdengar saat mic tidak dipakai; operator bisa mute saat tidak dipakai.",
+  "ch": 4,
+  "usulan": [
+   {
+    "alamat": "/ch/04/gate/thr",
+    "sekarang": 0.953,
+    "usulan": 0.375,
+    "teks": "Threshold gate: ≈-4 dB → ≈-50 dB"
+   }
+  ]
+ },
+ {
+  "id": "fx1-khotbah-ch04",
+  "severity": "perhatian",
+  "channel": "Ch 04 'Khotbah'",
+  "masalah": "Mic khotbah dikirim cukup banyak ke FX 1 (≈-1 dB): Ch 04 'Khotbah'.",
+  "penyebab": "Efek (terutama reverb/delay) pada suara bicara membuat kata saling menumpuk di ruangan yang sudah memantul, sehingga khotbah kurang jelas.",
+  "data": "/ch/04/mix/07/level ≈ -1 dB (alamat kiriman FX dan konversi masih dugaan; jenis efek FX 1 belum dibaca).",
+  "uji": "Bandingkan kejelasan khotbah dengan kiriman FX dikurangi; dengarkan dari kursi tengah/belakang.",
+  "rekomendasi": "Kecilkan atau matikan kiriman FX untuk mic khotbah; simpan efek untuk lagu.",
+  "risiko": "Suara bicara terasa lebih 'kering'. Itu wajar dan biasanya lebih jelas.",
+  "ch": 4,
+  "usulan": [
+   {
+    "alamat": "/ch/04/mix/07/level",
+    "sekarang": 0.72,
+    "usulan": 0.0,
+    "teks": "Kiriman ke FX 1: ≈-1 dB → mati (−∞)"
+   }
+  ]
+ },
+ {
+  "id": "gate-line-ch13",
+  "severity": "info",
+  "channel": "Ch 13 'Laptop L'",
+  "masalah": "Gate menyala pada sumber line (bukan mic): Ch 13 'Laptop L'.",
+  "penyebab": "Sumber seperti keyboard, drum elektrik, atau playback umumnya bersih dari suara panggung; gate justru bisa memotong ekor nada/sustain dan reverb sehingga terdengar putus.",
+  "data": "/ch/13/gate/on = 1.",
+  "uji": "Mainkan nada panjang yang memudar; dengarkan apakah ujungnya terpotong tiba-tiba.",
+  "rekomendasi": "Matikan gate pada sumber ini kecuali ada dengung yang memang perlu ditahan.",
+  "risiko": "Bila ada dengung (ground loop), dengung itu akan terdengar saat sumber diam; atasi sumber dengungnya.",
+  "ch": 13,
+  "usulan": [
+   {
+    "alamat": "/ch/13/gate/on",
+    "sekarang": 1,
+    "usulan": 0,
+    "teks": "Gate: ON → OFF"
+   }
+  ]
  },
  {
   "id": "phantom-ch13",
@@ -136,6 +273,26 @@
   "risiko": "Mematikan 48V pada kondenser membuatnya diam; ubah hanya oleh operator dengan fader turun.",
   "ch": 13,
   "usulan": []
+ },
+ {
+  "id": "gate-line-ch14",
+  "severity": "info",
+  "channel": "Ch 14 'Laptop R'",
+  "masalah": "Gate menyala pada sumber line (bukan mic): Ch 14 'Laptop R'.",
+  "penyebab": "Sumber seperti keyboard, drum elektrik, atau playback umumnya bersih dari suara panggung; gate justru bisa memotong ekor nada/sustain dan reverb sehingga terdengar putus.",
+  "data": "/ch/14/gate/on = 1.",
+  "uji": "Mainkan nada panjang yang memudar; dengarkan apakah ujungnya terpotong tiba-tiba.",
+  "rekomendasi": "Matikan gate pada sumber ini kecuali ada dengung yang memang perlu ditahan.",
+  "risiko": "Bila ada dengung (ground loop), dengung itu akan terdengar saat sumber diam; atasi sumber dengungnya.",
+  "ch": 14,
+  "usulan": [
+   {
+    "alamat": "/ch/14/gate/on",
+    "sekarang": 1,
+    "usulan": 0,
+    "teks": "Gate: ON → OFF"
+   }
+  ]
  },
  {
   "id": "hpf-mati-ch15",
@@ -211,9 +368,48 @@
   "penyebab": "Level vokal naik-turun lebar; operator mengejar fader, hasil mixing tidak konsisten.",
   "data": "/ch/15/dyn/on = 0.",
   "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
-  "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
+  "rekomendasi": "Kompresi ringan sebagai titik awal: rasio 3:1, threshold diturunkan sampai pengurangan (gain reduction) sekitar 3–6 dB saat bernyanyi/berbicara normal. Threshold yang tepat bergantung pada level nyata, jadi angka usulan hanya titik awal.",
   "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
   "ch": 15,
-  "usulan": []
+  "usulan": [
+   {
+    "alamat": "/ch/15/dyn/on",
+    "sekarang": 0,
+    "usulan": 1,
+    "teks": "Kompresor: OFF → ON"
+   },
+   {
+    "alamat": "/ch/15/dyn/ratio",
+    "sekarang": 0.632,
+    "usulan": 5,
+    "teks": "Rasio: ≈5:1 → 3:1"
+   },
+   {
+    "alamat": "/ch/15/dyn/thr",
+    "sekarang": 0.603,
+    "usulan": 0.6667,
+    "teks": "Threshold: ≈-24 dB → ≈-20 dB (titik awal)"
+   }
+  ]
+ },
+ {
+  "id": "gate-ketat-ch15",
+  "severity": "perhatian",
+  "channel": "Ch 15 'Choir'",
+  "masalah": "Gate pada channel suara memakai threshold tinggi (≈-4 dB): Ch 15 'Choir'.",
+  "penyebab": "Gate yang terlalu tinggi memotong awal/akhir kata yang pelan, sehingga vokal terdengar terpotong.",
+  "data": "/ch/15/gate/on = 1, /ch/15/gate/thr ≈ -4 dB (konversi perkiraan).",
+  "uji": "Minta orang berbicara pelan di jarak normal; perhatikan lampu gate dan apakah suku kata hilang.",
+  "rekomendasi": "Turunkan threshold ke sekitar -50 dB, atau matikan gate bila tidak ada masalah suara panggung yang perlu ditahan.",
+  "risiko": "Suara panggung/derau bisa sedikit lebih terdengar saat mic tidak dipakai; operator bisa mute saat tidak dipakai.",
+  "ch": 15,
+  "usulan": [
+   {
+    "alamat": "/ch/15/gate/thr",
+    "sekarang": 0.953,
+    "usulan": 0.375,
+    "teks": "Threshold gate: ≈-4 dB → ≈-50 dB"
+   }
+  ]
  }
 ]

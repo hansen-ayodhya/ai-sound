@@ -23,6 +23,14 @@ from . import channels, convert
 SPEECH_RE = re.compile(r"\b(khotbah|pastor|pdt|speech|mc)", re.I)
 BOOST_MAX_DB = 6.0      # boost di atas ini pada channel suara dianggap berlebihan
 BOOST_TARGET_DB = 3.0   # usulan pengganti
+COMP_START_RATIO = 3.0  # titik awal kompresor vokal
+COMP_START_THR_DB = -20.0
+COMP_MAX_RATIO = 10.0   # rasio setinggi ini pada vokal dianggap berlebihan
+COMP_TARGET_RATIO = 4.0
+GATE_VOICE_MAX_THR_DB = -40.0  # gate vokal di atas ini berisiko memotong kata pelan
+GATE_VOICE_TARGET_DB = -50.0
+FX_SPEECH_MAX_DB = -20.0       # kiriman FX dari mic khotbah di atas ini dianggap mengganggu kejelasan
+N_BUSES, N_FX = 6, 4
 
 VOICE_RE = re.compile(r"\b(vok|vocal|vox|khotbah|pastor|pdt|speech|choir|paduan|singer|mc)", re.I)
 NONMIC_RE = re.compile(r"\b(laptop|pc|playback|track|keys|synth|piano|easyworship|ew)", re.I)
@@ -52,6 +60,15 @@ def _first(values: dict, addr: str):
 
 def _channels(values: dict) -> list[int]:
     return sorted({int(m.group(1)) for k in values if (m := re.match(r"^/ch/(\d+)/", k))})
+
+
+def _ratio_txt(raw) -> str:
+    v = convert.ratio_value(raw)
+    return f"≈{v:g}:1" if v is not None else "?"
+
+
+def _db_txt(raw, fn) -> str:
+    return f"≈{fn(raw):.0f} dB" if raw is not None else "?"
 
 
 def _label(values: dict, n: int) -> tuple[str, str]:
@@ -142,14 +159,85 @@ def analyze(dump: dict, profile: dict | None = None) -> list[Finding]:
                              "usulan": round(convert.eq_gain_raw(BOOST_TARGET_DB), 4),
                              "teks": f"EQ band {b} (≈{where}): ≈+{g_db:.1f} dB → ≈+{BOOST_TARGET_DB:.1f} dB"}]))
         if is_voice and _first(values, f"{c}/dyn/on") == 0:
+            cur_thr, cur_ratio = _first(values, f"{c}/dyn/thr"), _first(values, f"{c}/dyn/ratio")
+            usulan = [{"alamat": f"{c}/dyn/on", "sekarang": 0, "usulan": 1, "teks": "Kompresor: OFF → ON"}]
+            usulan.append({"alamat": f"{c}/dyn/ratio", "sekarang": cur_ratio,
+                           "usulan": convert.ratio_index_for(COMP_START_RATIO),
+                           "teks": f"Rasio: {_ratio_txt(cur_ratio)} → {COMP_START_RATIO:g}:1"})
+            usulan.append({"alamat": f"{c}/dyn/thr", "sekarang": cur_thr,
+                           "usulan": round(convert.comp_thr_raw(COMP_START_THR_DB), 4),
+                           "teks": f"Threshold: {_db_txt(cur_thr, convert.comp_thr_db)} → ≈{COMP_START_THR_DB:.0f} dB (titik awal)"})
             findings.append(Finding(
                 f"tanpa-komp-ch{n:02d}", "info", label,
                 f"Kompresor mati pada channel suara: {label}.",
                 "Level vokal naik-turun lebar; operator mengejar fader, hasil mixing tidak konsisten.",
                 f"{c}/dyn/on = 0.",
                 "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
-                "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
-                "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu."))
+                f"Kompresi ringan sebagai titik awal: rasio {COMP_START_RATIO:g}:1, threshold diturunkan sampai pengurangan "
+                "(gain reduction) sekitar 3–6 dB saat bernyanyi/berbicara normal. Threshold yang tepat bergantung pada level "
+                "nyata, jadi angka usulan hanya titik awal.",
+                "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
+                usulan=usulan))
+        if is_voice and _first(values, f"{c}/dyn/on") == 1:
+            r = convert.ratio_value(_first(values, f"{c}/dyn/ratio"))
+            if r is not None and r >= COMP_MAX_RATIO:
+                findings.append(Finding(
+                    f"rasio-tinggi-ch{n:02d}", "perhatian", label,
+                    f"Rasio kompresor sangat tinggi (≈{r:g}:1) pada channel suara: {label}.",
+                    "Rasio setinggi ini bekerja seperti limiter: suara terdengar tertekan/datar, dan saat penyanyi diam "
+                    "kompresor melepas sehingga suara panggung dan feedback ikut naik.",
+                    f"{c}/dyn/ratio ≈ {r:g}:1 (konversi perkiraan).",
+                    "Dengarkan saat bernyanyi lalu diam; perhatikan apakah dengung/suara panggung naik ketika diam.",
+                    f"Turunkan rasio ke sekitar {COMP_TARGET_RATIO:g}:1 dan atur threshold sampai gain reduction 3–6 dB.",
+                    "Puncak suara bisa lebih menonjol; cek tidak ada clipping setelahnya.",
+                    usulan=[{"alamat": f"{c}/dyn/ratio", "sekarang": _first(values, f"{c}/dyn/ratio"),
+                             "usulan": convert.ratio_index_for(COMP_TARGET_RATIO),
+                             "teks": f"Rasio: ≈{r:g}:1 → {COMP_TARGET_RATIO:g}:1"}]))
+        if _first(values, f"{c}/gate/on") == 1:
+            thr_raw = _first(values, f"{c}/gate/thr")
+            if is_voice and thr_raw is not None and convert.gate_thr_db(thr_raw) > GATE_VOICE_MAX_THR_DB:
+                thr = convert.gate_thr_db(thr_raw)
+                findings.append(Finding(
+                    f"gate-ketat-ch{n:02d}", "perhatian", label,
+                    f"Gate pada channel suara memakai threshold tinggi (≈{thr:.0f} dB): {label}.",
+                    "Gate yang terlalu tinggi memotong awal/akhir kata yang pelan, sehingga "
+                    + ("khotbah terdengar terputus-putus dan kurang jelas." if is_speech else "vokal terdengar terpotong."),
+                    f"{c}/gate/on = 1, {c}/gate/thr ≈ {thr:.0f} dB (konversi perkiraan).",
+                    "Minta orang berbicara pelan di jarak normal; perhatikan lampu gate dan apakah suku kata hilang.",
+                    f"Turunkan threshold ke sekitar {GATE_VOICE_TARGET_DB:.0f} dB, atau matikan gate bila tidak ada "
+                    "masalah suara panggung yang perlu ditahan.",
+                    "Suara panggung/derau bisa sedikit lebih terdengar saat mic tidak dipakai; operator bisa mute saat tidak dipakai.",
+                    usulan=[{"alamat": f"{c}/gate/thr", "sekarang": thr_raw,
+                             "usulan": round(convert.gate_thr_raw(GATE_VOICE_TARGET_DB), 4),
+                             "teks": f"Threshold gate: ≈{thr:.0f} dB → ≈{GATE_VOICE_TARGET_DB:.0f} dB"}]))
+            elif line_src and not is_voice:
+                findings.append(Finding(
+                    f"gate-line-ch{n:02d}", "info", label,
+                    f"Gate menyala pada sumber line (bukan mic): {label}.",
+                    "Sumber seperti keyboard, drum elektrik, atau playback umumnya bersih dari suara panggung; gate justru "
+                    "bisa memotong ekor nada/sustain dan reverb sehingga terdengar putus.",
+                    f"{c}/gate/on = 1.",
+                    "Mainkan nada panjang yang memudar; dengarkan apakah ujungnya terpotong tiba-tiba.",
+                    "Matikan gate pada sumber ini kecuali ada dengung yang memang perlu ditahan.",
+                    "Bila ada dengung (ground loop), dengung itu akan terdengar saat sumber diam; atasi sumber dengungnya.",
+                    usulan=[{"alamat": f"{c}/gate/on", "sekarang": 1, "usulan": 0, "teks": "Gate: ON → OFF"}]))
+        if is_speech:
+            for fx in range(1, N_FX + 1):
+                a = f"{c}/mix/{N_BUSES + fx:02d}/level"
+                lv = _first(values, a)
+                if lv is None or convert.fader_db(lv) <= FX_SPEECH_MAX_DB:
+                    continue
+                db = convert.fader_db(lv)
+                findings.append(Finding(
+                    f"fx{fx}-khotbah-ch{n:02d}", "perhatian", label,
+                    f"Mic khotbah dikirim cukup banyak ke FX {fx} (≈{db:.0f} dB): {label}.",
+                    "Efek (terutama reverb/delay) pada suara bicara membuat kata saling menumpuk di ruangan yang sudah "
+                    "memantul, sehingga khotbah kurang jelas.",
+                    f"{a} ≈ {db:.0f} dB (alamat kiriman FX dan konversi masih dugaan; jenis efek FX {fx} belum dibaca).",
+                    "Bandingkan kejelasan khotbah dengan kiriman FX dikurangi; dengarkan dari kursi tengah/belakang.",
+                    "Kecilkan atau matikan kiriman FX untuk mic khotbah; simpan efek untuk lagu.",
+                    "Suara bicara terasa lebih 'kering'. Itu wajar dan biasanya lebih jelas.",
+                    usulan=[{"alamat": a, "sekarang": lv, "usulan": 0.0, "teks": f"Kiriman ke FX {fx}: ≈{db:.0f} dB → mati (−∞)"}]))
         if line_src and _first(values, f"/headamp/{n:02d}/phantom") == 1:
             findings.append(Finding(
                 f"phantom-ch{n:02d}", "perhatian", label,

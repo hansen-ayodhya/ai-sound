@@ -1,9 +1,9 @@
 {
  "sample": true,
  "created": "2026-11-08T09:00:00+0700",
- "queried": 666,
- "answered": 663,
- "sha256": "40e289a19df2518af45743abd03dccdbd8988069014da73dacedc4cd0349fef8",
+ "queried": 778,
+ "answered": 775,
+ "sha256": "dc812871103568f4ad17ca08ff1f1b9b7747c9b71231e754ff3fade7fcbf3b04",
  "values": {
   "/info": [
    "V1.0",
@@ -277,7 +277,7 @@
    0.355
   ],
   "/ch/03/dyn/ratio": [
-   0.611
+   0.95
   ],
   "/ch/03/eq/on": [
    1
@@ -1998,6 +1998,342 @@
   ],
   "/fx/4/type": [
    3
+  ],
+  "/ch/01/gate/range": [
+   0.452
+  ],
+  "/ch/01/dyn/attack": [
+   0.56
+  ],
+  "/ch/01/dyn/release": [
+   0.924
+  ],
+  "/ch/01/mix/07/level": [
+   0.62
+  ],
+  "/ch/01/mix/08/level": [
+   0.229
+  ],
+  "/ch/01/mix/09/level": [
+   0.264
+  ],
+  "/ch/01/mix/10/level": [
+   0.083
+  ],
+  "/ch/02/gate/range": [
+   0.512
+  ],
+  "/ch/02/dyn/attack": [
+   0.63
+  ],
+  "/ch/02/dyn/release": [
+   0.793
+  ],
+  "/ch/02/mix/07/level": [
+   0.042
+  ],
+  "/ch/02/mix/08/level": [
+   0.137
+  ],
+  "/ch/02/mix/09/level": [
+   0.041
+  ],
+  "/ch/02/mix/10/level": [
+   0.364
+  ],
+  "/ch/03/gate/range": [
+   0.693
+  ],
+  "/ch/03/dyn/attack": [
+   0.042
+  ],
+  "/ch/03/dyn/release": [
+   0.982
+  ],
+  "/ch/03/mix/07/level": [
+   0.434
+  ],
+  "/ch/03/mix/08/level": [
+   0.55
+  ],
+  "/ch/03/mix/09/level": [
+   0.277
+  ],
+  "/ch/03/mix/10/level": [
+   0.071
+  ],
+  "/ch/04/gate/range": [
+   0.015
+  ],
+  "/ch/04/dyn/attack": [
+   0.528
+  ],
+  "/ch/04/dyn/release": [
+   0.06
+  ],
+  "/ch/04/mix/07/level": [
+   0.72
+  ],
+  "/ch/04/mix/08/level": [
+   0.109
+  ],
+  "/ch/04/mix/09/level": [
+   0.014
+  ],
+  "/ch/04/mix/10/level": [
+   0.209
+  ],
+  "/ch/05/gate/range": [
+   0.441
+  ],
+  "/ch/05/dyn/attack": [
+   0.842
+  ],
+  "/ch/05/dyn/release": [
+   0.519
+  ],
+  "/ch/05/mix/07/level": [
+   0.288
+  ],
+  "/ch/05/mix/08/level": [
+   0.225
+  ],
+  "/ch/05/mix/09/level": [
+   0.298
+  ],
+  "/ch/05/mix/10/level": [
+   0.206
+  ],
+  "/ch/06/gate/range": [
+   0.278
+  ],
+  "/ch/06/dyn/attack": [
+   0.998
+  ],
+  "/ch/06/dyn/release": [
+   0.996
+  ],
+  "/ch/06/mix/07/level": [
+   0.378
+  ],
+  "/ch/06/mix/08/level": [
+   0.319
+  ],
+  "/ch/06/mix/09/level": [
+   0.142
+  ],
+  "/ch/06/mix/10/level": [
+   0.103
+  ],
+  "/ch/07/gate/range": [
+   0.289
+  ],
+  "/ch/07/dyn/attack": [
+   0.07
+  ],
+  "/ch/07/dyn/release": [
+   0.766
+  ],
+  "/ch/07/mix/07/level": [
+   0.18
+  ],
+  "/ch/07/mix/08/level": [
+   0.381
+  ],
+  "/ch/07/mix/09/level": [
+   0.174
+  ],
+  "/ch/07/mix/10/level": [
+   0.431
+  ],
+  "/ch/08/gate/range": [
+   0.847
+  ],
+  "/ch/08/dyn/attack": [
+   0.001
+  ],
+  "/ch/08/dyn/release": [
+   0.21
+  ],
+  "/ch/08/mix/07/level": [
+   0.41
+  ],
+  "/ch/08/mix/08/level": [
+   0.211
+  ],
+  "/ch/08/mix/09/level": [
+   0.441
+  ],
+  "/ch/08/mix/10/level": [
+   0.179
+  ],
+  "/ch/09/gate/range": [
+   0.073
+  ],
+  "/ch/09/dyn/attack": [
+   0.629
+  ],
+  "/ch/09/dyn/release": [
+   0.779
+  ],
+  "/ch/09/mix/07/level": [
+   0.121
+  ],
+  "/ch/09/mix/08/level": [
+   0.039
+  ],
+  "/ch/09/mix/09/level": [
+   0.15
+  ],
+  "/ch/09/mix/10/level": [
+   0.434
+  ],
+  "/ch/10/gate/range": [
+   0.758
+  ],
+  "/ch/10/dyn/attack": [
+   0.118
+  ],
+  "/ch/10/dyn/release": [
+   0.246
+  ],
+  "/ch/10/mix/07/level": [
+   0.045
+  ],
+  "/ch/10/mix/08/level": [
+   0.027
+  ],
+  "/ch/10/mix/09/level": [
+   0.359
+  ],
+  "/ch/10/mix/10/level": [
+   0.08
+  ],
+  "/ch/11/gate/range": [
+   0.559
+  ],
+  "/ch/11/dyn/attack": [
+   0.447
+  ],
+  "/ch/11/dyn/release": [
+   0.191
+  ],
+  "/ch/11/mix/07/level": [
+   0.329
+  ],
+  "/ch/11/mix/08/level": [
+   0.059
+  ],
+  "/ch/11/mix/09/level": [
+   0.29
+  ],
+  "/ch/11/mix/10/level": [
+   0.052
+  ],
+  "/ch/12/gate/range": [
+   0.421
+  ],
+  "/ch/12/dyn/attack": [
+   0.213
+  ],
+  "/ch/12/dyn/release": [
+   0.27
+  ],
+  "/ch/12/mix/07/level": [
+   0.437
+  ],
+  "/ch/12/mix/08/level": [
+   0.362
+  ],
+  "/ch/12/mix/09/level": [
+   0.137
+  ],
+  "/ch/12/mix/10/level": [
+   0.398
+  ],
+  "/ch/13/gate/range": [
+   0.211
+  ],
+  "/ch/13/dyn/attack": [
+   0.394
+  ],
+  "/ch/13/dyn/release": [
+   0.854
+  ],
+  "/ch/13/mix/07/level": [
+   0.289
+  ],
+  "/ch/13/mix/08/level": [
+   0.045
+  ],
+  "/ch/13/mix/09/level": [
+   0.445
+  ],
+  "/ch/13/mix/10/level": [
+   0.096
+  ],
+  "/ch/14/gate/range": [
+   0.258
+  ],
+  "/ch/14/dyn/attack": [
+   0.773
+  ],
+  "/ch/14/dyn/release": [
+   0.329
+  ],
+  "/ch/14/mix/07/level": [
+   0.133
+  ],
+  "/ch/14/mix/08/level": [
+   0.033
+  ],
+  "/ch/14/mix/09/level": [
+   0.041
+  ],
+  "/ch/14/mix/10/level": [
+   0.262
+  ],
+  "/ch/15/gate/range": [
+   0.243
+  ],
+  "/ch/15/dyn/attack": [
+   0.601
+  ],
+  "/ch/15/dyn/release": [
+   0.372
+  ],
+  "/ch/15/mix/07/level": [
+   0.204
+  ],
+  "/ch/15/mix/08/level": [
+   0.432
+  ],
+  "/ch/15/mix/09/level": [
+   0.218
+  ],
+  "/ch/15/mix/10/level": [
+   0.259
+  ],
+  "/ch/16/gate/range": [
+   0.867
+  ],
+  "/ch/16/dyn/attack": [
+   0.183
+  ],
+  "/ch/16/dyn/release": [
+   0.154
+  ],
+  "/ch/16/mix/07/level": [
+   0.409
+  ],
+  "/ch/16/mix/08/level": [
+   0.368
+  ],
+  "/ch/16/mix/09/level": [
+   0.112
+  ],
+  "/ch/16/mix/10/level": [
+   0.085
   ]
  }
 }

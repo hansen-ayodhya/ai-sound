@@ -142,6 +142,21 @@
   .msg { font-size: 13px; margin: 0; flex-basis: 100%; }
   .msg:empty { display: none; }
   .msg.bad { color: var(--bad); } .msg.ok { color: var(--ok); }
+  .lamp.sug { outline: 2px solid #b48cff; outline-offset: 1px; }
+  .dyngrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 420px) { .dyngrid { grid-template-columns: 1fr; } }
+  .dynbox h4 { margin: 4px 0 2px; font-size: 13px; }
+  .dynbox .eqchart { margin: 4px 0; }
+  .dynline { font-size: 12px; color: var(--muted); margin: 2px 0; }
+  .dynline.sug { color: #d6c4ff; }
+  .sendrow { display: grid; grid-template-columns: 58px 1fr 104px; gap: 8px; align-items: center; font-size: 12px; margin: 5px 0; }
+  .sendrow .lbl { color: var(--muted); }
+  .sendrow .val { font-variant-numeric: tabular-nums; text-align: right; }
+  .sendrow .val.sug { color: #d6c4ff; }
+  .sendbar { position: relative; height: 10px; background: #0b0e11; border-radius: 3px; }
+  .sendbar .now { position: absolute; left: 0; top: 0; bottom: 0; background: #5aa2ff; border-radius: 3px; }
+  .sendbar .ghost { position: absolute; left: 0; top: -3px; bottom: -3px; border: 2px dashed #b48cff; border-radius: 4px; background: rgba(180,140,255,.15); }
+  .sendbar .ghost.zero { width: 4px !important; }
   .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
@@ -182,7 +197,16 @@
 "use strict";
 
 // ---------- Konversi PERKIRAAN (belum diverifikasi pada MR18) ----------
+const RATIOS = [1.1, 1.3, 1.5, 2, 2.5, 3, 4, 5, 7, 10, 20, 100];
 const EST = {
+  ratio(r) {
+    if (r == null) return null;
+    const i = Number.isInteger(r) ? r : Math.round(r * (RATIOS.length - 1));
+    return RATIOS[Math.max(0, Math.min(RATIOS.length - 1, i))];
+  },
+  gateRange: (f) => (f == null ? null : 3 + f * 57),
+  attackMs: (f) => (f == null ? null : f * 120),
+  releaseMs: (f) => (f == null ? null : 5 * Math.pow(800, f)),
   faderDb(f) {
     if (f == null) return null;
     if (f <= 0) return -Infinity;
@@ -359,10 +383,105 @@ function eqChart(ch) {
   return s;
 }
 
+// ---------- grafik dinamika (input -> output) ----------
+function compFn(ch, get) {
+  const c = "/ch/" + pad2(ch);
+  const on = get(c + "/dyn/on") === 1, thr = EST.compThrDb(get(c + "/dyn/thr")), r = EST.ratio(get(c + "/dyn/ratio"));
+  if (!on || thr == null || !r) return { fn: (x) => x, on, thr, r };
+  return { fn: (x) => (x <= thr ? x : thr + (x - thr) / r), on, thr, r };
+}
+function gateFn(ch, get) {
+  const c = "/ch/" + pad2(ch);
+  const on = get(c + "/gate/on") === 1, thr = EST.gateThrDb(get(c + "/gate/thr"));
+  const range = EST.gateRange(get(c + "/gate/range"));
+  const rg = range == null ? 60 : range;
+  if (!on || thr == null) return { fn: (x) => x, on, thr, range };
+  return { fn: (x) => (x >= thr ? x : x - rg), on, thr, range };
+}
+function transferChart(now, sug, label) {
+  const W = 220, H = 200, L = 28, B = 22, T = 6, R = 6, PW = W - L - R, PH = H - T - B, LO = -60;
+  const px = (db) => L + ((Math.max(LO, Math.min(0, db)) - LO) / -LO) * PW;
+  const py = (db) => T + PH - ((Math.max(LO, Math.min(0, db)) - LO) / -LO) * PH;
+  const s = svg("svg", { class: "eqchart", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": label });
+  for (const db of [-48, -36, -24, -12, 0]) {
+    s.append(svg("line", { x1: L, x2: W - R, y1: py(db), y2: py(db), stroke: "#222a33" }));
+    s.append(svg("line", { x1: px(db), x2: px(db), y1: T, y2: T + PH, stroke: "#222a33" }));
+    const ty = svg("text", { x: L - 3, y: py(db) + 3, "text-anchor": "end" }); ty.textContent = db; s.append(ty);
+    const tx = svg("text", { x: px(db), y: H - 8, "text-anchor": "middle" }); tx.textContent = db; s.append(tx);
+  }
+  const t1 = svg("text", { x: L + 4, y: T + 10 }); t1.textContent = "↑ keluar · masuk →"; s.append(t1);
+  s.append(svg("line", { x1: px(LO), y1: py(LO), x2: px(0), y2: py(0), stroke: "#3a4552", "stroke-dasharray": "2 3" }));
+  const path = (fn) => { let d = ""; for (let x = LO; x <= 0.001; x += 0.5) d += (d ? "L" : "M") + px(x).toFixed(1) + " " + py(fn(x)).toFixed(1); return d; };
+  const thrLine = (thr, color, dash) => { if (thr != null) s.append(svg("line", { x1: px(thr), x2: px(thr), y1: T, y2: T + PH, stroke: color, "stroke-width": 1.5, "stroke-dasharray": dash })); };
+  if (now.on) thrLine(now.thr, "#3fcf7f", "");
+  if (sug) {
+    if (sug.on) thrLine(sug.thr, "#b48cff", "4 3");
+    s.append(svg("path", { d: path(sug.fn), fill: "none", stroke: "#b48cff", "stroke-width": 2, "stroke-dasharray": "6 4" }));
+  }
+  s.append(svg("path", { d: path(now.fn), fill: "none", stroke: "#3fcf7f", "stroke-width": 2 }));
+  return s;
+}
+const fmtR = (r) => (r == null ? "—" : r + ":1");
+const fmtMs = (v) => (v == null ? "—" : v >= 1000 ? (v / 1000).toFixed(1) + " s" : Math.round(v) + " ms");
+function dynSection(n) {
+  const c = "/ch/" + pad2(n), getP = proposedGetter(n);
+  const cNow = compFn(n, raw), gNow = gateFn(n, raw);
+  const cSug = hasProposalRe(n, /\/dyn\//) ? compFn(n, getP) : null;
+  const gSug = hasProposalRe(n, /\/gate\//) ? gateFn(n, getP) : null;
+  const onoff = (v) => (v ? "ON" : "OFF");
+  const compBox = el("div", { class: "dynbox" }, el("h4", { text: "Kompresor" }),
+    transferChart(cNow, cSug, "Kurva kompresor: sekarang dan usulan"),
+    el("div", { class: "dynline", text: `Sekarang: ${onoff(cNow.on)} · threshold ${fmtDb(cNow.thr)} · rasio ${fmtR(cNow.r)} ≈` }),
+    el("div", { class: "dynline", text: `Attack ${fmtMs(EST.attackMs(raw(c + "/dyn/attack")))} · release ${fmtMs(EST.releaseMs(raw(c + "/dyn/release")))} ≈` }),
+    cSug ? el("div", { class: "dynline sug", text: `Usulan: ${onoff(cSug.on)} · threshold ${fmtDb(cSug.thr)} · rasio ${fmtR(cSug.r)}` }) : null);
+  const gateBox = el("div", { class: "dynbox" }, el("h4", { text: "Gate" }),
+    transferChart(gNow, gSug, "Kurva gate: sekarang dan usulan"),
+    el("div", { class: "dynline", text: `Sekarang: ${onoff(gNow.on)} · threshold ${fmtDb(gNow.thr)} · range ${gNow.range == null ? "—" : Math.round(gNow.range) + " dB"} ≈` }),
+    gSug ? el("div", { class: "dynline sug", text: `Usulan: ${onoff(gSug.on)} · threshold ${fmtDb(gSug.thr)}` }) : null);
+  return [
+    el("h3", { text: "Kompresor & Gate" }),
+    legendEl(!!(cSug || gSug)),
+    el("div", { class: "dyngrid" }, compBox, gateBox),
+    el("p", { class: "note", text: "Sumbu datar = level masuk, tegak = level keluar. Garis tegak = threshold. Kompresor menekan di atas threshold; gate memotong di bawah threshold." }),
+  ];
+}
+function sendSection(n) {
+  const c = "/ch/" + pad2(n), getP = proposedGetter(n), props = proposals(n);
+  const pct = (db) => (db == null || db === -Infinity ? 0 : ((Math.max(-60, Math.min(10, db)) + 60) / 70) * 100);
+  const rows = [];
+  const add = (label, addr) => {
+    const now = raw(addr);
+    if (now == null && !props.has(addr)) return;
+    const dNow = EST.faderDb(now), hasSug = props.has(addr), dSug = hasSug ? EST.faderDb(getP(addr)) : null;
+    const bar = el("div", { class: "sendbar" }, el("div", { class: "now", style: `width:${pct(dNow)}%` }),
+      hasSug ? el("div", { class: "ghost" + (pct(dSug) === 0 ? " zero" : ""), style: `width:${pct(dSug)}%` }) : null);
+    rows.push(el("div", { class: "sendrow" }, el("span", { class: "lbl", text: label }), bar,
+      el("span", { class: "val" + (hasSug ? " sug" : ""), text: fmtDb(dNow) + (hasSug ? " → " + fmtDb(dSug) : "") })));
+  };
+  for (let b = 1; b <= 6; b++) add("Bus " + b, `${c}/mix/${pad2(b)}/level`);
+  for (let fx = 1; fx <= 4; fx++) add("FX " + fx, `${c}/mix/${pad2(6 + fx)}/level`);
+  if (!rows.length) return [];
+  return [
+    el("h3", { text: "Kiriman ke monitor & FX" }),
+    legendEl([...props.keys()].some((a) => /\/mix\/\d\d\/level/.test(a))),
+    ...rows,
+    el("p", { class: "note", text: "Bus 1–6 biasanya monitor/aux; FX 1–4 adalah kiriman efek. Alamat kiriman FX dan jenis efeknya belum diverifikasi pada MR18 ini." }),
+  ];
+}
+function legendEl(hasSug) {
+  return el("div", { class: "legend" }, el("span", { class: "now", text: "sekarang ≈" }),
+    hasSug ? el("span", { class: "sug", text: "usulan AI (bayangan)" }) : null);
+}
+
 // ---------- strip ----------
-function lamp(cls, label, v) {
+function lamp(cls, label, v, sug) {
   const st = v == null ? "unk" : v === 1 ? "on" : "";
-  return el("div", { class: `lamp ${cls} ${st}`, text: label, title: v == null ? "Tidak dijawab mixer" : "" });
+  return el("div", { class: `lamp ${cls} ${st}${sug ? " sug" : ""}`, text: label,
+    title: (v == null ? "Tidak dijawab mixer. " : "") + (sug ? "Ada usulan AI untuk bagian ini." : "") });
+}
+function hasProposalRe(ch, re) {
+  for (const a of proposals(ch).keys()) if (re.test(a)) return true;
+  return false;
 }
 function muteEl(v) {
   if (v == null) return el("div", { class: "mute unk", text: "?" });
@@ -404,9 +523,11 @@ function channelStrip(n) {
       el("div", { class: "role", text: roleFor(n), title: roleFor(n) ? "Daftar Channel: " + roleFor(n) : "" })),
     badgesFor(n),
     el("div", { class: "lamps" },
-      lamp("l48", "48V", raw(h + "/phantom")), lamp("lhpf", "HPF", raw(c + "/preamp/hpon")),
-      lamp("lgate", "GATE", raw(c + "/gate/on")), lamp("lcomp", "COMP", raw(c + "/dyn/on")),
-      lamp("leq", "EQ", raw(c + "/eq/on")), el("div", { class: "lamp", text: "→LR " + (raw(c + "/mix/lr") === 1 ? "✓" : "✗") })),
+      lamp("l48", "48V", raw(h + "/phantom"), hasProposalRe(n, /\/headamp\//)),
+      lamp("lhpf", "HPF", raw(c + "/preamp/hpon"), hasProposalRe(n, /\/preamp\/hp/)),
+      lamp("lgate", "GATE", raw(c + "/gate/on"), hasProposalRe(n, /\/gate\//)),
+      lamp("lcomp", "COMP", raw(c + "/dyn/on"), hasProposalRe(n, /\/dyn\//)),
+      lamp("leq", "EQ", raw(c + "/eq/on"), hasProposalRe(n, /\/eq\//)), el("div", { class: "lamp", text: "→LR " + (raw(c + "/mix/lr") === 1 ? "✓" : "✗") })),
     eqSvg(n),
     el("div", { class: "body" }, meterEl("ch" + n, on === 0), faderEl(fader)),
     el("div", { class: "db", text: fmtDb(EST.faderDb(fader)) + (fader == null ? "" : " ≈") }),
@@ -486,16 +607,17 @@ function openChannel(n, strip) {
   showDrawer(strip,
     el("h3", { text: "CH " + pad2(n) + " · " + (raw(c + "/config/name") || "(tanpa nama)") }),
     el("p", { class: "note", text: "Nilai bertanda ≈ adalah perkiraan. Cocokkan dengan aplikasi mixer sebelum dipercaya." }),
+    changes.length ? el("h3", { text: "Usulan perubahan (" + changes.length + ")" }) : null,
+    changes.length ? el("ul", { class: "changes" }, ...changes.map((u) => el("li", { text: u.teks }))) : null,
+    changes.length ? el("p", { class: "note", text: "Usulan belum diterapkan. Bila setuju, ubah sendiri di aplikasi mixer (M-AIR), satu per satu, saat soundcheck." }) : null,
     el("h3", { text: "EQ" }),
-    el("div", { class: "legend" }, el("span", { class: "now", text: "sekarang ≈" }),
-      eqChanges.length ? el("span", { class: "sug", text: "usulan AI (bayangan)" }) : null),
+    legendEl(eqChanges.length > 0),
     eqChart(n),
     el("p", { class: "note", text: raw(c + "/eq/on") === 0
       ? "EQ channel ini sedang OFF; titik band tidak ditampilkan. Bentuk kurva adalah perkiraan dari nilai mixer."
       : "Lingkaran hijau bernomor = posisi band EQ sekarang. Bentuk kurva adalah perkiraan dari nilai mixer." }),
-    changes.length ? el("h3", { text: "Usulan perubahan (" + changes.length + ")" }) : null,
-    changes.length ? el("ul", { class: "changes" }, ...changes.map((u) => el("li", { text: u.teks }))) : null,
-    changes.length ? el("p", { class: "note", text: "Usulan belum diterapkan. Bila setuju, ubah sendiri di aplikasi mixer (M-AIR), satu per satu, saat soundcheck." }) : null,
+    ...dynSection(n),
+    ...sendSection(n),
     el("h3", { text: "Setting" }),
     t,
     el("h3", { text: "Saran AI (" + list.length + ")" }),

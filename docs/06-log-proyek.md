@@ -113,6 +113,13 @@
 - Menyimpan daftar menghitung ulang findings.json dan report.md audit terakhir. Label peringatan live ikut menyebut sumber.
 - 66 tes lulus; diuji di browser (isi otomatis, simpan, label sumber di strip).
 
+## Update: saran visual untuk kompresor, gate, dan kiriman FX/monitor
+
+- Panel detail channel: daftar "Usulan perubahan" di atas, lalu grafik EQ, grafik kompresor & gate (kurva masuk→keluar, garis threshold), dan batang kiriman Bus 1–6 / FX 1–4; semuanya dengan bayangan ungu untuk usulan. Lampu GATE/COMP/EQ/HPF di strip diberi garis ungu bila ada usulan.
+- Aturan baru dengan usulan nilai: kompresor mati di vokal (titik awal 3:1, ≈-20 dB), rasio ≥10:1 di vokal (→4:1), gate vokal threshold > -40 dB (→ -50 dB), gate pada sumber line (→ OFF), kiriman FX dari mic khotbah > -20 dB (→ mati).
+- Alamat baru (DUGAAN, belum diverifikasi): gate/range, dyn/attack, dyn/release, kiriman FX mix/07..10. Jenis efek FX belum dibaca/dipetakan.
+- 73 tes lulus; diuji di browser (desktop dan HP).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
