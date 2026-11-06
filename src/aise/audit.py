@@ -25,7 +25,7 @@ class MixerNotAnswering(RuntimeError):
 
 def run_audit(host: str, port: int = DEFAULT_PORT, base: str | Path = "data",
               addresses: list[str] | None = None, timeout: float = 0.5,
-              progress=None) -> dict:
+              progress=None, profile: dict | None = None) -> dict:
     base = Path(base)
     addresses = addresses or all_addresses()
     folder = base / f"audit-{time.strftime('%Y%m%d-%H%M%S')}"
@@ -43,9 +43,9 @@ def run_audit(host: str, port: int = DEFAULT_PORT, base: str | Path = "data",
     p1, p2, rep = folder / "dump1.json", folder / "dump2.json", folder / "report.md"
     p1.write_text(json.dumps(d1, indent=2, ensure_ascii=False), encoding="utf-8")
     p2.write_text(json.dumps(d2, indent=2, ensure_ascii=False), encoding="utf-8")
-    rep.write_text(render(d1, p1.as_posix()), encoding="utf-8")
+    rep.write_text(render(d1, p1.as_posix(), profile), encoding="utf-8")
     fnd = folder / "findings.json"
-    fnd.write_text(json.dumps(findings_json(d1), indent=2, ensure_ascii=False), encoding="utf-8")
+    fnd.write_text(json.dumps(findings_json(d1, profile), indent=2, ensure_ascii=False), encoding="utf-8")
     changes = diff(d1, d2)
 
     def rel(p: Path) -> str:
@@ -61,6 +61,6 @@ def run_audit(host: str, port: int = DEFAULT_PORT, base: str | Path = "data",
         "queried": d1["queried"],
         "identical": not changes,
         "changes": changes,
-        "findings": len(analyze(d1)),
+        "findings": len(analyze(d1, profile)),
         "report": str(rep),
     }

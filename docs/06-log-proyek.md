@@ -105,6 +105,14 @@
 - Konversi dipindah ke `aise/convert.py` (masih PERKIRAAN; sama dengan objek EST di mixer.html).
 - Usulan EQ berbasis suara (mis. potong frekuensi yang menumpuk) menunggu pengukuran audio (Tahap 2).
 
+## Update: Daftar Channel
+
+- `aise/channels.py` + formulir di Tampilan Mixer (tombol "Daftar Channel"): sumber, jenis, channel (stereo L/R, atau Aux/USB return), koneksi, mic, catatan. Disimpan di `data/channels.json`.
+- Daftar bawaan = 11 sumber dari operator; nomor channel SENGAJA kosong. Tombol "Isi otomatis dari nama di mixer" mengisi channel kosong dari nama di audit terakhir dan menandainya ungu untuk dicek.
+- Aturan AI memakai Daftar Channel bila ada (jenis menentukan: suara/bicara/line, low cut 100/120 Hz, 48V), fallback tebakan nama. Aturan baru: nama mixer tidak cocok dengan daftar; sumber belum diberi channel.
+- Menyimpan daftar menghitung ulang findings.json dan report.md audit terakhir. Label peringatan live ikut menyebut sumber.
+- 66 tes lulus; diuji di browser (isi otomatis, simpan, label sumber di strip).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

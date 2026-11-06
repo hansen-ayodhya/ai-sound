@@ -53,14 +53,16 @@ def channel_for_index(i: int) -> int | None:
     return i + 1 if 0 <= i < N_MAPPED_CHANNELS else None
 
 
-def labels_from_dump(dump: dict | None) -> dict[int, str]:
+def labels_from_dump(dump: dict | None, profile: dict | None = None) -> dict[int, str]:
+    from .channels import source_for
     labels: dict[int, str] = {}
     values = (dump or {}).get("values", {})
     for i in range(N_MAPPED_CHANNELS):
         ch = channel_for_index(i)
         name = values.get(f"/ch/{ch:02d}/config/name")
         name = str(name[0]).strip() if name and name[0] not in (None, "") else ""
-        labels[i] = f"CH {ch:02d}" + (f" {name}" if name else "")
+        src = source_for(profile, ch)
+        labels[i] = f"CH {ch:02d}" + (f" {name}" if name else "") + (f" ({src['nama']})" if src else "")
     return labels
 
 

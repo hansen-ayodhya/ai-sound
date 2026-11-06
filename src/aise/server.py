@@ -33,12 +33,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlparse
 
-from . import meters
+from . import channels, meters
 from .audit import PROBE_ADDRESSES, MixerNotAnswering, run_audit
 from .client import DEFAULT_PORT, ReadOnlyClient
 from .dump import run_dump
 from .guard import ReadOnlyViolation, check
 from .live import LiveMonitor, labels_from_dump
+from .report import findings_json, render
 from .menu import load_ip, save_ip, valid_ip
 from .paths import BUILD_VERSION_FILE, BUNDLE, FROZEN
 from .paths import DATA as DATA_DIR
@@ -47,7 +48,7 @@ ROOT = BUNDLE
 CONTENT_TYPES = {".html": "text/html", ".json": "application/json", ".md": "text/plain",
                  ".js": "application/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml"}
 DEFAULT_HTTP_PORT = 8765
-MAX_BODY = 10_000
+MAX_BODY = 60_000
 MAX_PIN_FAILS = 5
 PIN_LOCK_S = 300
 LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown"}
@@ -135,7 +136,7 @@ class App:
             if i == n:
                 passes["n"] += 1
 
-        self.start_job("audit", lambda: run_audit(ip, port, base=self.data,
+        self.start_job("audit", lambda: run_audit(ip, port, base=self.data, profile=self.profile(),
                                                   addresses=self.addresses, progress=progress))
 
     def record_meters(self, ip: str, port: int, path: str, seconds: float) -> None:
@@ -166,12 +167,52 @@ class App:
             self._lock.release()
 
         log = self.data / f"live-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
-        self.live = LiveMonitor(ip, port, path, labels_from_dump(dump), log, on_stop=on_stop)
+        self.live = LiveMonitor(ip, port, path, labels_from_dump(dump, self.profile()), log, on_stop=on_stop)
         try:
             self.live.start()
         except Exception:
             on_stop()
             raise
+
+    # ---------- Daftar Channel ----------
+    def profile(self) -> dict | None:
+        return channels.load(self.data / "channels.json")
+
+    def latest_dump(self) -> tuple[dict | None, dict | None]:
+        latest = self.latest()
+        if not latest:
+            return None, None
+        try:
+            return latest, json.loads((self.data.parent / latest["dump"]).read_text(encoding="utf-8"))
+        except (OSError, ValueError, KeyError):
+            return latest, None
+
+    def channels_view(self) -> dict:
+        saved = self.profile()
+        base = saved or channels.default_profile()
+        _, dump = self.latest_dump()
+        names = {}
+        if dump:
+            for n in range(1, 17):
+                v = dump["values"].get(f"/ch/{n:02d}/config/name")
+                if v and v[0] not in (None, ""):
+                    names[n] = str(v[0])
+        return {"profile": base, "saved": saved is not None, "mixer_names": names,
+                "suggested": channels.suggest(base, dump) if dump else None,
+                "types": {k: v["label"] for k, v in channels.TYPES.items()},
+                "koneksi": channels.KONEKSI}
+
+    def save_channels(self, profile: dict) -> dict:
+        clean = channels.save(self.data / "channels.json", profile)
+        # Hitung ulang saran AI audit terakhir dengan daftar baru.
+        latest, dump = self.latest_dump()
+        count = None
+        if latest and dump:
+            fnd = findings_json(dump, clean)
+            (self.data.parent / latest["findings"]).write_text(json.dumps(fnd, indent=2, ensure_ascii=False), encoding="utf-8")
+            (self.data.parent / latest["report"]).write_text(render(dump, latest["dump"], clean), encoding="utf-8")
+            count = len(fnd)
+        return {"ok": True, "findings": count, "profile": clean}
 
     def stop_live(self) -> None:
         if self.live:
@@ -410,6 +451,8 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, app.live.snapshot(include_alerts=want))
                 if path == "/api/job":
                     return self._json(200, app.job)
+                if path == "/api/channels":
+                    return self._json(200, app.channels_view())
                 return self._json(404, {"error": "Tidak dikenal."})
             return self._static(path)
 
@@ -459,6 +502,8 @@ def make_handler(app: App, http_port: int):
                     _remember(app, ip, port)
                     app.start_live(ip, port, mpath)
                     return self._json(202, {"ok": True})
+                if path == "/api/channels":
+                    return self._json(200, app.save_channels(body.get("profile")))
                 if path == "/api/live/stop":
                     app.stop_live()
                     return self._json(200, {"ok": True})
@@ -477,7 +522,7 @@ def make_handler(app: App, http_port: int):
                 return self._json(404, {"error": "Tidak dikenal."})
             except Busy as exc:
                 return self._json(409, {"error": str(exc)})
-            except (ValueError, ReadOnlyViolation) as exc:
+            except (ValueError, ReadOnlyViolation, channels.ProfileError) as exc:
                 return self._json(400, {"error": str(exc)})
 
     return Handler

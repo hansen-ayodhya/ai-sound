@@ -10,7 +10,7 @@ Jangan mengarang. Biarkan "belum diketahui" sampai ada data/foto.
 | 2 | Routing output MR18 → DSP, dan routing monitor panggung | Foto panel belakang MR18 + kabel mana ke mana | Belum diketahui |
 | 3 | Software kontrol MR18 yang dipakai (M-AIR / X AIR Edit?), versi firmware, perangkat | Setup > Info di aplikasi | Belum diketahui |
 | 4 | PC EasyWorship: OS, CPU/RAM, port USB bebas, bagaimana audio EasyWorship masuk ke mixer | Spesifikasi sistem | **Audio playback komputer multimedia masuk ke MR18 lewat USB** (dikonfirmasi 2026-11-06). Kabel USB MR18 tidak bisa dipindah ke laptop tanpa mematikan playback. Komputer multimedia = komputer EasyWorship (dikonfirmasi). |
-| 5 | Daftar channel yang biasa dipakai (vokal, instrumen, jenis mic, wireless/kabel) | Daftar/foto mixer | Belum diketahui |
+| 5 | Daftar channel yang biasa dipakai (vokal, instrumen, jenis mic, wireless/kabel) | Daftar/foto mixer | **Sumber diketahui (2026-11-06):** bass, gitar listrik, keyboard utama, keyboard filler, drum elektrik (stereo), mic WL, 2 mic singer, mic pengkhotbah 1 dan 2, USB komputer. **Nomor channel, jenis mic, kabel/wireless: belum diketahui** — diisi di Tampilan Mixer → Daftar Channel. |
 | 6 | Mikrofon drum: merek/model | Foto | Belum diketahui |
 | 7 | Speaker Mickey: model lengkap; subwoofer: spesifikasi | Foto label | Belum diketahui |
 | 8 | Router: rentang IP/DHCP; apakah Wi-Fi MR18 dipakai | Halaman admin router | Belum diketahui |

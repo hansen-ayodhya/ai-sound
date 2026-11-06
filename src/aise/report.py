@@ -18,7 +18,7 @@ import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from . import convert
+from . import channels, convert
 
 SPEECH_RE = re.compile(r"\b(khotbah|pastor|pdt|speech|mc)", re.I)
 BOOST_MAX_DB = 6.0      # boost di atas ini pada channel suara dianggap berlebihan
@@ -60,7 +60,7 @@ def _label(values: dict, n: int) -> tuple[str, str]:
     return name, f"Ch {n:02d}" + (f" '{name}'" if name else "")
 
 
-def analyze(dump: dict) -> list[Finding]:
+def analyze(dump: dict, profile: dict | None = None) -> list[Finding]:
     values = dump["values"]
     findings: list[Finding] = []
     queried = max(len(values), 1)
@@ -77,9 +77,30 @@ def analyze(dump: dict) -> list[Finding]:
     for n in _channels(values):
         name, label = _label(values, n)
         c = f"/ch/{n:02d}"
-        is_voice = bool(name and VOICE_RE.search(name))
+        src = channels.source_for(profile, n)
+        if src:
+            # Daftar Channel dari operator lebih dipercaya daripada tebakan nama.
+            t = channels.TYPES[src["jenis"]]
+            label = f"{label} — {src['nama']}"
+            is_voice, is_speech = t["voice"], t["speech"]
+            line_src = src["koneksi"] in ("line langsung", "USB") or (src["koneksi"] == "" and t["line"])
+            other = channels.mismatch(src, name)
+            if other:
+                findings.append(Finding(
+                    f"nama-beda-ch{n:02d}", "info", label,
+                    f"Nama di mixer '{name}' tidak cocok dengan Daftar Channel ({src['nama']}).",
+                    "Kabel/input bisa tertukar, nama di mixer belum diperbarui, atau Daftar Channel perlu dikoreksi.",
+                    f"/ch/{n:02d}/config/name = '{name}'; Daftar Channel: CH {n:02d} = {src['nama']} "
+                    f"({channels.TYPES[src['jenis']]['label']}); nama mirip jenis '{channels.TYPES[other]['label']}'.",
+                    "Saat soundcheck, minta sumber itu berbunyi sendiri dan lihat meter channel mana yang naik.",
+                    "Samakan: perbaiki Daftar Channel, atau ganti nama channel di aplikasi mixer.",
+                    "Tidak ada risiko ke suara; ini hanya pencatatan. Saran AI lain bergantung pada daftar yang benar."))
+        else:
+            is_voice = bool(name and VOICE_RE.search(name))
+            is_speech = bool(name and SPEECH_RE.search(name))
+            line_src = bool(name and NONMIC_RE.search(name))
         if is_voice and _first(values, f"{c}/preamp/hpon") == 0:
-            target_hz = 120.0 if SPEECH_RE.search(name) else 100.0
+            target_hz = 120.0 if is_speech else 100.0
             cur_raw = _first(values, f"{c}/preamp/hpf")
             usulan = [{"alamat": f"{c}/preamp/hpon", "sekarang": 0, "usulan": 1, "teks": "Low cut: OFF → ON"}]
             usulan.append({"alamat": f"{c}/preamp/hpf", "sekarang": cur_raw,
@@ -129,7 +150,7 @@ def analyze(dump: dict) -> list[Finding]:
                 "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
                 "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
                 "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu."))
-        if name and NONMIC_RE.search(name) and _first(values, f"/headamp/{n:02d}/phantom") == 1:
+        if line_src and _first(values, f"/headamp/{n:02d}/phantom") == 1:
             findings.append(Finding(
                 f"phantom-ch{n:02d}", "perhatian", label,
                 f"Phantom 48V menyala pada channel yang tampak bukan mikrofon: {label}.",
@@ -138,31 +159,44 @@ def analyze(dump: dict) -> list[Finding]:
                 "Cek apa yang fisik terpasang ke input itu.",
                 "Matikan 48V jika sumbernya bukan mikrofon kondenser/DI aktif yang membutuhkannya.",
                 "Mematikan 48V pada kondenser membuatnya diam; ubah hanya oleh operator dengan fader turun."))
+    if profile:
+        empty = [s["nama"] for s in profile.get("sources", []) if not s.get("ch")]
+        if empty:
+            findings.append(Finding(
+                "daftar-belum-lengkap", "info", "-",
+                f"{len(empty)} sumber di Daftar Channel belum diberi nomor channel.",
+                "Tanpa nomor channel, AI tidak tahu channel mana untuk sumber itu dan kembali menebak dari nama.",
+                "Belum diisi: " + ", ".join(empty) + ".",
+                "Lihat di aplikasi mixer sumber mana masuk ke channel berapa.",
+                "Lengkapi di Tampilan Mixer → Daftar Channel.",
+                "Tidak ada risiko ke suara."))
     for f in findings:
         m = re.search(r"ch(\d+)$", f.id)
         f.ch = int(m.group(1)) if m else None
     return findings
 
 
-def findings_json(dump: dict) -> list[dict]:
-    return [asdict(f) for f in analyze(dump)]
+def findings_json(dump: dict, profile: dict | None = None) -> list[dict]:
+    return [asdict(f) for f in analyze(dump, profile)]
 
 
-def render(dump: dict, source: str = "") -> str:
+def render(dump: dict, source: str = "", profile: dict | None = None) -> str:
     values = dump["values"]
-    findings = analyze(dump)
+    findings = analyze(dump, profile)
     answered = sum(v is not None for v in values.values())
     out = [
         "# Laporan Audit Mixer (otomatis, temuan awal)",
         "",
         f"- Sumber: `{source or '?'}`  |  Dibuat: {dump.get('created', '?')}  |  Hash: `{str(dump.get('sha256', '?'))[:12]}`",
         f"- Alamat dijawab: {answered} / {len(values)}",
-        "- **Catatan:** temuan berdasarkan konfigurasi saja dan sebagian memakai nama channel. Belum dibuktikan dengan pengukuran; arti ON/OFF belum diverifikasi pada MR18 ini.",
+        "- **Catatan:** temuan berdasarkan konfigurasi saja"
+        + (" dan Daftar Channel dari operator." if profile else " dan tebakan dari nama channel (Daftar Channel belum diisi).")
+        + " Belum dibuktikan dengan pengukuran; arti ON/OFF belum diverifikasi pada MR18 ini.",
         "",
         "## Ringkasan channel",
         "",
-        "| Ch | Nama | HPF | Gate | Komp | EQ | Aktif | 48V |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Ch | Nama di mixer | Sumber (Daftar Channel) | HPF | Gate | Komp | EQ | Aktif | 48V |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
 
     def onoff(v):
@@ -171,8 +205,9 @@ def render(dump: dict, source: str = "") -> str:
     for n in _channels(values):
         name, _ = _label(values, n)
         c = f"/ch/{n:02d}"
-        out.append("| {} | {} | {} | {} | {} | {} | {} | {} |".format(
-            f"{n:02d}", name or "-",
+        src = channels.source_for(profile, n)
+        out.append("| {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
+            f"{n:02d}", name or "-", src["nama"] if src else "-",
             onoff(_first(values, f"{c}/preamp/hpon")), onoff(_first(values, f"{c}/gate/on")),
             onoff(_first(values, f"{c}/dyn/on")), onoff(_first(values, f"{c}/eq/on")),
             onoff(_first(values, f"{c}/mix/on")), onoff(_first(values, f"/headamp/{n:02d}/phantom"))))

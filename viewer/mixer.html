@@ -125,6 +125,23 @@
   .changes { list-style: none; padding: 0; margin: 6px 0 12px; }
   .changes li { padding: 6px 10px; margin: 4px 0; border-radius: 6px; background: #221a33; border-left: 3px solid #b48cff; }
   .usulan { margin: 8px 0 0; padding-left: 18px; color: #d6c4ff; }
+  .role { font-size: 10px; color: #b48cff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 13px; }
+  .srcrow { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; background: var(--strip); }
+  .srcrow.auto { border-color: #b48cff; }
+  .srcrow .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .srcrow label { display: block; font-size: 11px; color: var(--muted); }
+  .srcrow input[type=text], .srcrow select { width: 100%; font: inherit; font-size: 13px; padding: 5px 6px; border-radius: 5px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  .srcrow .top { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .srcrow .top input { flex: 1; font-weight: 700; }
+  .srcrow .del { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 5px; padding: 4px 8px; cursor: pointer; }
+  .autotag { font-size: 11px; color: #b48cff; font-weight: 700; }
+  .formbtns { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; position: sticky; bottom: 0; z-index: 3; background: var(--desk); padding: 8px 0; box-shadow: 0 -8px 12px var(--desk); }
+  .formbtns button { font: inherit; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--strip-hi); color: var(--text); cursor: pointer; }
+  .formbtns .save { background: var(--accent); border-color: var(--accent); color: #0b1a2e; font-weight: 700; }
+  .msg { font-size: 13px; margin: 0; flex-basis: 100%; }
+  .msg:empty { display: none; }
+  .msg.bad { color: var(--bad); } .msg.ok { color: var(--ok); }
   .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
@@ -140,6 +157,7 @@
   </div>
   <div class="actions">
     <button id="btnLive" class="liveBtn" hidden>▶ Mulai pantau live</button>
+    <button id="btnChannels" hidden>Daftar Channel</button>
     <button id="btnLatest" hidden>Audit terakhir</button>
     <button id="btnSample" hidden>Data contoh</button>
     <label>Buka dump…<input type="file" id="fileDump" accept=".json,application/json"></label>
@@ -369,6 +387,12 @@ function badgesFor(ch) {
     warn ? el("span", { class: "badge warn", text: "⚠ " + warn, title: warn + " temuan perhatian" }) : null,
     info ? el("span", { class: "badge info", text: "💡 " + info, title: info + " saran" }) : null);
 }
+function roleFor(n) {
+  if (!state.profile) return "";
+  const src = state.profile.sources.find((x) => x.ch.includes(n));
+  if (!src) return "";
+  return src.nama + (src.stereo && src.ch.length === 2 ? (src.ch[0] === n ? " (L)" : " (R)") : "");
+}
 function channelStrip(n) {
   const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
   const name = raw(c + "/config/name");
@@ -376,7 +400,8 @@ function channelStrip(n) {
   const sends = [1, 2, 3, 4, 5, 6].map((b) => raw(`${c}/mix/${pad2(b)}/level`));
   const strip = el("div", { class: "strip", tabindex: "0", role: "button", "aria-label": "Detail channel " + n },
     el("div", { class: "head" }, el("div", { class: "num", text: "CH " + pad2(n) }),
-      el("div", { class: "name" + (name ? "" : " empty"), text: name || "(tanpa nama)" })),
+      el("div", { class: "name" + (name ? "" : " empty"), text: name || "(tanpa nama)" }),
+      el("div", { class: "role", text: roleFor(n), title: roleFor(n) ? "Daftar Channel: " + roleFor(n) : "" })),
     badgesFor(n),
     el("div", { class: "lamps" },
       lamp("l48", "48V", raw(h + "/phantom")), lamp("lhpf", "HPF", raw(c + "/preamp/hpon")),
@@ -421,10 +446,10 @@ function findingCard(f) {
       el("li", null, el("b", { text: "Rekomendasi: " }), f.rekomendasi),
       el("li", null, el("b", { text: "Risiko perubahan: " }), f.risiko)),
     (f.usulan && f.usulan.length) ? el("ul", { class: "usulan" }, ...f.usulan.map((u) => el("li", { text: u.teks }))) : null,
-    el("div", { class: "approve" },
+    (f.usulan && f.usulan.length) ? el("div", { class: "approve" },
       el("button", { disabled: "", title: "Aktif di Tahap 4, setelah konversi nilai terbukti", text: "Setujui (Tahap 4)" }),
-      el("button", { disabled: "", title: "Aktif di Tahap 4", text: "Tolak" })),
-    el("p", { class: "note", text: "Untuk sekarang, ubah lewat aplikasi mixer bila Anda setuju." }));
+      el("button", { disabled: "", title: "Aktif di Tahap 4", text: "Tolak" })) : null,
+    (f.usulan && f.usulan.length) ? el("p", { class: "note", text: "Untuk sekarang, ubah lewat aplikasi mixer bila Anda setuju." }) : null);
 }
 function showDrawer(strip, ...content) {
   document.querySelectorAll(".strip.sel").forEach((s) => s.classList.remove("sel"));
@@ -498,7 +523,7 @@ function buses() {
 function render() {
   state.meters = [];
   state.stripEls = {};
-  closeDrawer();
+  if (!state.keepDrawer) closeDrawer();
   const desk = $("desk");
   const d = state.dump;
   $("banner").replaceChildren(d && d.sample ? el("div", { class: "banner", text: "DATA CONTOH – bukan dari mixer Anda. Hanya untuk melihat bentuk tampilan." }) : "");
@@ -589,6 +614,100 @@ if (location.protocol.startsWith("http")) {
   render();
 }
 
+// ---------- DAFTAR CHANNEL (diisi operator; dipakai aturan AI) ----------
+state.profile = null;
+async function loadProfile() {
+  try { const v = await api("/api/channels"); state.profile = v.saved ? v.profile : null; return v; }
+  catch (e) { return null; }
+}
+function chOptions(view, selected, label) {
+  const sel = el("select", { "aria-label": label });
+  sel.append(el("option", { value: "", text: "—" }));
+  for (let n = 1; n <= 16; n++) {
+    const nm = view.mixer_names[n] ? " · " + view.mixer_names[n] : "";
+    const o = el("option", { value: String(n), text: "CH " + pad2(n) + nm });
+    if (selected === n) o.selected = true;
+    sel.append(o);
+  }
+  const aux = el("option", { value: "17", text: "Aux / USB return" });
+  if (selected === 17) aux.selected = true;
+  sel.append(aux);
+  return sel;
+}
+function selectOf(options, value, label) {
+  const sel = el("select", { "aria-label": label });
+  for (const [v, t] of options) { const o = el("option", { value: v, text: t }); if (v === value) o.selected = true; sel.append(o); }
+  return sel;
+}
+function srcRow(view, src) {
+  const nama = el("input", { type: "text", value: src.nama, "aria-label": "Nama sumber", maxlength: "40" });
+  const jenis = selectOf(Object.entries(view.types), src.jenis, "Jenis");
+  const stereo = el("input", { type: "checkbox" }); stereo.checked = !!src.stereo;
+  const ch1 = chOptions(view, src.ch[0] ?? null, "Channel");
+  const ch2 = chOptions(view, src.ch[1] ?? null, "Channel kanan");
+  const ch2wrap = el("div", null, el("label", { text: "Channel kanan (R)" }), ch2);
+  const koneksi = selectOf(view.koneksi.map((k) => [k, k || "(belum tahu)"]), src.koneksi, "Koneksi");
+  const mic = el("input", { type: "text", value: src.mic || "", placeholder: "mis. merek/model mic", maxlength: "60" });
+  const cat = el("input", { type: "text", value: src.catatan || "", placeholder: "catatan", maxlength: "120" });
+  const ch1label = el("label");
+  const showR = () => { ch2wrap.hidden = !stereo.checked; ch1label.textContent = stereo.checked ? "Channel kiri (L)" : "Channel"; };
+  stereo.addEventListener("change", showR); showR();
+  const row = el("div", { class: "srcrow" + (src.otomatis ? " auto" : "") },
+    el("div", { class: "top" }, nama,
+      el("button", { class: "del", type: "button", text: "Hapus", onclick: () => row.remove() })),
+    src.otomatis ? el("div", { class: "autotag", text: "Diisi otomatis dari nama di mixer — mohon cek" }) : null,
+    el("div", { class: "grid2" },
+      el("div", null, el("label", { text: "Jenis" }), jenis),
+      el("div", null, el("label", { text: "Koneksi" }), koneksi),
+      el("div", null, ch1label, ch1),
+      ch2wrap,
+      el("div", null, el("label", null, stereo, " Stereo (2 channel)"))),
+    el("div", { class: "grid2", style: "margin-top:6px" },
+      el("div", null, el("label", { text: "Mic / perangkat" }), mic),
+      el("div", null, el("label", { text: "Catatan" }), cat)));
+  row._get = () => ({
+    id: src.id, nama: nama.value, jenis: jenis.value, stereo: stereo.checked, koneksi: koneksi.value,
+    mic: mic.value, catatan: cat.value, otomatis: false,
+    ch: [ch1.value, stereo.checked ? ch2.value : ""].filter((v) => v !== "").map(Number),
+  });
+  return row;
+}
+async function openChannels(useSuggestion) {
+  const view = await loadProfile();
+  if (!view) { alert("Daftar Channel hanya bisa dibuka lewat aplikasi (AI-Sound-Engineer.bat / exe)."); return; }
+  const prof = useSuggestion && view.suggested ? view.suggested : view.profile;
+  const list = el("div");
+  for (const src of prof.sources) list.append(srcRow(view, src));
+  const msg = el("div", { class: "msg" });
+  const autoCount = useSuggestion && view.suggested ? view.suggested.sources.filter((x) => x.otomatis).length : 0;
+  showDrawer(null,
+    el("h3", { text: "Daftar Channel" }),
+    el("p", { class: "note", text: "Isi sumber suara apa masuk ke channel berapa di MR18. AI memakai daftar ini, bukan tebakan dari nama channel. " +
+      (view.saved ? "Tersimpan." : "Belum pernah disimpan: daftar di bawah berasal dari perangkat yang Anda sebutkan, channel masih kosong.") }),
+    useSuggestion ? el("p", { class: "msg ok", text: autoCount ? autoCount + " sumber diisi otomatis (bertanda ungu). Periksa lalu Simpan." : "Tidak ada yang bisa diisi otomatis dari nama di mixer." }) : null,
+    list,
+    el("div", { class: "formbtns" },
+      msg,
+      el("button", { class: "save", type: "button", text: "Simpan", onclick: async () => {
+        const profile = { sources: [...list.children].map((r) => r._get()) };
+        try {
+          const r = await api("/api/channels", { profile });
+          msg.className = "msg ok";
+          msg.textContent = "Tersimpan." + (r.findings != null ? " Saran AI dihitung ulang: " + r.findings + " temuan." : " Saran AI akan memakai daftar ini setelah audit.");
+          state.profile = r.profile;
+          state.keepDrawer = true;  // formulir tetap terbuka supaya pesan "Tersimpan" terlihat
+          try {
+            if (state.dump && !state.dump.sample) await loadLatest().catch(() => {});
+            else render();
+          } finally { state.keepDrawer = false; }
+        } catch (e) { msg.className = "msg bad"; msg.textContent = e.message; }
+      } }),
+      el("button", { type: "button", text: "+ Tambah sumber", onclick: () =>
+        list.append(srcRow(view, { id: "", nama: "Sumber baru", jenis: "lainnya", ch: [], stereo: false, koneksi: "", mic: "", catatan: "" })) }),
+      view.suggested ? el("button", { type: "button", text: "Isi otomatis dari nama di mixer", onclick: () => openChannels(true) }) : null));
+}
+$("btnChannels").addEventListener("click", () => openChannels(false));
+
 // ---------- MODE LIVE (meter asli dari mixer, hanya membaca) ----------
 const pctDb = (db) => Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
 function applyLive(snap) {
@@ -677,6 +796,8 @@ $("btnLive").addEventListener("click", async () => {
 });
 if (TOKEN && location.protocol.startsWith("http")) {
   $("btnLive").hidden = false;
+  $("btnChannels").hidden = false;
+  loadProfile().then(() => { if (state.dump) render(); });
   api("/api/status").then((s) => { if (s.live) startPolling(); }).catch(() => {});
 }
 </script>
