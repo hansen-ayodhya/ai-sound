@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Sound Engineer</title>
+<style>
+  :root {
+    --bg: #0f1216; --panel: #171c22; --panel-2: #1e252d; --line: #2c3540;
+    --text: #e6eaf0; --muted: #8c97a6; --accent: #5aa2ff; --accent-ink: #0b1a2e;
+    --ok: #3fcf7f; --warn: #f5b041; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 16px;
+    background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .brand { font-weight: 700; font-size: 16px; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; }
+  nav a.cur { color: var(--text); background: var(--panel-2); }
+  nav a:hover { color: var(--text); }
+  .ro { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--ok); border: 1px solid var(--ok);
+    border-radius: 999px; padding: 2px 9px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 16px; display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card.wide { grid-column: 1 / -1; }
+  h2 { margin: 0 0 4px; font-size: 16px; }
+  .sub { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
+  label.f { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input[type=text], input[type=number], select { width: 100%; padding: 8px 10px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+  .row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 120px; }
+  .row > .narrow { flex: 0 0 110px; min-width: 0; }
+  button { font: inherit; border-radius: 7px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); }
+  .btnlink { display: inline-block; text-decoration: none; border-radius: 7px; padding: 8px 14px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; cursor: pointer; }
+  .check input { margin-top: 3px; width: 16px; height: 16px; }
+  .out { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line);
+    white-space: pre-wrap; font-size: 13px; }
+  .out:empty { display: none; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  .bar { height: 10px; background: var(--bg); border-radius: 6px; overflow: hidden; border: 1px solid var(--line); margin-top: 10px; }
+  .bar div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .advanced { margin-top: 8px; color: var(--muted); font-size: 12px; }
+  .advanced summary { cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  pre.report { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px; max-height: 520px; overflow: auto; margin: 10px 0 0; }
+  .alert { grid-column: 1 / -1; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--bad); color: var(--bad); background: #2a1313; }
+  .foot { max-width: 1040px; margin: 0 auto; padding: 0 16px 24px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">AI Sound Engineer</div>
+  <nav>
+    <a href="home.html" class="cur">Beranda</a>
+    <a href="mixer.html">Tampilan Mixer</a>
+    <a href="index.html">Tabel</a>
+  </nav>
+  <span class="ro" title="Tidak ada tombol yang mengubah setting mixer">HANYA MEMBACA MIXER</span>
+</header>
+
+<main class="wrap" id="main">
+  <div class="alert" id="noServer" hidden>
+    Halaman ini harus dibuka lewat <b>AI-Sound-Engineer.bat</b> (klik dua kali). Kalau dibuka langsung dari file, tombol-tombolnya tidak bisa bekerja.
+  </div>
+
+  <section class="card">
+    <h2>1. Koneksi mixer</h2>
+    <p class="sub">IP MR18 bisa dilihat di halaman admin router (daftar perangkat). Laptop harus tersambung ke router yang sama.</p>
+    <div class="row">
+      <div><label class="f" for="ip">IP MR18</label><input type="text" id="ip" placeholder="contoh 192.168.1.50" inputmode="decimal" autocomplete="off"></div>
+    </div>
+    <details class="advanced"><summary>Lanjutan: port</summary>
+      <div class="row" style="margin-top:6px"><div class="narrow"><label class="f" for="port">Port UDP</label><input type="number" id="port" min="1" max="65535"></div>
+      <div class="sub" style="margin:0">Dugaan awal 10024. Ubah hanya bila uji kecil gagal dan Claude menyarankannya.</div></div>
+    </details>
+    <div class="btns">
+      <button class="primary" id="btnProbe">Uji kecil (2 pertanyaan)</button>
+    </div>
+    <div class="out" id="probeOut"></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Audit lengkap</h2>
+    <p class="sub">Membaca semua setting dua kali, membandingkan, lalu membuat laporan. Tidak mengubah apa pun. Bisa memakan beberapa menit.</p>
+    <label class="check"><input type="checkbox" id="c1"> <span>Tidak sedang ibadah</span></label>
+    <label class="check"><input type="checkbox" id="c2"> <span>Scene sudah disimpan lewat aplikasi mixer (hanya <b>Save</b>, bukan Load)</span></label>
+    <div class="btns"><button class="primary" id="btnAudit" disabled>Mulai audit</button></div>
+    <div class="bar" id="auditBar" hidden><div></div></div>
+    <div class="out" id="auditOut"></div>
+    <div class="btns" id="auditLinks" hidden>
+      <a class="btnlink" href="mixer.html">Lihat di Tampilan Mixer</a>
+      <button id="btnShowReport">Lihat laporan</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. Rekam meter</h2>
+    <p class="sub">Merekam level selama beberapa detik dan menandai yang mendekati clipping. Format meter MR18 belum terbukti, jadi hasil pertama mungkin kosong.</p>
+    <div class="row">
+      <div><label class="f" for="secs">Durasi</label>
+        <select id="secs"><option value="10">10 detik</option><option value="30" selected>30 detik</option><option value="60">60 detik</option></select></div>
+    </div>
+    <div class="btns"><button class="primary" id="btnMeters">Mulai rekam</button></div>
+    <div class="bar" id="meterBar" hidden><div></div></div>
+    <div class="out" id="meterOut"></div>
+    <div id="meterTable"></div>
+  </section>
+
+  <section class="card">
+    <h2>4. Perawatan</h2>
+    <p class="sub">Ambil versi terbaru program, atau cek apakah program masih sehat.</p>
+    <div class="btns">
+      <button id="btnUpdate">Update program</button>
+      <button id="btnTests">Cek program</button>
+      <button id="btnShutdown">Matikan aplikasi</button>
+    </div>
+    <div class="out" id="maintOut"></div>
+  </section>
+
+  <section class="card wide" id="reportCard">
+    <h2>Laporan audit terakhir</h2>
+    <p class="sub" id="reportSub">Belum ada audit.</p>
+    <pre class="report" id="report" hidden></pre>
+  </section>
+</main>
+<p class="foot">Semua tombol hanya membaca mixer atau mengurus program di laptop ini. Perubahan setting tetap dilakukan operator lewat aplikasi mixer.
+  Halaman ini hanya bisa dibuka dari laptop ini sendiri.</p>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const tokenMeta = document.querySelector('meta[name="aise-token"]');
+const TOKEN = tokenMeta ? tokenMeta.content : null;
+
+async function api(path, body) {
+  const opt = { method: body === undefined ? "GET" : "POST", headers: { "X-AISE-Token": TOKEN || "" } };
+  if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  let data = {};
+  try { data = await r.json(); } catch (e) { /* kosong */ }
+  if (!r.ok) throw new Error(data.error || ("Gagal (" + r.status + ")"));
+  return data;
+}
+function say(id, text, cls) { const o = $(id); o.textContent = text; o.className = "out" + (cls ? " " + cls : ""); }
+function target() {
+  const port = parseInt($("port").value, 10);
+  return { ip: $("ip").value.trim(), port: Number.isFinite(port) ? port : 10024 };
+}
+function setBusy(b) {
+  for (const id of ["btnProbe", "btnMeters", "btnUpdate", "btnTests"]) $(id).disabled = b;
+  $("btnAudit").disabled = b || !($("c1").checked && $("c2").checked);
+}
+
+// ---------- 1. uji kecil ----------
+$("btnProbe").addEventListener("click", async () => {
+  setBusy(true);
+  say("probeOut", "Bertanya ke mixer…");
+  try {
+    const r = await api("/api/probe", target());
+    const lines = Object.entries(r.values).map(([k, v]) => k + " = " + (v === null ? "(tidak dijawab)" : JSON.stringify(v)));
+    if (r.answered === 0) say("probeOut", "Mixer tidak menjawab.\n\n" + lines.join("\n") +
+      "\n\nCek IP, kabel LAN, dan bahwa laptop di jaringan yang sama. Port juga masih dugaan — kirim hasil ini ke Claude.", "warn");
+    else say("probeOut", `Berhasil: ${r.answered}/${r.queried} dijawab.\n\n` + lines.join("\n") +
+      "\n\nKalau isinya masuk akal (model MR18, nama channel 1), lanjut ke Audit lengkap.", "ok");
+  } catch (e) { say("probeOut", e.message, "bad"); }
+  setBusy(false);
+});
+
+// ---------- 2. audit ----------
+for (const id of ["c1", "c2"]) $(id).addEventListener("change", () => setBusy(false));
+$("btnAudit").addEventListener("click", async () => {
+  try {
+    await api("/api/audit", { ...target(), no_service: $("c1").checked, scene_saved: $("c2").checked });
+    $("auditLinks").hidden = true;
+    say("auditOut", "Audit dimulai…");
+    watchJob();
+  } catch (e) { say("auditOut", e.message, "bad"); }
+});
+
+// ---------- 3. meter ----------
+$("btnMeters").addEventListener("click", async () => {
+  try {
+    await api("/api/meters", { ...target(), seconds: parseInt($("secs").value, 10) });
+    $("meterTable").replaceChildren();
+    say("meterOut", "Merekam…");
+    watchJob();
+  } catch (e) { say("meterOut", e.message, "bad"); }
+});
+
+// ---------- pemantau pekerjaan ----------
+let watching = false, jobStart = 0;
+async function watchJob() {
+  if (watching) return;
+  watching = true; jobStart = Date.now();
+  setBusy(true);
+  while (true) {
+    let job;
+    try { job = await api("/api/job"); } catch (e) { break; }
+    const isAudit = job.kind === "audit";
+    const bar = $(isAudit ? "auditBar" : "meterBar"), outId = isAudit ? "auditOut" : "meterOut";
+    if (job.state === "running") {
+      bar.hidden = false;
+      let pct = 0;
+      if (isAudit && job.progress) {
+        const [i, n] = job.progress, pass = job.phase.includes("2 dari") ? 1 : 0;
+        pct = ((pass * n + i) / (2 * n)) * 100;
+        say(outId, `${job.phase}: ${i}/${n} alamat…`);
+      } else if (!isAudit) {
+        const secs = parseInt($("secs").value, 10);
+        pct = Math.min(99, ((Date.now() - jobStart) / 1000 / secs) * 100);
+        say(outId, job.phase || "Merekam…");
+      } else say(outId, "Mengecek koneksi ke mixer…");
+      bar.firstElementChild.style.width = pct + "%";
+      await new Promise((r) => setTimeout(r, 700));
+      continue;
+    }
+    bar.hidden = true;
+    if (job.state === "error") say(outId, job.error, "bad");
+    else if (job.state === "done" && isAudit) showAudit(job.result);
+    else if (job.state === "done") showMeters(job.result);
+    break;
+  }
+  watching = false;
+  setBusy(false);
+  loadReport();
+}
+function showAudit(r) {
+  const same = r.identical ? "Dua kali baca IDENTIK — program tidak mengubah apa pun."
+    : `PERHATIAN: ${r.changes.length} perbedaan antar pembacaan. Kirim ke Claude sebelum lanjut.`;
+  say("auditOut", `Selesai. ${r.answered}/${r.queried} alamat dijawab.\n${same}\nTemuan awal: ${r.findings}.`,
+    r.identical ? "ok" : "warn");
+  $("auditLinks").hidden = false;
+}
+function showMeters(r) {
+  if (!r.frames) { say("meterOut", "Tidak ada data meter diterima. Format/path meter MR18 mungkin berbeda dari dugaan — kirim hasil ini ke Claude.", "warn"); return; }
+  const clip = Object.values(r.indices).filter((s) => s.clip).length;
+  say("meterOut", `${r.frames} frame direkam. ${clip ? clip + " indeks mendekati clipping." : "Tidak ada yang mendekati clipping."}\nDisimpan: ${r.file}`, clip ? "warn" : "ok");
+  const t = document.createElement("table");
+  t.innerHTML = "<thead><tr><th>Indeks</th><th>Puncak</th><th>Rata-rata</th><th>Clip?</th></tr></thead>";
+  const tb = document.createElement("tbody");
+  for (const [i, s] of Object.entries(r.indices)) {
+    const tr = document.createElement("tr");
+    for (const v of [i, s.peak_db + " dB", s.mean_db + " dB", s.clip ? "YA" : "-"]) {
+      const td = document.createElement("td"); td.textContent = v; tr.append(td);
+    }
+    if (s.clip) tr.className = "warn";
+    tb.append(tr);
+  }
+  t.append(tb);
+  $("meterTable").replaceChildren(t);
+}
+
+// ---------- 4. perawatan ----------
+$("btnUpdate").addEventListener("click", async () => {
+  setBusy(true); say("maintOut", "Mengambil versi terbaru…");
+  try {
+    const r = await api("/api/update", {});
+    say("maintOut", (r.ok ? "Selesai.\n" : "Gagal.\n") + r.output +
+      (r.ok ? "\n\nTutup jendela hitam aplikasi, lalu klik dua kali AI-Sound-Engineer.bat lagi supaya versi baru terpakai." : ""), r.ok ? "ok" : "bad");
+  } catch (e) { say("maintOut", e.message, "bad"); }
+  setBusy(false);
+});
+$("btnTests").addEventListener("click", async () => {
+  setBusy(true); say("maintOut", "Menjalankan tes…");
+  try {
+    const r = await api("/api/tests", {});
+    say("maintOut", (r.ok ? "PROGRAM OK\n\n" : "ADA TES YANG GAGAL — kirim teks ini ke Claude.\n\n") + r.output.split("\n").slice(-6).join("\n"), r.ok ? "ok" : "bad");
+  } catch (e) { say("maintOut", e.message, "bad"); }
+  setBusy(false);
+});
+$("btnShutdown").addEventListener("click", async () => {
+  if (!confirm("Matikan aplikasi? Halaman ini akan berhenti bekerja.")) return;
+  try { await api("/api/shutdown", {}); } catch (e) { /* server berhenti */ }
+  document.body.innerHTML = '<p style="padding:24px">Aplikasi sudah dimatikan. Klik dua kali <b>AI-Sound-Engineer.bat</b> untuk membukanya lagi.</p>';
+});
+
+// ---------- laporan ----------
+async function loadReport() {
+  try {
+    const s = await api("/api/status");
+    if (!s.latest || !s.latest.report) return;
+    const r = await fetch("../" + s.latest.report, { cache: "no-store" });
+    if (!r.ok) return;
+    $("report").textContent = await r.text();
+    $("report").hidden = false;
+    $("reportSub").textContent = "Audit " + (s.latest.created || "") + " — temuan awal dari setting saja, belum dibuktikan dengan pengukuran.";
+  } catch (e) { /* abaikan */ }
+}
+$("btnShowReport").addEventListener("click", () => $("reportCard").scrollIntoView({ behavior: "smooth" }));
+
+// ---------- mulai ----------
+(async function init() {
+  if (!TOKEN || !location.protocol.startsWith("http")) {
+    $("noServer").hidden = false;
+    document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    return;
+  }
+  try {
+    const s = await api("/api/status");
+    $("ip").value = s.ip || "";
+    $("port").value = s.default_port;
+    if (s.job && s.job.state === "running") watchJob();
+  } catch (e) { $("noServer").hidden = false; }
+  loadReport();
+})();
+</script>
+</body>
+</html>

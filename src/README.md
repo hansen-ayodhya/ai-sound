@@ -1,10 +1,13 @@
 # Alat audit READ-ONLY (Tahap 1)
 
-## Cara paling mudah (tanpa mengetik)
-Klik dua kali `AI-Sound-Engineer.bat` di folder `ai-sound-engineer`. Muncul menu bernomor; ketik
-angka lalu Enter. Semua pilihan hanya MEMBACA mixer. IP mixer diingat di `data/mixer-ip.txt`.
-Audit lengkap (pilihan 3) disimpan di `data/audit-<tanggal>/` (dump1, dump2, report.md) dan
-penampil memuatnya otomatis.
+## Cara paling mudah (semua lewat browser)
+Klik dua kali `AI-Sound-Engineer.bat`. Browser terbuka di `http://localhost:8765` dengan halaman
+Beranda: koneksi + uji kecil, audit lengkap, rekam meter, perawatan, dan laporan. Dari situ ada
+Tampilan Mixer dan Tabel. Biarkan jendela hitam tetap terbuka selama dipakai.
+
+Keamanan: server hanya di 127.0.0.1, Host dicek, setiap panggilan API butuh token acak yang hanya
+tertanam di halaman server ini, dan semua akses mixer tetap lewat klien READ-ONLY.
+Cadangan tanpa browser: `Menu-Teks.bat` (menu teks lama).
 
 Perintah di bawah ini hanya untuk yang ingin memakai terminal.
 

@@ -60,6 +60,14 @@
 - Meter bergerak adalah SIMULASI; belum tersambung ke mixer.
 - Audit kini juga menulis `findings.json` (temuan per channel) untuk lencana di tampilan mixer.
 
+## Update: aplikasi web lokal (semua lewat browser)
+
+- `aise.server` + `viewer/home.html`: Beranda dengan tombol Uji kecil, Audit lengkap (wajib centang "tidak ibadah" dan "scene disimpan"), Rekam meter, Update, Cek program, Matikan; laporan terakhir tampil di halaman.
+- `AI-Sound-Engineer.bat` kini membuka aplikasi web; menu teks lama tetap ada di `Menu-Teks.bat`.
+- Tidak bisa di-hosting online: web di internet tidak bisa menjangkau mixer di jaringan gereja.
+- Keamanan: hanya 127.0.0.1, cek Host, token API per sesi, satu pekerjaan mixer pada satu waktu.
+- 32 tes lulus; diuji ujung-ke-ujung di browser dengan mixer tiruan. Belum dengan MR18 nyata; .bat belum dicoba di Windows.
+
 ## Catatan
 
 Repositori ini awalnya berisi proyek lain (aplikasi POS); proyek ini ditempatkan di folder `ai-sound-engineer/` agar terpisah dan tidak menyentuh file yang sudah ada. Bila ingin repositori sendiri, folder ini bisa dipindahkan utuh.
