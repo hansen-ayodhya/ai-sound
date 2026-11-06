@@ -1,6 +1,6 @@
 """Lokasi file, baik saat dijalankan dari kode sumber maupun dari file .exe.
 
-- Kode sumber: semuanya di folder ai-sound-engineer.
+- Kode sumber: semuanya di folder proyek (root repo ai-sound).
 - .exe (PyInstaller): halaman viewer ikut terbungkus di dalam exe, sedangkan
   folder `data` (hasil audit, IP, PIN) disimpan di samping file exe supaya
   tidak hilang saat exe ditutup atau diganti versi baru.

@@ -1,0 +1,72 @@
+# Membuat AI-Sound-Engineer.exe (Windows). Hasil diunduh dari tab Actions > run > Artifacts.
+name: AI Sound Engineer EXE
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-exe:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Jalankan tes
+        run: python -m unittest discover -s tests -v
+
+      - name: Catat versi
+        shell: bash
+        run: git log -1 --format="%h %cd" --date=format:"%d-%m-%Y %H:%M" > src/aise/_build_version.txt
+
+      - name: Pasang PyInstaller
+        run: python -m pip install "pyinstaller==6.11.1"
+
+      - name: Buat exe
+        run: >
+          python -m PyInstaller --onefile --name AI-Sound-Engineer
+          --paths src
+          --add-data "viewer;viewer"
+          --add-data "src/aise/_build_version.txt;aise"
+          exe_main.py
+
+      - name: Uji exe (harus menyajikan Beranda)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\AI-Sound-Engineer.exe -ArgumentList "--lokal","--no-browser","--port","8799" -PassThru
+          try {
+            $ok = $false
+            for ($i = 0; $i -lt 30; $i++) {
+              Start-Sleep -Seconds 1
+              try {
+                $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8799/viewer/home.html
+                if ($r.StatusCode -eq 200 -and $r.Content -match 'aise-token') { $ok = $true; break }
+              } catch { }
+            }
+            if (-not $ok) { throw "exe tidak menyajikan halaman Beranda" }
+            Write-Host "exe OK"
+          } finally {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Sertakan petunjuk
+        shell: bash
+        run: cp PETUNJUK-EXE.txt dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AI-Sound-Engineer-exe
+          path: |
+            dist/AI-Sound-Engineer.exe
+            dist/PETUNJUK-EXE.txt
+          retention-days: 90
+          if-no-files-found: error

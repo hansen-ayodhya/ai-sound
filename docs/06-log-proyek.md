@@ -91,7 +91,7 @@
 
 ## Update: versi .exe
 
-- Dibuat otomatis oleh GitHub Actions (`.github/workflows/ai-sound-engineer-exe.yml`, runner Windows): tes → PyInstaller 6.11.1 (satu file) → uji exe menyajikan Beranda → artifact `AI-Sound-Engineer-exe` (exe + PETUNJUK-EXE.txt, disimpan 90 hari).
+- Dibuat otomatis oleh GitHub Actions (`.github/workflows/build-exe.yml`, runner Windows): tes → PyInstaller 6.11.1 (satu file) → uji exe menyajikan Beranda → artifact `AI-Sound-Engineer-exe` (exe + PETUNJUK-EXE.txt, disimpan 90 hari).
 - Exe bawaan mode JARINGAN (PIN); `--lokal` untuk hanya komputer itu. Folder `data` di samping exe. Versi tertanam saat build.
 - Update = ganti file exe secara manual di luar ibadah (pilihan pengguna). Tombol Update/Cek program disembunyikan di versi exe.
 - Perbaikan khusus Windows: UDP "connection reset" dianggap "tidak dijawab" (bukan error).
@@ -99,4 +99,4 @@
 
 ## Catatan
 
-Repositori ini awalnya berisi proyek lain (aplikasi POS); proyek ini ditempatkan di folder `ai-sound-engineer/` agar terpisah dan tidak menyentuh file yang sudah ada. Bila ingin repositori sendiri, folder ini bisa dipindahkan utuh.
+Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

@@ -26,7 +26,7 @@ PENTING
 
 UPDATE KE VERSI BARU (di luar jam ibadah)
 1. Tutup jendela hitam aplikasi.
-2. Unduh exe terbaru dari GitHub: repo wtc > tab Actions > "AI Sound Engineer EXE"
+2. Unduh exe terbaru dari GitHub: repo ai-sound > tab Actions > "AI Sound Engineer EXE"
    > build teratas yang centang hijau > bagian Artifacts > AI-Sound-Engineer-exe (file zip).
 3. Buka zip, timpa AI-Sound-Engineer.exe yang lama. Folder data tetap aman.
 4. Klik dua kali exe yang baru. Cek "Versi program" di bagian bawah Beranda.
