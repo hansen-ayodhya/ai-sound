@@ -128,6 +128,15 @@
 - API key di `data/gemini.json`, hanya bisa diatur dari komputer yang menjalankan aplikasi, tidak pernah dikirim ke browser. Folder data kini hanya membuka hasil audit/meter/AI; gemini.json, pin, ip, channels tertutup.
 - Diuji dengan server Gemini tiruan (belum dengan kunci asli dari sesi ini).
 
+## Update: Klip Suara (Gemini bisa "mendengar")
+
+- Halaman `viewer/clips.html`: unggah rekaman HP (m4a/mp3/wav), pilih potongan 5/10/20/30 dtk (bawaan 10), browser menghitung spektrum 1/3 oktaf (relatif 500 Hz–2 kHz), kelompok bass/low-mid/presence/air, puncak sempit yang bertahan (kandidat dengung/feedback), level & clipping; indikasi diberi label "indikasi", bukan pengukuran terkalibrasi.
+- Klip disimpan (WAV 16 kHz mono) di `data/clips/` (maks 50) untuk dibandingkan sebelum/sesudah.
+- Kirim ke Gemini hanya dengan tombol + centang izin per klip. Yang dikirim: potongan audio + angka analisis + ringkasan setting. Jawaban: penilaian per aspek (kejelasan vokal/khotbah, boomy, tajam, gema, feedback, keseimbangan, terlalu keras) + prioritas enam unsur; usulan angka tetap diperiksa.
+- Biaya: ±32 token/detik audio (10 dtk ≈ 320 token) menurut dokumentasi Gemini.
+- Operator mengizinkan semua jenis klip (lagu, khotbah, soundcheck) dikirim, dengan izin per klip.
+- 84 tes lulus; diuji di browser dengan rekaman sintetis + Gemini tiruan.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

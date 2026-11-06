@@ -339,8 +339,7 @@ def sanitize(resp: dict, dump: dict | None) -> dict:
             "usulan_dibuang": dropped}
 
 
-def analyze(cfg: dict, dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
-            situasi: str = "umum", pertanyaan: str = "", base: str = API_BASE) -> dict:
+def _generate(cfg: dict, parts: list, schema: dict, base: str) -> dict:
     key, model = cfg.get("key"), cfg.get("model")
     if not key or not model:
         raise AIError("Gemini belum diatur. Isi API key di Beranda (dari laptop/komputer utama).")
@@ -348,14 +347,14 @@ def analyze(cfg: dict, dump: dict | None, profile: dict | None, findings: list[d
         raise AIError("Nama model tidak valid.")
     body = {
         "systemInstruction": {"parts": [{"text": SYSTEM}]},
-        "contents": [{"role": "user", "parts": [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan)}]}],
-        "generationConfig": {"temperature": 0.3, "responseMimeType": "application/json", "responseSchema": RESPONSE_SCHEMA},
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": {"temperature": 0.3, "responseMimeType": "application/json", "responseSchema": schema},
     }
     url = f"/models/{model}:generateContent"
     try:
         res = _request(url, key, body, base=base)
     except AIError as e:
-        if "responseSchema" in str(e) or "schema" in str(e).lower():
+        if "schema" in str(e).lower():
             body["generationConfig"].pop("responseSchema")  # model tidak mendukung skema: minta JSON saja
             res = _request(url, key, body, base=base)
         else:
@@ -369,9 +368,72 @@ def analyze(cfg: dict, dump: dict | None, profile: dict | None, findings: list[d
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
     try:
-        parsed = json.loads(text)
+        return json.loads(text)
     except ValueError:
         raise AIError("Jawaban Gemini bukan JSON yang valid. Coba lagi.") from None
+
+
+def analyze(cfg: dict, dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
+            situasi: str = "umum", pertanyaan: str = "", base: str = API_BASE) -> dict:
+    parsed = _generate(cfg, [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan)}],
+                       RESPONSE_SCHEMA, base)
     out = sanitize(parsed, dump)
-    out.update(model=model, dibuat=time.strftime("%Y-%m-%dT%H:%M:%S%z"), situasi=situasi, pertanyaan=_s(pertanyaan, MAX_QUESTION))
+    out.update(model=cfg.get("model"), dibuat=time.strftime("%Y-%m-%dT%H:%M:%S%z"), situasi=situasi,
+               pertanyaan=_s(pertanyaan, MAX_QUESTION))
+    return out
+
+
+# ---------- menilai klip suara ----------
+ASPEK = ["kejelasan_vokal", "kejelasan_khotbah", "boomy", "tajam", "gema", "feedback",
+         "keseimbangan_musik_vokal", "terlalu_keras"]
+NILAI = ["baik", "cukup", "kurang", "tidak_dapat_dinilai"]
+CLIP_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        **RESPONSE_SCHEMA["properties"],
+        "penilaian": {"type": "ARRAY", "items": {
+            "type": "OBJECT",
+            "properties": {"aspek": {"type": "STRING", "enum": ASPEK}, "nilai": {"type": "STRING", "enum": NILAI},
+                           "alasan": {"type": "STRING"}},
+            "required": ["aspek", "nilai", "alasan"]}},
+    },
+    "required": ["ringkasan", "penilaian", "prioritas", "butuh_data"],
+}
+
+
+def clip_prompt(rec: dict, dump: dict | None, profile: dict | None, findings: list[dict]) -> str:
+    ctx = {
+        "klip": {"posisi_rekam": rec["meta"].get("posisi") or None, "situasi": SITUASI.get(rec["meta"]["situasi"]),
+                 "catatan_operator": rec["meta"].get("catatan") or None, "durasi_detik": rec["audio"]["seconds"],
+                 "perekam": "kemungkinan mikrofon HP (tidak dikalibrasi; mewarnai suara)"},
+        "analisis_lokal": rec.get("analisis") or {},
+        "channel": channel_summary(dump, profile) if dump else [],
+        "temuan_aturan_lokal": [{"ch": f.get("ch"), "masalah": f["masalah"]} for f in findings][:30],
+        "konversi_terverifikasi": convert.VERIFIED,
+    }
+    return ("Dengarkan klip audio terlampir (suara di ruangan gereja) dan nilai sesuai aturan.\n"
+            "Angka 'analisis_lokal' dihitung program dari klip yang sama: band = level relatif per pita 1/3 oktaf (dB), "
+            "groups = rata-rata per kelompok frekuensi relatif terhadap pita tengah, peaks = puncak sempit yang menonjol "
+            "(persisten = fraksi waktu muncul; tinggi = kemungkinan dengung/feedback). Pakai angka ini untuk frekuensi; "
+            "jangan menebak frekuensi hanya dari pendengaran.\n"
+            "Isi 'penilaian' untuk setiap aspek yang relevan (pakai 'tidak_dapat_dinilai' bila klip tidak memuatnya), "
+            "lalu 'prioritas' dengan akar masalah dan langkah uji. Usulan angka hanya bila channel penyebabnya jelas.\n\n"
+            "Data (JSON):\n" + json.dumps(ctx, ensure_ascii=False))
+
+
+def analyze_clip(cfg: dict, rec: dict, wav: bytes, dump: dict | None, profile: dict | None, findings: list[dict],
+                 base: str = API_BASE) -> dict:
+    import base64
+    parts = [{"text": clip_prompt(rec, dump, profile, findings)},
+             {"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(wav).decode("ascii")}}]
+    parsed = _generate(cfg, parts, CLIP_SCHEMA, base)
+    out = sanitize(parsed, dump)
+    pen = []
+    for x in (parsed.get("penilaian") or [])[:12]:
+        if isinstance(x, dict) and x.get("aspek") in ASPEK and x.get("nilai") in NILAI:
+            pen.append({"aspek": x["aspek"], "nilai": x["nilai"], "alasan": _s(x.get("alasan"), 400)})
+    out.update(penilaian=pen, model=cfg.get("model"), dibuat=time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+               situasi=rec["meta"]["situasi"], klip=rec["id"])
+    for p in out["prioritas"]:
+        p["id"] = p["id"].replace("gemini-", "gemini-klip-", 1)
     return out

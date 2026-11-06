@@ -27,6 +27,8 @@ REPLY = {
          "rekomendasi": "r", "risiko": "k", "keyakinan": "yakin sekali", "usulan": [{"parameter": "fader_db", "nilai": -5}]},
     ],
     "butuh_data": ["Pengukuran RTA di kursi tengah"],
+    "penilaian": [{"aspek": "boomy", "nilai": "kurang", "alasan": "Nada rendah dominan."},
+                  {"aspek": "feedback", "nilai": "cukup", "alasan": "Ada nada konstan tipis."}],
 }
 
 

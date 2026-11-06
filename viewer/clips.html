@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klip Suara</title>
+<style>
+  :root {
+    --bg: #0f1216; --panel: #171c22; --panel-2: #1e252d; --line: #2c3540;
+    --text: #e6eaf0; --muted: #8c97a6; --accent: #5aa2ff; --ok: #3fcf7f; --warn: #f5b041; --bad: #ff6b6b; --sug: #b48cff;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 16px; background: var(--panel);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .brand { font-weight: 700; font-size: 16px; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; }
+  nav a.cur { color: var(--text); background: var(--panel-2); }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  h2 { margin: 0 0 4px; font-size: 16px; } h3 { margin: 12px 0 6px; font-size: 14px; }
+  .sub, .note { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  label.f { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  input[type=text], select, textarea { width: 100%; font: inherit; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); }
+  input[type=range] { width: 100%; }
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  button { font: inherit; border-radius: 7px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button.primary { background: var(--accent); color: #0b1a2e; border-color: var(--accent); font-weight: 700; }
+  button.ai { background: var(--sug); color: #0f1216; border-color: var(--sug); font-weight: 700; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .out { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); white-space: pre-wrap; font-size: 13px; }
+  .out:empty { display: none; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  svg.chart { width: 100%; height: auto; display: block; background: #12161b; border-radius: 8px; }
+  svg.chart text { font: 10px system-ui, sans-serif; fill: var(--muted); }
+  .wave { position: relative; margin-top: 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin: 6px 0; }
+  .legend span::before { content: ""; display: inline-block; width: 16px; height: 8px; margin-right: 6px; vertical-align: middle; border-radius: 2px; }
+  .legend .now::before { background: #3fcf7f; }
+  .legend .cmp::before { border: 2px dashed #8c97a6; height: 4px; }
+  .legend .pk::before { background: var(--bad); }
+  ul.ind { margin: 6px 0; padding-left: 18px; }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; cursor: pointer; }
+  .check input { margin-top: 3px; width: 16px; height: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .v-baik { color: var(--ok); font-weight: 700; } .v-cukup { color: var(--warn); font-weight: 700; } .v-kurang { color: var(--bad); font-weight: 700; }
+  .v-tidak_dapat_dinilai { color: var(--muted); }
+  .fcard { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: var(--panel-2); }
+  .fcard h4 { margin: 0 0 6px; font-size: 13px; }
+  .fcard ol { margin: 0; padding-left: 18px; } .fcard li b { color: var(--muted); font-weight: 600; }
+  .aitag { display: inline-block; font-size: 11px; font-weight: 700; color: #0f1216; background: var(--sug); border-radius: 999px; padding: 1px 8px; margin-bottom: 6px; }
+  .cliprow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .cliprow .meta { flex: 1; min-width: 200px; font-size: 13px; }
+  .cliprow .meta b { display: block; }
+  .cliprow button { padding: 5px 10px; font-size: 13px; }
+  audio { width: 100%; margin-top: 8px; }
+  .alert { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--bad); color: var(--bad); background: #2a1313; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">AI Sound Engineer</div>
+  <nav>
+    <a href="home.html">Beranda</a>
+    <a href="mixer.html">Tampilan Mixer</a>
+    <a href="clips.html" class="cur">Klip Suara</a>
+    <a href="index.html">Tabel</a>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div class="alert" id="noServer" hidden>Halaman ini harus dibuka lewat aplikasi (AI-Sound-Engineer.bat / exe), supaya klip bisa disimpan dan dinilai.</div>
+
+  <section class="card">
+    <h2>1. Pilih rekaman</h2>
+    <p class="sub">Rekam dengan aplikasi perekam di HP dari <b>kursi jemaat</b>, lalu pilih filenya di sini (m4a, mp3, wav). Supaya bisa dibandingkan:
+      pakai HP yang sama, di posisi yang sama, HP dipegang setinggi telinga, jangan tutup lubang mic.</p>
+    <input type="file" id="file" accept="audio/*">
+    <div class="out" id="fileOut"></div>
+  </section>
+
+  <section class="card" id="selCard" hidden>
+    <h2>2. Pilih bagian yang dinilai</h2>
+    <div class="grid3">
+      <div><label class="f" for="dur">Panjang potongan</label>
+        <select id="dur"><option value="5">5 detik</option><option value="10" selected>10 detik (disarankan)</option><option value="20">20 detik</option><option value="30">30 detik</option></select></div>
+      <div><label class="f" for="situasi">Situasi</label>
+        <select id="situasi"><option value="lagu">Sesi pujian / lagu</option><option value="khotbah">Khotbah</option><option value="umum">Ibadah umum</option><option value="soundcheck">Soundcheck</option></select></div>
+      <div><label class="f" for="posisi">Posisi rekam</label><input type="text" id="posisi" maxlength="60" placeholder="mis. baris 5 kiri, dekat pilar"></div>
+    </div>
+    <label class="f" for="catatan">Yang ingin dinilai (opsional)</label>
+    <input type="text" id="catatan" maxlength="300" placeholder="mis. vokal WL tenggelam saat reff; ada dengung di awal">
+    <div class="wave"><svg class="chart" id="wave" viewBox="0 0 800 110" preserveAspectRatio="none" aria-label="Gelombang rekaman dan bagian terpilih"></svg></div>
+    <label class="f" for="start">Mulai dari detik ke-<span id="startLbl">0</span></label>
+    <input type="range" id="start" min="0" max="0" step="0.1" value="0">
+    <div class="btns">
+      <button id="btnPlay">▶ Dengarkan potongan</button>
+      <button class="primary" id="btnAnalyze">Analisis di laptop &amp; simpan</button>
+    </div>
+    <p class="note">Satu detik audio ≈ 32 token Gemini; 10 detik ≈ 320 token. Analisis di laptop tidak memakai kuota sama sekali.</p>
+  </section>
+
+  <section class="card" id="resCard" hidden>
+    <h2>3. Hasil analisis di laptop</h2>
+    <p class="sub">Level relatif per pita 1/3 oktaf (0 dB = rata-rata 500 Hz–2 kHz). Ini <b>indikasi</b>, bukan pengukuran terkalibrasi: mic HP ikut mewarnai suara.</p>
+    <div class="legend"><span class="now">klip ini</span><span class="cmp" id="cmpLegend" hidden>klip pembanding</span><span class="pk">puncak sempit (kemungkinan dengung)</span></div>
+    <svg class="chart" id="spec" viewBox="0 0 800 260" aria-label="Spektrum klip"></svg>
+    <div class="out" id="levels"></div>
+    <h3>Indikasi</h3>
+    <ul class="ind" id="indList"></ul>
+    <audio id="savedAudio" controls hidden></audio>
+    <div class="out" id="saveOut"></div>
+
+    <h3>Minta pendapat Gemini</h3>
+    <p class="note" id="aiState"></p>
+    <label class="check"><input type="checkbox" id="izin"> <span>Saya setuju potongan ini (bisa berisi suara orang saat ibadah) dikirim ke Google Gemini untuk dinilai.</span></label>
+    <div class="btns"><button class="ai" id="btnAI" disabled>✦ Kirim potongan ke Gemini</button></div>
+    <div class="out" id="aiOut"></div>
+    <div id="aiResult"></div>
+  </section>
+
+  <section class="card">
+    <h2>Klip tersimpan</h2>
+    <p class="sub">Klik <b>Bandingkan</b> untuk menumpuk spektrum klip lama di grafik (garis abu putus-putus), misalnya sebelum dan sesudah mengubah low cut.</p>
+    <div id="clipList"><p class="note">Belum ada klip.</p></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const tokenMeta = document.querySelector('meta[name="aise-token"]');
+const TOKEN = tokenMeta ? tokenMeta.content : null;
+async function api(path, body) {
+  const opt = { method: body === undefined ? "GET" : "POST", headers: { "X-AISE-Token": TOKEN || "" } };
+  if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  let data = {};
+  try { data = await r.json(); } catch (e) { /* kosong */ }
+  if (!r.ok) throw new Error(data.error || ("Gagal (" + r.status + ")"));
+  return data;
+}
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  if (props) for (const [k, v] of Object.entries(props)) {
+    if (k === "class") n.className = v; else if (k === "text") n.textContent = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v);
+  }
+  for (const c of kids) if (c != null) n.append(c);
+  return n;
+}
+function svg(tag, attrs) { const n = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v); return n; }
+function say(id, text, cls) { const o = $(id); o.textContent = text; o.className = "out" + (cls ? " " + cls : ""); }
+
+const st = { buf: null, mono: null, sr: 0, analysis: null, saved: null, compare: null, aiReady: false, ctx: null, src: null };
+
+// ---------- 1. buka rekaman ----------
+$("file").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  say("fileOut", "Membuka rekaman…");
+  try {
+    st.ctx = st.ctx || new (window.AudioContext || window.webkitAudioContext)();
+    const buf = await st.ctx.decodeAudioData(await f.arrayBuffer());
+    st.buf = buf; st.sr = buf.sampleRate; st.fileName = f.name;
+    const n = buf.length, mono = new Float32Array(n);
+    for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i] / buf.numberOfChannels; }
+    st.mono = mono;
+    say("fileOut", `${f.name} · ${buf.duration.toFixed(1)} detik · ${buf.sampleRate} Hz · ${buf.numberOfChannels} kanal`, "ok");
+    $("selCard").hidden = false;
+    updateRange(); drawWave();
+  } catch (err) { say("fileOut", "Rekaman tidak bisa dibuka di browser ini. Coba format lain (m4a/mp3/wav).", "bad"); }
+});
+const selDur = () => Math.min(parseFloat($("dur").value), st.buf ? st.buf.duration : 0);
+function updateRange() {
+  const max = Math.max(0, st.buf.duration - selDur());
+  $("start").max = max.toFixed(1);
+  if (parseFloat($("start").value) > max) $("start").value = max.toFixed(1);
+  $("startLbl").textContent = parseFloat($("start").value).toFixed(1);
+}
+$("dur").addEventListener("change", () => { updateRange(); drawWave(); });
+$("start").addEventListener("input", () => { $("startLbl").textContent = parseFloat($("start").value).toFixed(1); drawWave(); });
+function drawWave() {
+  const s = $("wave"), W = 800, H = 110, n = st.mono.length, step = Math.max(1, Math.floor(n / W));
+  s.replaceChildren();
+  let d = "";
+  for (let x = 0; x < W; x++) {
+    let m = 0; const a = Math.floor((x / W) * n);
+    for (let i = a; i < Math.min(n, a + step); i++) m = Math.max(m, Math.abs(st.mono[i]));
+    d += `M${x} ${(H / 2 - m * H / 2).toFixed(1)}L${x} ${(H / 2 + m * H / 2).toFixed(1)}`;
+  }
+  s.append(svg("path", { d, stroke: "#5aa2ff", "stroke-width": 1, opacity: .7 }));
+  const x0 = (parseFloat($("start").value) / st.buf.duration) * W, w = (selDur() / st.buf.duration) * W;
+  s.append(svg("rect", { x: x0, y: 0, width: Math.max(2, w), height: H, fill: "rgba(180,140,255,.25)", stroke: "#b48cff", "stroke-width": 2 }));
+}
+$("btnPlay").addEventListener("click", () => {
+  if (st.src) { try { st.src.stop(); } catch (e) { /* sudah berhenti */ } st.src = null; $("btnPlay").textContent = "▶ Dengarkan potongan"; return; }
+  st.ctx.resume();
+  const src = st.ctx.createBufferSource(); src.buffer = st.buf; src.connect(st.ctx.destination);
+  src.start(0, parseFloat($("start").value), selDur()); st.src = src;
+  $("btnPlay").textContent = "■ Berhenti";
+  src.onended = () => { st.src = null; $("btnPlay").textContent = "▶ Dengarkan potongan"; };
+});
+
+// ---------- analisis (FFT di browser) ----------
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < len / 2; k++) {
+        const a = i + k, b = a + len / 2, tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+        const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr;
+      }
+    }
+  }
+}
+const CENTERS = [31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000];
+function median(a) { const b = Array.from(a).sort((x, y) => x - y); return b.length ? b[b.length >> 1] : 0; }
+function analyze(x, sr) {
+  let sum = 0, pk = 0;
+  for (const v of x) { sum += v * v; pk = Math.max(pk, Math.abs(v)); }
+  const rms = 10 * Math.log10(sum / x.length + 1e-20), peak = 20 * Math.log10(pk + 1e-12);
+  const N = 8192, hop = N / 2, win = new Float64Array(N);
+  for (let i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+  const half = N / 2, avg = new Float64Array(half), frames = [];
+  for (let s = 0; s + N <= x.length; s += hop) {
+    const re = new Float64Array(N), im = new Float64Array(N);
+    for (let i = 0; i < N; i++) re[i] = x[s + i] * win[i];
+    fft(re, im);
+    const p = new Float32Array(half);
+    for (let k = 0; k < half; k++) { p[k] = re[k] * re[k] + im[k] * im[k]; avg[k] += p[k]; }
+    frames.push(p);
+  }
+  if (!frames.length) throw new Error("Potongan terlalu pendek.");
+  for (let k = 0; k < half; k++) avg[k] /= frames.length;
+  const hz = (k) => k * sr / N;
+  const bands = [];
+  for (const fc of CENTERS) {
+    if (fc * 1.12 >= sr / 2) break;
+    let e = 0;
+    for (let k = Math.ceil(fc / 1.12 / (sr / N)); k <= Math.floor(fc * 1.12 / (sr / N)); k++) e += avg[k] || 0;
+    bands.push({ hz: fc, db: 10 * Math.log10(e + 1e-20) });
+  }
+  const ref = bands.filter((b) => b.hz >= 500 && b.hz <= 2000);
+  const refDb = ref.reduce((a, b) => a + b.db, 0) / Math.max(1, ref.length);
+  for (const b of bands) b.db = +(b.db - refDb).toFixed(1);
+  const g = (lo, hi) => { const s = bands.filter((b) => b.hz >= lo && b.hz <= hi); return s.length ? +(s.reduce((a, b) => a + b.db, 0) / s.length).toFixed(1) : null; };
+  const groups = { "bass 63-250": g(63, 250), "low-mid 315-630": g(315, 630), "presence 2.5k-5k": g(2500, 5000), "air 6.3k-12.5k": g(6300, 12500) };
+  // puncak sempit: menonjol dibanding sekitarnya (±1/6 oktaf), dan bertahan lama
+  const avgDb = Array.from(avg, (v) => 10 * Math.log10(v + 1e-20));
+  const cands = [];
+  for (let k = 2; k < half - 2; k++) {
+    const f = hz(k);
+    if (f < 100 || f > 8000) continue;
+    if (!(avgDb[k] >= avgDb[k - 1] && avgDb[k] >= avgDb[k + 1])) continue;
+    const lo = Math.max(1, Math.floor(f / 1.12 / (sr / N))), hi = Math.min(half - 1, Math.ceil(f * 1.12 / (sr / N)));
+    const prom = avgDb[k] - median(avgDb.slice(lo, hi + 1));
+    if (prom >= 10) cands.push({ k, f, prom, lo, hi });
+  }
+  cands.sort((a, b) => b.prom - a.prom);
+  const peaks = [];
+  for (const c of cands) {
+    if (peaks.some((p) => Math.abs(Math.log2(p.hz / c.f)) < 1 / 6)) continue;
+    let on = 0;
+    for (const fr of frames) {
+      const nb = []; for (let k = c.lo; k <= c.hi; k++) nb.push(10 * Math.log10(fr[k] + 1e-20));
+      if (10 * Math.log10(fr[c.k] + 1e-20) - median(nb) >= 8) on++;
+    }
+    peaks.push({ hz: Math.round(c.f), tonjolan_db: +c.prom.toFixed(1), persisten: +(on / frames.length).toFixed(2) });
+    if (peaks.length >= 5) break;
+  }
+  const ind = [];
+  if (peak >= -0.5) ind.push("Rekaman clipping (terlalu keras untuk mic HP). Hasil kurang akurat; rekam sedikit lebih jauh dari speaker.");
+  if (rms < -45) ind.push("Rekaman sangat pelan; hasil kurang akurat.");
+  const gb = groups["bass 63-250"], gl = groups["low-mid 315-630"], gp = groups["presence 2.5k-5k"];
+  if (gb != null && gb > 8) ind.push(`Nada rendah sangat menonjol (${gb > 0 ? "+" : ""}${gb} dB dibanding pita tengah): indikasi boomy.`);
+  else if (gb != null && gb > 4) ind.push(`Nada rendah agak menonjol (+${gb} dB): bisa terasa berat.`);
+  if (gl != null && gl > 4) ind.push(`Low-mid 315–630 Hz menumpuk (+${gl} dB): indikasi suara keruh ('muddy'), vokal bisa tertutup.`);
+  if (gp != null && gp > 3) ind.push(`2,5–5 kHz menonjol (+${gp} dB): indikasi tajam/menusuk.`);
+  if (gp != null && gp < -14) ind.push(`2,5–5 kHz rendah (${gp} dB): vokal/kata bisa kurang jelas.`);
+  for (const p of peaks) if (p.persisten >= 0.7 && p.tonjolan_db >= 12)
+    ind.push(`Nada yang bertahan di ≈${p.hz} Hz (+${p.tonjolan_db} dB, ${Math.round(p.persisten * 100)}% waktu): mungkin dengung/awal feedback — atau nada musik yang ditahan. Dengarkan potongannya.`);
+  if (!ind.length) ind.push("Tidak ada indikasi menonjol dari aturan sederhana. Ini bukan berarti sudah ideal.");
+  return { rms_db: +rms.toFixed(1), peak_db: +peak.toFixed(1), bands, groups, peaks, indikasi: ind };
+}
+
+// ---------- grafik spektrum ----------
+function drawSpec(a, cmp) {
+  const s = $("spec"), W = 800, H = 260, L = 36, R = 10, T = 10, B = 26, PW = W - L - R, PH = H - T - B, LO = -30, HI = 15;
+  s.replaceChildren();
+  const fx = (f) => L + (Math.log10(f / 25) / Math.log10(18000 / 25)) * PW;
+  const dy = (db) => T + ((HI - Math.max(LO, Math.min(HI, db))) / (HI - LO)) * PH;
+  for (const db of [-24, -12, 0, 12]) {
+    s.append(svg("line", { x1: L, x2: W - R, y1: dy(db), y2: dy(db), stroke: db === 0 ? "#3a4552" : "#222a33" }));
+    const t = svg("text", { x: L - 4, y: dy(db) + 3, "text-anchor": "end" }); t.textContent = (db > 0 ? "+" : "") + db; s.append(t);
+  }
+  for (const [f, l] of [[50, "50"], [100, "100"], [250, "250"], [500, "500"], [1000, "1k"], [2000, "2k"], [5000, "5k"], [10000, "10k"]]) {
+    s.append(svg("line", { x1: fx(f), x2: fx(f), y1: T, y2: T + PH, stroke: "#222a33" }));
+    const t = svg("text", { x: fx(f), y: H - 8, "text-anchor": "middle" }); t.textContent = l; s.append(t);
+  }
+  for (const [lo, hi, c] of [[63, 250, "rgba(245,176,65,.07)"], [2500, 5000, "rgba(255,107,107,.07)"]])
+    s.append(svg("rect", { x: fx(lo), y: T, width: fx(hi) - fx(lo), height: PH, fill: c }));
+  const bw = PW / 30;
+  for (const b of a.bands) {
+    const y = dy(b.db), y0 = dy(0);
+    const col = (b.hz >= 63 && b.hz <= 250 && b.db > 4) || (b.hz >= 2500 && b.hz <= 5000 && b.db > 3) ? "#f5b041" : "#3fcf7f";
+    s.append(svg("rect", { x: fx(b.hz) - bw / 2, y: Math.min(y, y0), width: bw * 0.8, height: Math.max(1, Math.abs(y - y0)), fill: col, rx: 2 }));
+  }
+  if (cmp && cmp.bands) {
+    let d = ""; for (const b of cmp.bands) d += (d ? "L" : "M") + fx(b.hz).toFixed(1) + " " + dy(b.db).toFixed(1);
+    s.append(svg("path", { d, fill: "none", stroke: "#8c97a6", "stroke-width": 2, "stroke-dasharray": "6 4" }));
+  }
+  for (const p of a.peaks || []) if (p.tonjolan_db >= 12) {
+    const x = fx(p.hz);
+    s.append(svg("path", { d: `M${x - 6} ${T + 2} L${x + 6} ${T + 2} L${x} ${T + 12} Z`, fill: p.persisten >= 0.7 ? "#ff6b6b" : "#8c97a6" }));
+    const t = svg("text", { x: x + 8, y: T + 11 }); t.textContent = "≈" + p.hz + " Hz"; s.append(t);
+  }
+  $("cmpLegend").hidden = !cmp;
+}
+function showAnalysis(a) {
+  $("resCard").hidden = false;
+  drawSpec(a, st.compare);
+  const g = a.groups;
+  say("levels", `Level rekaman: rata-rata ${a.rms_db} dBFS, puncak ${a.peak_db} dBFS\n` +
+    Object.entries(g).filter(([, v]) => v != null).map(([k, v]) => `${k} Hz: ${v > 0 ? "+" : ""}${v} dB`).join(" · "));
+  $("indList").replaceChildren(...a.indikasi.map((t) => el("li", { text: t })));
+}
+
+// ---------- WAV 16 kHz mono untuk disimpan/dikirim ----------
+async function toWav16k(x, sr) {
+  const tmp = new AudioBuffer({ length: x.length, sampleRate: sr, numberOfChannels: 1 });
+  tmp.copyToChannel(x, 0);
+  const off = new OfflineAudioContext(1, Math.ceil(x.length * 16000 / sr), 16000);
+  const src = off.createBufferSource(); src.buffer = tmp; src.connect(off.destination); src.start();
+  const out = (await off.startRendering()).getChannelData(0);
+  const buf = new ArrayBuffer(44 + out.length * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + out.length * 2, true); w(8, "WAVE"); w(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 16000, true);
+  v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, out.length * 2, true);
+  for (let i = 0; i < out.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, out[i])) * 32767, true);
+  let bin = ""; const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+$("btnAnalyze").addEventListener("click", async () => {
+  const start = parseFloat($("start").value), dur = selDur();
+  const a0 = Math.floor(start * st.sr), x = st.mono.slice(a0, a0 + Math.floor(dur * st.sr));
+  $("btnAnalyze").disabled = true;
+  try {
+    st.analysis = analyze(x, st.sr);
+    showAnalysis(st.analysis);
+    $("aiResult").replaceChildren(); say("aiOut", "");
+    say("saveOut", "Menyimpan klip…");
+    const wav = await toWav16k(x, st.sr);
+    st.saved = await api("/api/clips", { wav_b64: wav, analisis: st.analysis,
+      meta: { posisi: $("posisi").value, situasi: $("situasi").value, catatan: $("catatan").value, nama_file: st.fileName, mulai_detik: start } });
+    say("saveOut", "Tersimpan sebagai " + st.saved.id + ".", "ok");
+    $("savedAudio").src = "../data/clips/" + st.saved.id + ".wav"; $("savedAudio").hidden = false;
+    loadList();
+  } catch (e) { say("saveOut", e.message, "bad"); }
+  $("btnAnalyze").disabled = false;
+  refreshAI();
+});
+
+// ---------- Gemini ----------
+function refreshAI() {
+  const ready = st.aiReady && st.saved && $("izin").checked;
+  $("btnAI").disabled = !ready;
+  $("aiState").textContent = !st.aiReady ? "Gemini belum diatur (isi API key di Beranda dari laptop/komputer utama)." :
+    !st.saved ? "Analisis & simpan potongan dulu." : `Yang dikirim: potongan ${st.saved.audio.seconds} detik (WAV 16 kHz mono) + angka analisis di atas + ringkasan setting mixer.`;
+}
+$("izin").addEventListener("change", refreshAI);
+function fcard(f) {
+  return el("div", { class: "fcard" }, el("span", { class: "aitag", text: "✦ Gemini · keyakinan " + f.keyakinan }),
+    el("h4", { text: f.masalah }),
+    el("ol", null, ...[["Kemungkinan penyebab", f.penyebab], ["Data pembuktian", f.data], ["Langkah uji", f.uji],
+      ["Rekomendasi", f.rekomendasi], ["Risiko perubahan", f.risiko]].map(([k, v]) => el("li", null, el("b", { text: k + ": " }), v || "—"))),
+    f.usulan && f.usulan.length ? el("ul", { class: "ind" }, ...f.usulan.map((u) => el("li", { text: (f.ch ? "CH " + String(f.ch).padStart(2, "0") + ": " : "") + u.teks }))) : null);
+}
+const ASPEK = { kejelasan_vokal: "Kejelasan vokal", kejelasan_khotbah: "Kejelasan khotbah", boomy: "Boomy (nada rendah berlebih)", tajam: "Tajam / menusuk",
+  gema: "Gema / pantulan", feedback: "Feedback / dengung", keseimbangan_musik_vokal: "Keseimbangan musik–vokal", terlalu_keras: "Terlalu keras" };
+function showAI(res) {
+  const nodes = [el("div", { class: "out ok", text: res.ringkasan || "—" })];
+  if (res.penilaian && res.penilaian.length) {
+    const t = el("table", null, el("thead", null, el("tr", null, el("th", { text: "Aspek" }), el("th", { text: "Nilai" }), el("th", { text: "Alasan" }))));
+    const tb = el("tbody");
+    for (const p of res.penilaian) tb.append(el("tr", null, el("td", { text: ASPEK[p.aspek] || p.aspek }),
+      el("td", { class: "v-" + p.nilai, text: p.nilai.replace(/_/g, " ") }), el("td", { text: p.alasan })));
+    t.append(tb); nodes.push(el("h3", { text: "Penilaian dari mendengar" }), t);
+  }
+  if (res.butuh_data && res.butuh_data.length) nodes.push(el("h3", { text: "Data yang masih dibutuhkan" }), el("ul", { class: "ind" }, ...res.butuh_data.map((x) => el("li", { text: x }))));
+  if (res.prioritas && res.prioritas.length) nodes.push(el("h3", { text: "Prioritas" }), ...res.prioritas.map(fcard));
+  nodes.push(el("p", { class: "note", text: `Model ${res.model} · ${res.dibuat}` + (res.usulan_dibuang ? ` · ${res.usulan_dibuang} usulan angka dibuang (di luar batas aman)` : "") +
+    ". Penilaian dari mendengar rekaman HP bersifat perkiraan; pakai angka spektrum untuk frekuensi." }));
+  $("aiResult").replaceChildren(...nodes);
+}
+$("btnAI").addEventListener("click", async () => {
+  $("btnAI").disabled = true; say("aiOut", "Menunggu Gemini… (bisa 10–60 detik)");
+  try { const res = await api("/api/clips/ai", { id: st.saved.id, izin: $("izin").checked }); say("aiOut", ""); showAI(res); loadList(); }
+  catch (e) { say("aiOut", e.message, "bad"); }
+  refreshAI();
+});
+
+// ---------- daftar klip ----------
+async function loadList() {
+  let list = [];
+  try { list = (await api("/api/clips")).clips; } catch (e) { return; }
+  if (!list.length) { $("clipList").replaceChildren(el("p", { class: "note", text: "Belum ada klip." })); return; }
+  $("clipList").replaceChildren(...list.map((c) => el("div", { class: "cliprow" },
+    el("div", { class: "meta" }, el("b", { text: (c.meta.posisi || "(posisi belum diisi)") + " · " + c.meta.situasi }),
+      `${c.dibuat.replace("T", " ").slice(0, 16)} · ${c.audio.seconds} dtk` + (c.ai ? " · ✦ sudah dinilai Gemini" : "") + (c.meta.catatan ? " · " + c.meta.catatan : "")),
+    el("button", { type: "button", text: "Lihat", onclick: () => {
+      st.saved = c; st.analysis = c.analisis; showAnalysis(c.analisis);
+      $("savedAudio").src = "../data/clips/" + c.id + ".wav"; $("savedAudio").hidden = false;
+      say("saveOut", "Menampilkan klip " + c.id + ".", "ok");
+      if (c.ai) showAI(c.ai); else $("aiResult").replaceChildren();
+      refreshAI(); $("resCard").scrollIntoView({ behavior: "smooth" });
+    } }),
+    el("button", { type: "button", text: "Bandingkan", onclick: () => {
+      st.compare = c.analisis;
+      if (st.analysis) drawSpec(st.analysis, st.compare);
+      say("saveOut", "Pembanding: " + (c.meta.posisi || c.id) + " (" + c.dibuat.slice(0, 16).replace("T", " ") + ").", "ok");
+    } }))));
+}
+
+(async function init() {
+  if (!TOKEN || !location.protocol.startsWith("http")) { $("noServer").hidden = false; return; }
+  try { st.aiReady = (await api("/api/ai")).status.configured; } catch (e) { st.aiReady = false; }
+  refreshAI();
+  loadList();
+})();
+</script>
+</body>
+</html>

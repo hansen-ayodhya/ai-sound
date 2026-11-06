@@ -34,6 +34,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlparse
 
 from . import ai, channels, meters
+from .clips import ClipError, ClipStore
 from .audit import PROBE_ADDRESSES, MixerNotAnswering, run_audit
 from .client import DEFAULT_PORT, ReadOnlyClient
 from .dump import run_dump
@@ -49,6 +50,7 @@ CONTENT_TYPES = {".html": "text/html", ".json": "application/json", ".md": "text
                  ".js": "application/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml"}
 DEFAULT_HTTP_PORT = 8765
 MAX_BODY = 60_000
+MAX_CLIP_BODY = 3_000_000  # klip ≤30 dtk WAV 16 kHz mono ≈ 1 MB, base64 ≈ 1,3 MB
 MAX_PIN_FAILS = 5
 PIN_LOCK_S = 300
 LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown", "/api/ai/config"}
@@ -254,6 +256,24 @@ class App:
         ai.save_config(self.ai_cfg_path, cfg)
         return ai.public_status(cfg)
 
+    @property
+    def clips(self) -> ClipStore:
+        return ClipStore(self.data)
+
+    def clip_ai(self, cid: str) -> dict:
+        if not self._ai_lock.acquire(blocking=False):
+            raise Busy("Gemini masih memproses permintaan sebelumnya. Tunggu sebentar.")
+        try:
+            rec, wav = self.clips.get(cid)
+            _, dump = self.latest_dump()
+            profile = self.profile()
+            findings = findings_json(dump, profile) if dump else []
+            res = ai.analyze_clip(ai.load_config(self.ai_cfg_path), rec, wav, dump, profile, findings, base=self.ai_base)
+            self.clips.set_ai(cid, res)
+            return res
+        finally:
+            self._ai_lock.release()
+
     def ai_analyze(self, situasi: str, pertanyaan: str) -> dict:
         if not self._ai_lock.acquire(blocking=False):
             raise Busy("Gemini masih memproses permintaan sebelumnya. Tunggu sebentar.")
@@ -453,11 +473,14 @@ def make_handler(app: App, http_port: int):
                         rel = target.relative_to(base.resolve())
                         ok_file = (rel.parts[0].startswith("audit-") and target.suffix in (".json", ".md")) or \
                             rel.as_posix() in ("latest.json", "ai-last.json") or \
-                            (len(rel.parts) == 1 and rel.name.startswith("meters-") and target.suffix == ".json")
+                            (len(rel.parts) == 1 and rel.name.startswith("meters-") and target.suffix == ".json") or \
+                            (rel.parts[0] == "clips" and len(rel.parts) == 2 and target.suffix in (".wav", ".json"))
                         if not ok_file:
                             break
                     data = target.read_bytes()
                     ctype = CONTENT_TYPES.get(target.suffix) or mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+                    if target.suffix == ".wav":
+                        ctype = "audio/wav"
                     if target.suffix in (".md", ".jsonl", ".txt"):
                         ctype = "text/plain"
                     if target.suffix == ".html":
@@ -468,9 +491,9 @@ def make_handler(app: App, http_port: int):
                     return self._send(200, data, ctype)
             self._send(404, b"Tidak ditemukan", "text/plain; charset=utf-8")
 
-        def _body(self) -> dict:
+        def _body(self, limit: int = MAX_BODY) -> dict:
             n = int(self.headers.get("Content-Length") or 0)
-            if n > MAX_BODY:
+            if n > limit:
                 raise ValueError("Permintaan terlalu besar.")
             raw = self.rfile.read(n) if n else b"{}"
             obj = json.loads(raw or b"{}")
@@ -516,6 +539,8 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, app.channels_view())
                 if path == "/api/ai":
                     return self._json(200, {**app.ai_view(), "is_local": self._is_local()})
+                if path == "/api/clips":
+                    return self._json(200, {"clips": app.clips.list()})
                 return self._json(404, {"error": "Tidak dikenal."})
             return self._static(path)
 
@@ -533,7 +558,7 @@ def make_handler(app: App, http_port: int):
             if path in LOCAL_ONLY and not self._is_local():
                 return self._json(403, {"error": "Tombol ini hanya bisa dipakai dari laptop yang menjalankan aplikasi."})
             try:
-                body = self._body()
+                body = self._body(MAX_CLIP_BODY if path == "/api/clips" else MAX_BODY)
                 if path == "/api/ip":
                     ip, _ = _parse_target(body)
                     save_ip(ip, app.data / "mixer-ip.txt")
@@ -569,6 +594,13 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, app.save_channels(body.get("profile")))
                 if path == "/api/ai/config":
                     return self._json(200, app.ai_config(body))
+                if path == "/api/clips":
+                    rec = app.clips.save(body.get("wav_b64", ""), body.get("meta"), body.get("analisis"))
+                    return self._json(200, rec)
+                if path == "/api/clips/ai":
+                    if body.get("izin") is not True:
+                        raise ValueError("Centang izin dulu sebelum klip dikirim ke Google.")
+                    return self._json(200, app.clip_ai(str(body.get("id", ""))))
                 if path == "/api/ai/analyze":
                     situasi = str(body.get("situasi", "umum"))
                     if situasi not in ai.SITUASI:
@@ -594,7 +626,7 @@ def make_handler(app: App, http_port: int):
                 return self._json(409, {"error": str(exc)})
             except ai.AIError as exc:
                 return self._json(502, {"error": str(exc)})
-            except (ValueError, ReadOnlyViolation, channels.ProfileError) as exc:
+            except (ValueError, ReadOnlyViolation, channels.ProfileError, ClipError) as exc:
                 return self._json(400, {"error": str(exc)})
 
     return Handler
