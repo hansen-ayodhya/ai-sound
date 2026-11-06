@@ -77,6 +77,10 @@
 - Belum diverifikasi: path/format meter, pemetaan indeks 0..15 = CH 01..16, ambang yang cocok untuk gereja ini.
 - 42 tes lulus; diuji di browser dengan mixer tiruan yang mengalirkan meter.
 
+## Update: kendala USB
+
+- USB MR18 dipakai komputer multimedia untuk playback; tidak dipindah ke laptop. Fitur LAN tetap jalan. Rincian dan opsi di docs/03.
+
 ## Catatan
 
 Repositori ini awalnya berisi proyek lain (aplikasi POS); proyek ini ditempatkan di folder `ai-sound-engineer/` agar terpisah dan tidak menyentuh file yang sudah ada. Bila ingin repositori sendiri, folder ini bisa dipindahkan utuh.

@@ -2,6 +2,17 @@
 
 OSC hanya membawa angka parameter dan meter kasar, tidak bisa dipakai untuk FFT. Audio harus lewat jalur audio.
 
+## KENDALA (2026-11-06): USB MR18 sudah dipakai komputer multimedia
+
+USB MR18 dipakai komputer multimedia untuk memutar playback/video ke mixer. Memindah kabel ke laptop
+mematikan playback. Konsekuensi:
+- Fitur saat ini (audit, meter, pantau live) **tidak terpengaruh**: semuanya lewat LAN, bukan USB.
+- Pengukuran akustik Tahap 2 dilakukan **di luar ibadah**, jadi USB boleh dipindah sementara dengan checklist
+  (catat, pindah, ukur, kembalikan, cek ulang output audio EasyWorship/multimedia sebelum ibadah).
+- Analisis audio **live saat ibadah** (deteksi feedback, Tahap 5) butuh jalur audio permanen ke laptop; opsi
+  dibahas saat sampai di sana (rekam dari komputer multimedia lewat USB yang sama, atau interface terpisah
+  yang diberi sinyal dari output aux MR18). Belum diputuskan; tidak membeli apa pun sekarang.
+
 ## Jalur yang direkomendasikan: USB MR18 sebagai audio interface multichannel
 
 (Jumlah channel dan perilaku driver perlu diverifikasi pada perangkat.)

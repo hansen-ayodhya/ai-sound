@@ -9,7 +9,7 @@ Jangan mengarang. Biarkan "belum diketahui" sampai ada data/foto.
 | 1 | Speaker management / DSP: merek, model, port USB/LAN, software kontrol | Foto panel depan + belakang | **Ashly Protea 4.8SP** (4 in × 8 out). Kontrol via USB + software Protea (Windows) dan RS-232; Ethernet belum terkonfirmasi (sumber pihak ketiga). Konfigurasi aktual belum dibaca. |
 | 2 | Routing output MR18 → DSP, dan routing monitor panggung | Foto panel belakang MR18 + kabel mana ke mana | Belum diketahui |
 | 3 | Software kontrol MR18 yang dipakai (M-AIR / X AIR Edit?), versi firmware, perangkat | Setup > Info di aplikasi | Belum diketahui |
-| 4 | PC EasyWorship: OS, CPU/RAM, port USB bebas, bagaimana audio EasyWorship masuk ke mixer | Spesifikasi sistem | Belum diketahui |
+| 4 | PC EasyWorship: OS, CPU/RAM, port USB bebas, bagaimana audio EasyWorship masuk ke mixer | Spesifikasi sistem | **Audio playback komputer multimedia masuk ke MR18 lewat USB** (dikonfirmasi 2026-11-06). Kabel USB MR18 tidak bisa dipindah ke laptop tanpa mematikan playback. Apakah komputer multimedia = komputer EasyWorship: belum dipastikan. |
 | 5 | Daftar channel yang biasa dipakai (vokal, instrumen, jenis mic, wireless/kabel) | Daftar/foto mixer | Belum diketahui |
 | 6 | Mikrofon drum: merek/model | Foto | Belum diketahui |
 | 7 | Speaker Mickey: model lengkap; subwoofer: spesifikasi | Foto label | Belum diketahui |
