@@ -53,7 +53,8 @@ MAX_BODY = 60_000
 MAX_CLIP_BODY = 3_000_000  # klip ≤30 dtk WAV 16 kHz mono ≈ 1 MB, base64 ≈ 1,3 MB
 MAX_PIN_FAILS = 5
 PIN_LOCK_S = 300
-LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown", "/api/ai/config"}
+# Kunci Gemini boleh DITULIS dari perangkat yang sudah masuk (PIN); kunci tidak pernah dikirim balik.
+LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown"}
 
 LOGIN_PAGE = """<!doctype html><html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Masuk</title>

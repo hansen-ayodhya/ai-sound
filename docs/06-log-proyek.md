@@ -142,6 +142,12 @@
 - Kolom API key tersembunyi bila Beranda dibuka lewat IP jaringan komputer itu sendiri (dianggap perangkat lain). Kini semua alamat milik komputer yang menjalankan aplikasi dianggap lokal; bila tetap dari perangkat lain, ada pesan jelas berisi alamat localhost. Kolom password kini diberi gaya yang sama.
 - Tampilan Mixer: Zoom −/+, "Pas layar", 100%; jumlah channel 4/6/8/12/Semua dengan halaman ◀ ▶; "Hanya yang ada di Daftar Channel"; tampilkan/sembunyikan Bus & Main. Pilihan disimpan per perangkat (browser). HP: bawaan 4 channel, zoom 80%.
 
+## Update: API key dari perangkat mana pun + pilih channel bebas + landscape HP
+
+- Kolom API key selalu tampil; kunci boleh DITULIS dari perangkat yang sudah masuk (PIN), tetap tidak pernah dikirim balik ke browser. Format kunci dilonggarkan (karakter cetak 20–300). Tombol Tampilkan/Sembunyikan + baris diagnosis (dibuka dari mana, alamat).
+- Tampilan Mixer: pilihan 4/6/8/12 + halaman diganti "☰ Pilih channel": centang bebas tiap CH 01–16, Bus 1–6, Main; tombol cepat Semua / Kosongkan / Sesuai Daftar Channel / Hanya yang ON. Disimpan per perangkat.
+- HP: tombol "↻ Landscape" (layar penuh + kunci mendatar bila HP mengizinkan; bila tidak, petunjuk putar otomatis). Saat mendatar, header diringkas dan "Pas layar" menyesuaikan lebar dan tinggi.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

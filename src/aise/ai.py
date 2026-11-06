@@ -53,7 +53,8 @@ def public_status(cfg: dict) -> dict:
 
 
 def valid_key_format(key: str) -> bool:
-    return bool(re.fullmatch(r"[A-Za-z0-9_\-]{20,200}", key or ""))
+    """Longgar: karakter cetak tanpa spasi, 20–300 karakter (format kunci Google bisa berubah)."""
+    return bool(re.fullmatch(r"[\x21-\x7e]{20,300}", key or ""))
 
 
 # ---------- HTTP ----------

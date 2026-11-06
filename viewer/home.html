@@ -131,9 +131,12 @@
     <h2>AI (Google Gemini)</h2>
     <p class="sub">Opsional. Gemini dipanggil hanya saat Anda menekan "Analisis AI" di Tampilan Mixer. Yang dikirim hanya ringkasan angka — bukan audio, IP, PIN, atau kunci.</p>
     <div class="out" id="aiStatus"></div>
-    <div id="aiForm" hidden>
+    <div id="aiForm">
       <label class="f" for="aiKey">API key dari Google AI Studio</label>
-      <input type="password" id="aiKey" autocomplete="off" placeholder="tempel kunci di sini (tidak ditampilkan lagi setelah disimpan)">
+      <div class="row">
+        <div><input type="password" id="aiKey" autocomplete="off" spellcheck="false" placeholder="klik di sini lalu tempel (Ctrl+V / tahan lalu Paste)"></div>
+        <div class="narrow"><button type="button" id="btnAiShow" style="width:100%">Tampilkan</button></div>
+      </div>
       <div class="btns">
         <button class="primary" id="btnAiSave">Simpan &amp; cek kunci</button>
         <button id="btnAiDel">Hapus kunci</button>
@@ -142,7 +145,8 @@
         <label class="f" for="aiModel">Model</label>
         <select id="aiModel"></select>
       </div>
-      <p class="sub" style="margin-top:10px">Kunci disimpan hanya di komputer ini (folder data). Tier gratis: Google dapat memakai isi permintaan untuk mengembangkan produknya — cek syarat resminya.</p>
+      <p class="sub" style="margin-top:10px">Kunci disimpan hanya di komputer yang menjalankan aplikasi (folder data) dan tidak pernah ditampilkan lagi ke browser mana pun. Tier gratis: Google dapat memakai isi permintaan untuk mengembangkan produknya — cek syarat resminya.</p>
+      <p class="sub" id="aiDiag"></p>
     </div>
     <div class="out" id="aiOut"></div>
   </section>
@@ -367,11 +371,15 @@ async function loadAI(isLocal) {
   try {
     const v = await api("/api/ai");
     showAIStatus(v.status);
-    $("aiForm").hidden = !isLocal;
-    if (!isLocal) say("aiOut", "Kolom API key hanya muncul di komputer yang menjalankan aplikasi (yang ada jendela hitamnya). " +
-      "Di komputer itu, buka alamat  http://localhost:" + location.port + "/viewer/home.html  lalu isi kuncinya di sini.", "warn");
+    $("aiDiag").textContent = "Dibuka dari: " + (isLocal ? "komputer yang menjalankan aplikasi" : "perangkat lain (sudah masuk dengan PIN)") +
+      " · alamat: " + location.host;
   } catch (e) { say("aiStatus", e.message, "bad"); }
 }
+$("btnAiShow").addEventListener("click", () => {
+  const k = $("aiKey"), show = k.type === "password";
+  k.type = show ? "text" : "password";
+  $("btnAiShow").textContent = show ? "Sembunyikan" : "Tampilkan";
+});
 $("btnAiSave").addEventListener("click", async () => {
   const key = $("aiKey").value.trim();
   if (!key) { say("aiOut", "Tempel API key dulu.", "warn"); return; }

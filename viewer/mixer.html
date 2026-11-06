@@ -177,6 +177,25 @@
   .viewbar button:disabled { opacity: .4; cursor: default; }
   .viewbar .zv { min-width: 46px; text-align: center; color: var(--text); font-variant-numeric: tabular-nums; }
   .viewbar label { display: flex; gap: 5px; align-items: center; cursor: pointer; }
+  .picker { margin: 0 16px 8px; padding: 10px 12px; background: var(--desk); border: 1px solid var(--line); border-radius: 8px; }
+  .pickbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .pickbtns button { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--strip); color: var(--text); cursor: pointer; }
+  .pickbtns .close2 { margin-left: auto; background: var(--accent); color: #0b1a2e; border-color: var(--accent); font-weight: 700; }
+  .pickgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 10px; }
+  .pickgrid label { display: flex; gap: 6px; align-items: center; font-size: 13px; padding: 3px 4px; border-radius: 5px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pickgrid label:hover { background: var(--strip); }
+  .pickgrid .sep { grid-column: 1 / -1; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 6px; }
+  /* HP posisi mendatar: header ringkas supaya strip mendapat tempat */
+  @media (orientation: landscape) and (max-height: 520px) {
+    .top { position: static; padding: 4px 10px; gap: 4px 8px; }
+    .brand span, .flags { display: none; }
+    .actions { flex-wrap: nowrap; overflow-x: auto; margin-left: 0; max-width: 100%; }
+    .actions button, .actions a, .actions label { padding: 3px 8px; font-size: 12px; white-space: nowrap; }
+    .source, .livebar { padding: 2px 10px; font-size: 11px; }
+    .viewbar { padding: 2px 10px; }
+    .desk { padding: 4px 10px 8px; }
+    .foot, #general { display: none; }
+  }
   .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
@@ -219,18 +238,18 @@
     <button type="button" id="zFit">Pas layar</button>
     <button type="button" id="zReset">100%</button>
   </div>
-  <div class="grp" role="group" aria-label="Channel yang ditampilkan">
-    <span>Tampilkan</span>
-    <select id="chCount" aria-label="Jumlah channel">
-      <option value="4">4 channel</option><option value="6">6 channel</option><option value="8">8 channel</option>
-      <option value="12">12 channel</option><option value="all">Semua</option>
-    </select>
-    <button type="button" id="pgPrev" aria-label="Channel sebelumnya">◀</button>
-    <span id="pgLbl"></span>
-    <button type="button" id="pgNext" aria-label="Channel berikutnya">▶</button>
+  <button type="button" id="btnPick" aria-expanded="false" aria-controls="picker">☰ Pilih channel</button>
+  <button type="button" id="btnLand" hidden>↻ Landscape</button>
+</div>
+<div class="picker" id="picker" hidden>
+  <div class="pickbtns">
+    <button type="button" id="pkAll">Semua</button>
+    <button type="button" id="pkNone">Kosongkan</button>
+    <button type="button" id="pkListed">Sesuai Daftar Channel</button>
+    <button type="button" id="pkOn">Hanya yang ON</button>
+    <button type="button" id="pkClose" class="close2">Selesai</button>
   </div>
-  <label><input type="checkbox" id="onlyListed"> Hanya yang ada di Daftar Channel</label>
-  <label><input type="checkbox" id="showMasters"> Bus &amp; Main</label>
+  <div class="pickgrid" id="pickGrid"></div>
 </div>
 <main class="desk" id="desk"><div class="empty">Memuat…</div></main>
 <p class="foot">Angka bertanda ≈ dihitung dengan rumus perkiraan keluarga X Air dan belum dicocokkan dengan MR18 Anda.
@@ -703,77 +722,113 @@ function render() {
   const shown = visibleChannels();
   const ins = el("div", { class: "group" }, el("h2", { text: "Input" }),
     shown.length ? el("div", { class: "strips" }, ...shown.map(channelStrip))
-      : el("div", { class: "empty", text: "Tidak ada channel yang cocok dengan pilihan tampilan." }));
-  const parts = [ins];
-  if (state.view.showMasters) {
-    const bs = buses();
-    if (bs.length) parts.push(el("div", { class: "group" }, el("h2", { text: "Bus (monitor/FX)" }),
-      el("div", { class: "strips" }, ...bs.map((b) => masterStrip("BUS " + b, "/bus/" + b, "bus" + b)))));
-    parts.push(el("div", { class: "group" }, el("h2", { text: "Main" }), el("div", { class: "strips" }, masterStrip("MAIN L/R", "/lr", "lr"))));
-  }
+      : el("div", { class: "empty", text: "Tidak ada channel input yang dipilih." }));
+  const parts = [];
+  if (shown.length || !buses().length) parts.push(ins);
+  const bs = buses().filter((b) => !isHidden("bus" + b));
+  if (bs.length) parts.push(el("div", { class: "group" }, el("h2", { text: "Bus (monitor/FX)" }),
+    el("div", { class: "strips" }, ...bs.map((b) => masterStrip("BUS " + b, "/bus/" + b, "bus" + b)))));
+  if (!isHidden("lr")) parts.push(el("div", { class: "group" }, el("h2", { text: "Main" }), el("div", { class: "strips" }, masterStrip("MAIN L/R", "/lr", "lr"))));
+  if (!parts.length) parts.push(el("div", { class: "empty", text: "Semua strip disembunyikan. Klik “Pilih channel” untuk menampilkan." }));
   desk.replaceChildren(...parts);
   applyZoom();
 }
 
-// ---------- tampilan: zoom & jumlah channel (disimpan per perangkat) ----------
-const VIEW_KEY = "aise.mixer.view";
+// ---------- tampilan: zoom & pilih channel (disimpan per perangkat) ----------
+const VIEW_KEY = "aise.mixer.view2";
 state.view = (() => {
-  const narrow = window.innerWidth < 700;
-  const def = { zoom: narrow ? 0.8 : 1, count: narrow ? "4" : "all", page: 0, onlyListed: false, showMasters: !narrow };
-  try { return { ...def, ...(JSON.parse(localStorage.getItem(VIEW_KEY)) || {}) }; } catch (e) { return def; }
+  const def = { zoom: window.innerWidth < 700 ? 0.8 : 1, hidden: [] };  // hidden = strip yang disembunyikan
+  try {
+    const v = { ...def, ...(JSON.parse(localStorage.getItem(VIEW_KEY)) || {}) };
+    if (!Array.isArray(v.hidden)) v.hidden = [];
+    return v;
+  } catch (e) { return def; }
 })();
 function saveView() { try { localStorage.setItem(VIEW_KEY, JSON.stringify(state.view)); } catch (e) { /* abaikan */ } }
-function filteredChannels() {
-  let list = state.dump ? channels() : [];
-  if (state.view.onlyListed && state.profile) {
-    const used = new Set(state.profile.sources.flatMap((x) => x.ch));
-    list = list.filter((n) => used.has(n));
-  }
-  return list;
-}
+const isHidden = (key) => state.view.hidden.includes(key);
 function visibleChannels() {
-  const list = filteredChannels(), v = state.view;
-  if (v.count === "all") { v.page = 0; updateViewbar(list.length, list); return list; }
-  const n = parseInt(v.count, 10), pages = Math.max(1, Math.ceil(list.length / n));
-  v.page = Math.max(0, Math.min(v.page, pages - 1));
-  const shown = list.slice(v.page * n, v.page * n + n);
-  updateViewbar(list.length, shown);
+  const list = state.dump ? channels() : [];
+  const shown = list.filter((n) => !isHidden("ch" + n));
+  const total = list.length + (state.dump ? buses().length + 1 : 0);
+  const nShown = shown.length + (state.dump ? buses().filter((b) => !isHidden("bus" + b)).length + (isHidden("lr") ? 0 : 1) : 0);
+  $("btnPick").textContent = `☰ Pilih channel (${nShown}/${total})`;
   return shown;
 }
-function updateViewbar(total, shown) {
-  const v = state.view;
-  $("chCount").value = v.count;
-  $("onlyListed").checked = v.onlyListed;
-  $("onlyListed").disabled = !state.profile;
-  $("onlyListed").parentElement.title = state.profile ? "" : "Isi Daftar Channel dulu";
-  $("showMasters").checked = v.showMasters;
-  const paged = v.count !== "all";
-  $("pgPrev").hidden = $("pgNext").hidden = !paged;
-  $("pgPrev").disabled = v.page <= 0;
-  $("pgNext").disabled = !paged || (v.page + 1) * parseInt(v.count, 10) >= total;
-  $("pgLbl").textContent = shown.length ? `CH ${pad2(shown[0])}–${pad2(shown[shown.length - 1])} (${total} channel)` : "";
+function stripKeys() {
+  if (!state.dump) return [];
+  return [...channels().map((n) => ["ch" + n, "CH " + pad2(n) + " " + (raw("/ch/" + pad2(n) + "/config/name") || "") + (roleFor(n) ? " · " + roleFor(n) : ""), "Input"]),
+    ...buses().map((b) => { const nm = String(raw("/bus/" + b + "/config/name") || "");
+      return ["bus" + b, "Bus " + b + (nm && nm.toLowerCase() !== ("bus " + b) ? " " + nm : ""), "Bus & Main"]; }),
+    ["lr", "Main L/R", "Bus & Main"]];
 }
+function buildPicker() {
+  const grid = $("pickGrid");
+  grid.replaceChildren();
+  let group = "";
+  for (const [key, label, g] of stripKeys()) {
+    if (g !== group) { grid.append(el("div", { class: "sep", text: g })); group = g; }
+    const cb = el("input", { type: "checkbox" });
+    cb.checked = !isHidden(key);
+    cb.addEventListener("change", () => {
+      state.view.hidden = cb.checked ? state.view.hidden.filter((k) => k !== key) : [...state.view.hidden, key];
+      saveView(); render();
+    });
+    grid.append(el("label", { title: label }, cb, label.trim()));
+  }
+  $("pkListed").disabled = !state.profile;
+}
+function setHidden(keys) { state.view.hidden = keys; saveView(); render(); buildPicker(); }
+$("btnPick").addEventListener("click", () => {
+  const open = $("picker").hidden;
+  $("picker").hidden = !open; $("btnPick").setAttribute("aria-expanded", String(open));
+  if (open) buildPicker();
+});
+$("pkClose").addEventListener("click", () => { $("picker").hidden = true; $("btnPick").setAttribute("aria-expanded", "false"); });
+$("pkAll").addEventListener("click", () => setHidden([]));
+$("pkNone").addEventListener("click", () => setHidden(stripKeys().map(([k]) => k)));
+$("pkListed").addEventListener("click", () => {
+  const used = new Set((state.profile ? state.profile.sources.flatMap((x) => x.ch) : []).map((n) => "ch" + n));
+  setHidden(stripKeys().map(([k]) => k).filter((k) => k.startsWith("ch") && !used.has(k)));
+});
+$("pkOn").addEventListener("click", () =>
+  setHidden(stripKeys().map(([k]) => k).filter((k) => k.startsWith("ch") && raw("/ch/" + pad2(parseInt(k.slice(2), 10)) + "/mix/on") !== 1)));
 function applyZoom() {
   const z = Math.round(state.view.zoom * 100) / 100;
   $("desk").style.zoom = z;
   $("zVal").textContent = Math.round(z * 100) + "%";
-  $("zOut").disabled = z <= 0.4; $("zIn").disabled = z >= 1.8;
+  $("zOut").disabled = z <= 0.3; $("zIn").disabled = z >= 1.8;
 }
-function setZoom(z) { state.view.zoom = Math.max(0.4, Math.min(1.8, z)); saveView(); applyZoom(); }
+function setZoom(z) { state.view.zoom = Math.max(0.3, Math.min(1.8, z)); saveView(); applyZoom(); }
+function fitZoom() {
+  // Muat lebar dan tinggi layar sekaligus (berguna di HP posisi mendatar).
+  const desk = $("desk");
+  desk.style.zoom = 1;
+  const wFit = desk.clientWidth / Math.max(1, desk.scrollWidth);
+  const top = desk.getBoundingClientRect().top + window.scrollY;
+  const hFit = (window.innerHeight - Math.min(top, window.innerHeight * 0.5) - 8) / Math.max(1, desk.scrollHeight);
+  setZoom(Math.floor(Math.min(wFit, hFit, 1.8) * 100) / 100);
+}
 $("zIn").addEventListener("click", () => setZoom(state.view.zoom + 0.1));
 $("zOut").addEventListener("click", () => setZoom(state.view.zoom - 0.1));
 $("zReset").addEventListener("click", () => setZoom(1));
-$("zFit").addEventListener("click", () => {
-  const desk = $("desk");
-  desk.style.zoom = 1;
-  const need = desk.scrollWidth, have = desk.clientWidth;
-  setZoom(need > 0 ? Math.floor((have / need) * 100) / 100 : 1);
+$("zFit").addEventListener("click", fitZoom);
+
+// ---------- HP: landscape ----------
+const isPhone = window.matchMedia("(pointer: coarse)").matches || Math.min(screen.width, screen.height) < 700;
+if (isPhone) $("btnLand").hidden = false;
+$("btnLand").addEventListener("click", async () => {
+  try {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+    if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape");
+  } catch (e) {
+    alert("HP ini tidak mengizinkan halaman memutar layar sendiri. Aktifkan putar otomatis (auto-rotate) lalu miringkan HP ke posisi mendatar.");
+  }
 });
-$("chCount").addEventListener("change", () => { state.view.count = $("chCount").value; state.view.page = 0; saveView(); render(); });
-$("pgPrev").addEventListener("click", () => { state.view.page--; saveView(); render(); });
-$("pgNext").addEventListener("click", () => { state.view.page++; saveView(); render(); });
-$("onlyListed").addEventListener("change", () => { state.view.onlyListed = $("onlyListed").checked; state.view.page = 0; saveView(); render(); });
-$("showMasters").addEventListener("change", () => { state.view.showMasters = $("showMasters").checked; saveView(); render(); });
+let lastLandscape = null;
+window.addEventListener("resize", () => {
+  const land = window.innerWidth > window.innerHeight && window.innerHeight < 520;
+  if (isPhone && land !== lastLandscape) { lastLandscape = land; if (land && state.dump) setTimeout(fitZoom, 250); }
+});
 
 // ---------- meter simulasi ----------
 let lastT = 0;
