@@ -36,6 +36,15 @@
 - BELUM diuji pada MR18 nyata. Yang harus diverifikasi saat di dekat mixer: port UDP, format balasan, daftar alamat, allowlist.
 - Langkah berikutnya: saat dekat MR18 (di luar ibadah) simpan scene baseline via aplikasi resmi, lalu jalankan dump dua kali dan diff.
 
+## Update 2026-11-06: pekerjaan offline (B)
+
+- Penjaga diperluas: boleh `/meters <path> [int...]` (baca level) dengan validasi ketat; semua tulis tetap ditolak.
+- `aise.meters` + `aise.monitor`: rekam meter dan ringkas puncak/clipping. Format blob dan pemetaan indeks ke channel belum diverifikasi pada MR18.
+- `aise.report`: laporan audit Markdown dari dump, dengan temuan enam-unsur (HPF mati di channel suara, kompresor mati, phantom di non-mic, dump kosong). Aturan masih sedikit dan sebagian berdasarkan nama channel.
+- `docs/07-ashly-protea-4-8sp.md`: panduan baca DSP, belum dijalankan.
+- 22 tes lulus (mixer tiruan). Belum ada yang diuji pada MR18/DSP nyata.
+- Berikutnya: uji kecil `--only /info` di dekat MR18, dump penuh x2, lalu koreksi alamat/format berdasarkan balasan.
+
 ## Catatan
 
 Repositori ini awalnya berisi proyek lain (aplikasi POS); proyek ini ditempatkan di folder `ai-sound-engineer/` agar terpisah dan tidak menyentuh file yang sudah ada. Bila ingin repositori sendiri, folder ini bisa dipindahkan utuh.

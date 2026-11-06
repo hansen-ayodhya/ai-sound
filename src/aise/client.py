@@ -81,3 +81,37 @@ class ReadOnlyClient:
                     return args
         self._log(event="no_reply", address=address)
         return None
+
+    def subscribe_meters(self, path: str, seconds: float, renew_every: float = 8.0) -> list[bytes]:
+        """Minta stream meter selama `seconds` detik; kembalikan daftar blob mentah.
+
+        Permintaan diperiksa penjaga seperti pesan lain. Langganan di mixer
+        kedaluwarsa sendiri, jadi permintaan diulang tiap `renew_every` detik.
+        """
+        packet = encode("/meters", (path,))
+        blobs: list[bytes] = []
+        start = time.monotonic()
+        end = start + seconds
+        next_renew = start
+        self._log(event="meters_start", path=path, seconds=seconds)
+        old_timeout = self._sock.gettimeout()
+        self._sock.settimeout(0.2)
+        try:
+            while time.monotonic() < end:
+                if time.monotonic() >= next_renew:
+                    self._send(packet)
+                    next_renew = time.monotonic() + renew_every
+                try:
+                    data, _ = self._sock.recvfrom(65535)
+                except socket.timeout:
+                    continue
+                try:
+                    addr, args = decode(data)
+                except OscError:
+                    continue
+                if addr == path and args and isinstance(args[0], (bytes, bytearray)):
+                    blobs.append(bytes(args[0]))
+        finally:
+            self._sock.settimeout(old_timeout)
+        self._log(event="meters_end", path=path, frames=len(blobs))
+        return blobs

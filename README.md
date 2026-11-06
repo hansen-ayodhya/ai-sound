@@ -55,6 +55,7 @@ Daftar lengkap yang belum diketahui ada di [docs/05-informasi-perangkat.md](docs
 - [04 – Keamanan dan kontrol](docs/04-keamanan-dan-kontrol.md)
 - [05 – Informasi perangkat (checklist)](docs/05-informasi-perangkat.md)
 - [06 – Log proyek dan langkah berikutnya](docs/06-log-proyek.md)
+- [07 – Panduan membaca Ashly Protea 4.8SP](docs/07-ashly-protea-4-8sp.md)
 
 ## Cara bekerja
 

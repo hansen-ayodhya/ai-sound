@@ -17,6 +17,8 @@ class FakeMixer:
         self.state = dict(state)
         self.write_attempts: list[tuple[str, tuple]] = []
         self.queries: list[str] = []
+        self.meter_requests: list[tuple] = []
+        self.meter_frames: dict[str, list[bytes]] = {}
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock.bind(("127.0.0.1", 0))
         self._sock.settimeout(0.1)
@@ -50,6 +52,11 @@ class FakeMixer:
             try:
                 address, args = decode(data)
             except OscError:
+                continue
+            if address == "/meters" and args and isinstance(args[0], str):
+                self.meter_requests.append(args)
+                for blob in self.meter_frames.get(args[0], []):
+                    self._sock.sendto(encode(args[0], (blob,)), peer)
                 continue
             if args:
                 self.write_attempts.append((address, args))
