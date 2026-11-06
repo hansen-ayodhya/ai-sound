@@ -1,0 +1,86 @@
+[
+ {
+  "id": "hpf-mati-ch01",
+  "severity": "perhatian",
+  "channel": "Ch 01 'Vokal 1'",
+  "masalah": "Low cut (HPF) mati pada channel suara: Ch 01 'Vokal 1'.",
+  "penyebab": "Dengung/hembusan napas/handling noise dan energi bass ikut masuk ke PA, menambah suara boomy dan mengurangi kejernihan.",
+  "data": "/ch/01/preamp/hpon = 0 (dump 2026-11-01T20:00:00+0700).",
+  "uji": "Dengarkan atau ukur RTA di bawah ±100 Hz saat orang berbicara/bernyanyi; bandingkan dengan HPF dinyalakan sementara oleh operator.",
+  "rekomendasi": "Nyalakan HPF pada channel suara; titik awal umum 80–120 Hz, disetel dengan telinga dan pengukuran.",
+  "risiko": "Terlalu tinggi membuat suara tipis. Ubah hanya oleh operator, satu channel sekali, catat nilai lama.",
+  "ch": 1
+ },
+ {
+  "id": "tanpa-komp-ch01",
+  "severity": "info",
+  "channel": "Ch 01 'Vokal 1'",
+  "masalah": "Kompresor mati pada channel suara: Ch 01 'Vokal 1'.",
+  "penyebab": "Level vokal naik-turun lebar; operator mengejar fader, hasil mixing tidak konsisten.",
+  "data": "/ch/01/dyn/on = 0.",
+  "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
+  "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
+  "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
+  "ch": 1
+ },
+ {
+  "id": "tanpa-komp-ch02",
+  "severity": "info",
+  "channel": "Ch 02 'Vokal 2'",
+  "masalah": "Kompresor mati pada channel suara: Ch 02 'Vokal 2'.",
+  "penyebab": "Level vokal naik-turun lebar; operator mengejar fader, hasil mixing tidak konsisten.",
+  "data": "/ch/02/dyn/on = 0.",
+  "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
+  "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
+  "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
+  "ch": 2
+ },
+ {
+  "id": "tanpa-komp-ch04",
+  "severity": "info",
+  "channel": "Ch 04 'Khotbah'",
+  "masalah": "Kompresor mati pada channel suara: Ch 04 'Khotbah'.",
+  "penyebab": "Level vokal naik-turun lebar; operator mengejar fader, hasil mixing tidak konsisten.",
+  "data": "/ch/04/dyn/on = 0.",
+  "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
+  "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
+  "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
+  "ch": 4
+ },
+ {
+  "id": "phantom-ch13",
+  "severity": "perhatian",
+  "channel": "Ch 13 'Laptop L'",
+  "masalah": "Phantom 48V menyala pada channel yang tampak bukan mikrofon: Ch 13 'Laptop L'.",
+  "penyebab": "Sumber seperti output laptop/keyboard tidak memerlukan 48V; sebagian perangkat bisa rusak atau berdengung.",
+  "data": "/headamp/13/phantom = 1.",
+  "uji": "Cek apa yang fisik terpasang ke input itu.",
+  "rekomendasi": "Matikan 48V jika sumbernya bukan mikrofon kondenser/DI aktif yang membutuhkannya.",
+  "risiko": "Mematikan 48V pada kondenser membuatnya diam; ubah hanya oleh operator dengan fader turun.",
+  "ch": 13
+ },
+ {
+  "id": "hpf-mati-ch15",
+  "severity": "perhatian",
+  "channel": "Ch 15 'Choir'",
+  "masalah": "Low cut (HPF) mati pada channel suara: Ch 15 'Choir'.",
+  "penyebab": "Dengung/hembusan napas/handling noise dan energi bass ikut masuk ke PA, menambah suara boomy dan mengurangi kejernihan.",
+  "data": "/ch/15/preamp/hpon = 0 (dump 2026-11-01T20:00:00+0700).",
+  "uji": "Dengarkan atau ukur RTA di bawah ±100 Hz saat orang berbicara/bernyanyi; bandingkan dengan HPF dinyalakan sementara oleh operator.",
+  "rekomendasi": "Nyalakan HPF pada channel suara; titik awal umum 80–120 Hz, disetel dengan telinga dan pengukuran.",
+  "risiko": "Terlalu tinggi membuat suara tipis. Ubah hanya oleh operator, satu channel sekali, catat nilai lama.",
+  "ch": 15
+ },
+ {
+  "id": "tanpa-komp-ch15",
+  "severity": "info",
+  "channel": "Ch 15 'Choir'",
+  "masalah": "Kompresor mati pada channel suara: Ch 15 'Choir'.",
+  "penyebab": "Level vokal naik-turun lebar; operator mengejar fader, hasil mixing tidak konsisten.",
+  "data": "/ch/15/dyn/on = 0.",
+  "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
+  "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
+  "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
+  "ch": 15
+ }
+]

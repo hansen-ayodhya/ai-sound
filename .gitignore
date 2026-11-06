@@ -1,0 +1,16 @@
+# Data operasional gereja: jangan di-commit
+data/
+.env
+*.wav
+*.flac
+*.mp3
+*.scn
+*.snap
+
+__pycache__/
+*.pyc
+.venv/
+src/aise/_build_version.txt
+build/
+dist/
+*.spec

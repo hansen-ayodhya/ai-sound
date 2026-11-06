@@ -1,0 +1,2003 @@
+{
+ "sample": true,
+ "created": "2026-11-08T09:00:00+0700",
+ "queried": 666,
+ "answered": 663,
+ "sha256": "40e289a19df2518af45743abd03dccdbd8988069014da73dacedc4cd0349fef8",
+ "values": {
+  "/info": [
+   "V1.0",
+   "CONTOH",
+   "0.00"
+  ],
+  "/xinfo": null,
+  "/status": null,
+  "/ch/01/config/name": [
+   "Vokal 1"
+  ],
+  "/ch/01/config/color": [
+   2
+  ],
+  "/ch/01/config/insrc": [
+   1
+  ],
+  "/ch/01/preamp/rtnsw": [
+   3
+  ],
+  "/ch/01/preamp/hpon": [
+   0
+  ],
+  "/ch/01/preamp/hpf": [
+   0.072
+  ],
+  "/ch/01/gate/on": [
+   0
+  ],
+  "/ch/01/gate/thr": [
+   0.366
+  ],
+  "/ch/01/dyn/on": [
+   0
+  ],
+  "/ch/01/dyn/thr": [
+   0.91
+  ],
+  "/ch/01/dyn/ratio": [
+   0.215
+  ],
+  "/ch/01/eq/on": [
+   0
+  ],
+  "/ch/01/mix/on": [
+   1
+  ],
+  "/ch/01/mix/fader": [
+   0.9
+  ],
+  "/ch/01/mix/lr": [
+   0
+  ],
+  "/headamp/01/gain": [
+   0.091
+  ],
+  "/headamp/01/phantom": [
+   1
+  ],
+  "/ch/01/eq/1/type": [
+   0
+  ],
+  "/ch/01/eq/1/f": [
+   0.827
+  ],
+  "/ch/01/eq/1/g": [
+   0.124
+  ],
+  "/ch/01/eq/1/q": [
+   0.223
+  ],
+  "/ch/01/eq/2/type": [
+   0
+  ],
+  "/ch/01/eq/2/f": [
+   0.577
+  ],
+  "/ch/01/eq/2/g": [
+   0.397
+  ],
+  "/ch/01/eq/2/q": [
+   0.976
+  ],
+  "/ch/01/eq/3/type": [
+   0
+  ],
+  "/ch/01/eq/3/f": [
+   0.557
+  ],
+  "/ch/01/eq/3/g": [
+   0.133
+  ],
+  "/ch/01/eq/3/q": [
+   0.419
+  ],
+  "/ch/01/eq/4/type": [
+   0
+  ],
+  "/ch/01/eq/4/f": [
+   0.571
+  ],
+  "/ch/01/eq/4/g": [
+   0.56
+  ],
+  "/ch/01/eq/4/q": [
+   0.682
+  ],
+  "/ch/01/mix/01/level": [
+   0.103
+  ],
+  "/ch/01/mix/02/level": [
+   0.571
+  ],
+  "/ch/01/mix/03/level": [
+   0.188
+  ],
+  "/ch/01/mix/04/level": [
+   0.097
+  ],
+  "/ch/01/mix/05/level": [
+   0.712
+  ],
+  "/ch/01/mix/06/level": [
+   0.564
+  ],
+  "/ch/02/config/name": [
+   "Vokal 2"
+  ],
+  "/ch/02/config/color": [
+   1
+  ],
+  "/ch/02/config/insrc": [
+   3
+  ],
+  "/ch/02/preamp/rtnsw": [
+   3
+  ],
+  "/ch/02/preamp/hpon": [
+   1
+  ],
+  "/ch/02/preamp/hpf": [
+   0.466
+  ],
+  "/ch/02/gate/on": [
+   1
+  ],
+  "/ch/02/gate/thr": [
+   0.362
+  ],
+  "/ch/02/dyn/on": [
+   0
+  ],
+  "/ch/02/dyn/thr": [
+   0.794
+  ],
+  "/ch/02/dyn/ratio": [
+   0.699
+  ],
+  "/ch/02/eq/on": [
+   0
+  ],
+  "/ch/02/mix/on": [
+   0
+  ],
+  "/ch/02/mix/fader": [
+   0.574
+  ],
+  "/ch/02/mix/lr": [
+   1
+  ],
+  "/headamp/02/gain": [
+   0.123
+  ],
+  "/headamp/02/phantom": [
+   1
+  ],
+  "/ch/02/eq/1/type": [
+   2
+  ],
+  "/ch/02/eq/1/f": [
+   0.609
+  ],
+  "/ch/02/eq/1/g": [
+   0.073
+  ],
+  "/ch/02/eq/1/q": [
+   0.512
+  ],
+  "/ch/02/eq/2/type": [
+   1
+  ],
+  "/ch/02/eq/2/f": [
+   0.757
+  ],
+  "/ch/02/eq/2/g": [
+   0.152
+  ],
+  "/ch/02/eq/2/q": [
+   0.489
+  ],
+  "/ch/02/eq/3/type": [
+   0
+  ],
+  "/ch/02/eq/3/f": [
+   0.962
+  ],
+  "/ch/02/eq/3/g": [
+   0.078
+  ],
+  "/ch/02/eq/3/q": [
+   0.558
+  ],
+  "/ch/02/eq/4/type": [
+   2
+  ],
+  "/ch/02/eq/4/f": [
+   0.34
+  ],
+  "/ch/02/eq/4/g": [
+   0.35
+  ],
+  "/ch/02/eq/4/q": [
+   0.497
+  ],
+  "/ch/02/mix/01/level": [
+   0.797
+  ],
+  "/ch/02/mix/02/level": [
+   0.069
+  ],
+  "/ch/02/mix/03/level": [
+   0.094
+  ],
+  "/ch/02/mix/04/level": [
+   0.27
+  ],
+  "/ch/02/mix/05/level": [
+   0.697
+  ],
+  "/ch/02/mix/06/level": [
+   0.065
+  ],
+  "/ch/03/config/name": [
+   "Vokal 3"
+  ],
+  "/ch/03/config/color": [
+   2
+  ],
+  "/ch/03/config/insrc": [
+   3
+  ],
+  "/ch/03/preamp/rtnsw": [
+   2
+  ],
+  "/ch/03/preamp/hpon": [
+   1
+  ],
+  "/ch/03/preamp/hpf": [
+   0.887
+  ],
+  "/ch/03/gate/on": [
+   1
+  ],
+  "/ch/03/gate/thr": [
+   0.023
+  ],
+  "/ch/03/dyn/on": [
+   1
+  ],
+  "/ch/03/dyn/thr": [
+   0.355
+  ],
+  "/ch/03/dyn/ratio": [
+   0.611
+  ],
+  "/ch/03/eq/on": [
+   1
+  ],
+  "/ch/03/mix/on": [
+   0
+  ],
+  "/ch/03/mix/fader": [
+   0.218
+  ],
+  "/ch/03/mix/lr": [
+   1
+  ],
+  "/headamp/03/gain": [
+   0.129
+  ],
+  "/headamp/03/phantom": [
+   0
+  ],
+  "/ch/03/eq/1/type": [
+   3
+  ],
+  "/ch/03/eq/1/f": [
+   0.391
+  ],
+  "/ch/03/eq/1/g": [
+   0.871
+  ],
+  "/ch/03/eq/1/q": [
+   0.081
+  ],
+  "/ch/03/eq/2/type": [
+   3
+  ],
+  "/ch/03/eq/2/f": [
+   0.402
+  ],
+  "/ch/03/eq/2/g": [
+   0.278
+  ],
+  "/ch/03/eq/2/q": [
+   0.137
+  ],
+  "/ch/03/eq/3/type": [
+   3
+  ],
+  "/ch/03/eq/3/f": [
+   0.864
+  ],
+  "/ch/03/eq/3/g": [
+   0.278
+  ],
+  "/ch/03/eq/3/q": [
+   0.415
+  ],
+  "/ch/03/eq/4/type": [
+   2
+  ],
+  "/ch/03/eq/4/f": [
+   0.683
+  ],
+  "/ch/03/eq/4/g": [
+   0.38
+  ],
+  "/ch/03/eq/4/q": [
+   0.231
+  ],
+  "/ch/03/mix/01/level": [
+   0.083
+  ],
+  "/ch/03/mix/02/level": [
+   0.151
+  ],
+  "/ch/03/mix/03/level": [
+   0.659
+  ],
+  "/ch/03/mix/04/level": [
+   0.012
+  ],
+  "/ch/03/mix/05/level": [
+   0.831
+  ],
+  "/ch/03/mix/06/level": [
+   0.182
+  ],
+  "/ch/04/config/name": [
+   "Khotbah"
+  ],
+  "/ch/04/config/color": [
+   2
+  ],
+  "/ch/04/config/insrc": [
+   0
+  ],
+  "/ch/04/preamp/rtnsw": [
+   1
+  ],
+  "/ch/04/preamp/hpon": [
+   0
+  ],
+  "/ch/04/preamp/hpf": [
+   0.535
+  ],
+  "/ch/04/gate/on": [
+   1
+  ],
+  "/ch/04/gate/thr": [
+   0.953
+  ],
+  "/ch/04/dyn/on": [
+   0
+  ],
+  "/ch/04/dyn/thr": [
+   0.457
+  ],
+  "/ch/04/dyn/ratio": [
+   0.871
+  ],
+  "/ch/04/eq/on": [
+   1
+  ],
+  "/ch/04/mix/on": [
+   1
+  ],
+  "/ch/04/mix/fader": [
+   0.399
+  ],
+  "/ch/04/mix/lr": [
+   0
+  ],
+  "/headamp/04/gain": [
+   0.482
+  ],
+  "/headamp/04/phantom": [
+   1
+  ],
+  "/ch/04/eq/1/type": [
+   0
+  ],
+  "/ch/04/eq/1/f": [
+   0.191
+  ],
+  "/ch/04/eq/1/g": [
+   0.985
+  ],
+  "/ch/04/eq/1/q": [
+   0.441
+  ],
+  "/ch/04/eq/2/type": [
+   0
+  ],
+  "/ch/04/eq/2/f": [
+   0.34
+  ],
+  "/ch/04/eq/2/g": [
+   0.053
+  ],
+  "/ch/04/eq/2/q": [
+   0.0
+  ],
+  "/ch/04/eq/3/type": [
+   1
+  ],
+  "/ch/04/eq/3/f": [
+   0.537
+  ],
+  "/ch/04/eq/3/g": [
+   0.949
+  ],
+  "/ch/04/eq/3/q": [
+   0.614
+  ],
+  "/ch/04/eq/4/type": [
+   0
+  ],
+  "/ch/04/eq/4/f": [
+   0.874
+  ],
+  "/ch/04/eq/4/g": [
+   0.614
+  ],
+  "/ch/04/eq/4/q": [
+   0.149
+  ],
+  "/ch/04/mix/01/level": [
+   0.252
+  ],
+  "/ch/04/mix/02/level": [
+   0.347
+  ],
+  "/ch/04/mix/03/level": [
+   0.364
+  ],
+  "/ch/04/mix/04/level": [
+   0.123
+  ],
+  "/ch/04/mix/05/level": [
+   0.849
+  ],
+  "/ch/04/mix/06/level": [
+   0.993
+  ],
+  "/ch/05/config/name": [
+   "Gitar Ak"
+  ],
+  "/ch/05/config/color": [
+   3
+  ],
+  "/ch/05/config/insrc": [
+   3
+  ],
+  "/ch/05/preamp/rtnsw": [
+   3
+  ],
+  "/ch/05/preamp/hpon": [
+   1
+  ],
+  "/ch/05/preamp/hpf": [
+   0.086
+  ],
+  "/ch/05/gate/on": [
+   0
+  ],
+  "/ch/05/gate/thr": [
+   0.75
+  ],
+  "/ch/05/dyn/on": [
+   1
+  ],
+  "/ch/05/dyn/thr": [
+   0.479
+  ],
+  "/ch/05/dyn/ratio": [
+   0.692
+  ],
+  "/ch/05/eq/on": [
+   0
+  ],
+  "/ch/05/mix/on": [
+   0
+  ],
+  "/ch/05/mix/fader": [
+   0.951
+  ],
+  "/ch/05/mix/lr": [
+   1
+  ],
+  "/headamp/05/gain": [
+   0.147
+  ],
+  "/headamp/05/phantom": [
+   0
+  ],
+  "/ch/05/eq/1/type": [
+   2
+  ],
+  "/ch/05/eq/1/f": [
+   0.979
+  ],
+  "/ch/05/eq/1/g": [
+   0.863
+  ],
+  "/ch/05/eq/1/q": [
+   0.696
+  ],
+  "/ch/05/eq/2/type": [
+   2
+  ],
+  "/ch/05/eq/2/f": [
+   0.518
+  ],
+  "/ch/05/eq/2/g": [
+   0.908
+  ],
+  "/ch/05/eq/2/q": [
+   0.356
+  ],
+  "/ch/05/eq/3/type": [
+   1
+  ],
+  "/ch/05/eq/3/f": [
+   0.533
+  ],
+  "/ch/05/eq/3/g": [
+   0.779
+  ],
+  "/ch/05/eq/3/q": [
+   0.33
+  ],
+  "/ch/05/eq/4/type": [
+   1
+  ],
+  "/ch/05/eq/4/f": [
+   0.613
+  ],
+  "/ch/05/eq/4/g": [
+   0.788
+  ],
+  "/ch/05/eq/4/q": [
+   0.758
+  ],
+  "/ch/05/mix/01/level": [
+   0.195
+  ],
+  "/ch/05/mix/02/level": [
+   0.239
+  ],
+  "/ch/05/mix/03/level": [
+   0.401
+  ],
+  "/ch/05/mix/04/level": [
+   0.803
+  ],
+  "/ch/05/mix/05/level": [
+   0.2
+  ],
+  "/ch/05/mix/06/level": [
+   0.493
+  ],
+  "/ch/06/config/name": [
+   "Bass"
+  ],
+  "/ch/06/config/color": [
+   0
+  ],
+  "/ch/06/config/insrc": [
+   0
+  ],
+  "/ch/06/preamp/rtnsw": [
+   2
+  ],
+  "/ch/06/preamp/hpon": [
+   1
+  ],
+  "/ch/06/preamp/hpf": [
+   0.259
+  ],
+  "/ch/06/gate/on": [
+   1
+  ],
+  "/ch/06/gate/thr": [
+   0.447
+  ],
+  "/ch/06/dyn/on": [
+   1
+  ],
+  "/ch/06/dyn/thr": [
+   0.955
+  ],
+  "/ch/06/dyn/ratio": [
+   0.365
+  ],
+  "/ch/06/eq/on": [
+   0
+  ],
+  "/ch/06/mix/on": [
+   0
+  ],
+  "/ch/06/mix/fader": [
+   0.227
+  ],
+  "/ch/06/mix/lr": [
+   0
+  ],
+  "/headamp/06/gain": [
+   0.338
+  ],
+  "/headamp/06/phantom": [
+   1
+  ],
+  "/ch/06/eq/1/type": [
+   0
+  ],
+  "/ch/06/eq/1/f": [
+   0.479
+  ],
+  "/ch/06/eq/1/g": [
+   0.653
+  ],
+  "/ch/06/eq/1/q": [
+   0.8
+  ],
+  "/ch/06/eq/2/type": [
+   0
+  ],
+  "/ch/06/eq/2/f": [
+   0.835
+  ],
+  "/ch/06/eq/2/g": [
+   0.12
+  ],
+  "/ch/06/eq/2/q": [
+   0.389
+  ],
+  "/ch/06/eq/3/type": [
+   1
+  ],
+  "/ch/06/eq/3/f": [
+   0.478
+  ],
+  "/ch/06/eq/3/g": [
+   0.179
+  ],
+  "/ch/06/eq/3/q": [
+   0.789
+  ],
+  "/ch/06/eq/4/type": [
+   2
+  ],
+  "/ch/06/eq/4/f": [
+   0.087
+  ],
+  "/ch/06/eq/4/g": [
+   0.946
+  ],
+  "/ch/06/eq/4/q": [
+   0.722
+  ],
+  "/ch/06/mix/01/level": [
+   0.463
+  ],
+  "/ch/06/mix/02/level": [
+   0.743
+  ],
+  "/ch/06/mix/03/level": [
+   0.085
+  ],
+  "/ch/06/mix/04/level": [
+   0.159
+  ],
+  "/ch/06/mix/05/level": [
+   0.993
+  ],
+  "/ch/06/mix/06/level": [
+   0.028
+  ],
+  "/ch/07/config/name": [
+   "Keys L"
+  ],
+  "/ch/07/config/color": [
+   3
+  ],
+  "/ch/07/config/insrc": [
+   1
+  ],
+  "/ch/07/preamp/rtnsw": [
+   3
+  ],
+  "/ch/07/preamp/hpon": [
+   1
+  ],
+  "/ch/07/preamp/hpf": [
+   0.156
+  ],
+  "/ch/07/gate/on": [
+   0
+  ],
+  "/ch/07/gate/thr": [
+   0.021
+  ],
+  "/ch/07/dyn/on": [
+   0
+  ],
+  "/ch/07/dyn/thr": [
+   0.527
+  ],
+  "/ch/07/dyn/ratio": [
+   0.934
+  ],
+  "/ch/07/eq/on": [
+   1
+  ],
+  "/ch/07/mix/on": [
+   0
+  ],
+  "/ch/07/mix/fader": [
+   0.826
+  ],
+  "/ch/07/mix/lr": [
+   0
+  ],
+  "/headamp/07/gain": [
+   0.028
+  ],
+  "/headamp/07/phantom": [
+   0
+  ],
+  "/ch/07/eq/1/type": [
+   2
+  ],
+  "/ch/07/eq/1/f": [
+   0.501
+  ],
+  "/ch/07/eq/1/g": [
+   0.764
+  ],
+  "/ch/07/eq/1/q": [
+   0.326
+  ],
+  "/ch/07/eq/2/type": [
+   3
+  ],
+  "/ch/07/eq/2/f": [
+   0.834
+  ],
+  "/ch/07/eq/2/g": [
+   0.061
+  ],
+  "/ch/07/eq/2/q": [
+   0.74
+  ],
+  "/ch/07/eq/3/type": [
+   3
+  ],
+  "/ch/07/eq/3/f": [
+   0.662
+  ],
+  "/ch/07/eq/3/g": [
+   0.815
+  ],
+  "/ch/07/eq/3/q": [
+   0.517
+  ],
+  "/ch/07/eq/4/type": [
+   1
+  ],
+  "/ch/07/eq/4/f": [
+   0.532
+  ],
+  "/ch/07/eq/4/g": [
+   0.524
+  ],
+  "/ch/07/eq/4/q": [
+   0.019
+  ],
+  "/ch/07/mix/01/level": [
+   0.44
+  ],
+  "/ch/07/mix/02/level": [
+   0.183
+  ],
+  "/ch/07/mix/03/level": [
+   0.004
+  ],
+  "/ch/07/mix/04/level": [
+   0.799
+  ],
+  "/ch/07/mix/05/level": [
+   0.172
+  ],
+  "/ch/07/mix/06/level": [
+   0.473
+  ],
+  "/ch/08/config/name": [
+   "Keys R"
+  ],
+  "/ch/08/config/color": [
+   0
+  ],
+  "/ch/08/config/insrc": [
+   0
+  ],
+  "/ch/08/preamp/rtnsw": [
+   2
+  ],
+  "/ch/08/preamp/hpon": [
+   1
+  ],
+  "/ch/08/preamp/hpf": [
+   0.784
+  ],
+  "/ch/08/gate/on": [
+   0
+  ],
+  "/ch/08/gate/thr": [
+   0.883
+  ],
+  "/ch/08/dyn/on": [
+   0
+  ],
+  "/ch/08/dyn/thr": [
+   0.248
+  ],
+  "/ch/08/dyn/ratio": [
+   0.277
+  ],
+  "/ch/08/eq/on": [
+   0
+  ],
+  "/ch/08/mix/on": [
+   1
+  ],
+  "/ch/08/mix/fader": [
+   0.562
+  ],
+  "/ch/08/mix/lr": [
+   0
+  ],
+  "/headamp/08/gain": [
+   0.443
+  ],
+  "/headamp/08/phantom": [
+   0
+  ],
+  "/ch/08/eq/1/type": [
+   2
+  ],
+  "/ch/08/eq/1/f": [
+   0.452
+  ],
+  "/ch/08/eq/1/g": [
+   0.533
+  ],
+  "/ch/08/eq/1/q": [
+   0.478
+  ],
+  "/ch/08/eq/2/type": [
+   1
+  ],
+  "/ch/08/eq/2/f": [
+   0.699
+  ],
+  "/ch/08/eq/2/g": [
+   0.877
+  ],
+  "/ch/08/eq/2/q": [
+   0.942
+  ],
+  "/ch/08/eq/3/type": [
+   2
+  ],
+  "/ch/08/eq/3/f": [
+   0.923
+  ],
+  "/ch/08/eq/3/g": [
+   0.893
+  ],
+  "/ch/08/eq/3/q": [
+   0.203
+  ],
+  "/ch/08/eq/4/type": [
+   3
+  ],
+  "/ch/08/eq/4/f": [
+   0.137
+  ],
+  "/ch/08/eq/4/g": [
+   0.122
+  ],
+  "/ch/08/eq/4/q": [
+   0.442
+  ],
+  "/ch/08/mix/01/level": [
+   0.073
+  ],
+  "/ch/08/mix/02/level": [
+   0.241
+  ],
+  "/ch/08/mix/03/level": [
+   0.073
+  ],
+  "/ch/08/mix/04/level": [
+   0.669
+  ],
+  "/ch/08/mix/05/level": [
+   0.784
+  ],
+  "/ch/08/mix/06/level": [
+   0.897
+  ],
+  "/ch/09/config/name": [
+   "Kick"
+  ],
+  "/ch/09/config/color": [
+   1
+  ],
+  "/ch/09/config/insrc": [
+   2
+  ],
+  "/ch/09/preamp/rtnsw": [
+   1
+  ],
+  "/ch/09/preamp/hpon": [
+   1
+  ],
+  "/ch/09/preamp/hpf": [
+   0.883
+  ],
+  "/ch/09/gate/on": [
+   1
+  ],
+  "/ch/09/gate/thr": [
+   0.22
+  ],
+  "/ch/09/dyn/on": [
+   0
+  ],
+  "/ch/09/dyn/thr": [
+   0.398
+  ],
+  "/ch/09/dyn/ratio": [
+   0.487
+  ],
+  "/ch/09/eq/on": [
+   0
+  ],
+  "/ch/09/mix/on": [
+   0
+  ],
+  "/ch/09/mix/fader": [
+   0.706
+  ],
+  "/ch/09/mix/lr": [
+   1
+  ],
+  "/headamp/09/gain": [
+   0.339
+  ],
+  "/headamp/09/phantom": [
+   0
+  ],
+  "/ch/09/eq/1/type": [
+   2
+  ],
+  "/ch/09/eq/1/f": [
+   0.319
+  ],
+  "/ch/09/eq/1/g": [
+   0.722
+  ],
+  "/ch/09/eq/1/q": [
+   0.019
+  ],
+  "/ch/09/eq/2/type": [
+   3
+  ],
+  "/ch/09/eq/2/f": [
+   0.44
+  ],
+  "/ch/09/eq/2/g": [
+   0.018
+  ],
+  "/ch/09/eq/2/q": [
+   0.331
+  ],
+  "/ch/09/eq/3/type": [
+   2
+  ],
+  "/ch/09/eq/3/f": [
+   0.512
+  ],
+  "/ch/09/eq/3/g": [
+   0.064
+  ],
+  "/ch/09/eq/3/q": [
+   0.985
+  ],
+  "/ch/09/eq/4/type": [
+   1
+  ],
+  "/ch/09/eq/4/f": [
+   0.972
+  ],
+  "/ch/09/eq/4/g": [
+   0.105
+  ],
+  "/ch/09/eq/4/q": [
+   0.266
+  ],
+  "/ch/09/mix/01/level": [
+   0.04
+  ],
+  "/ch/09/mix/02/level": [
+   0.779
+  ],
+  "/ch/09/mix/03/level": [
+   0.27
+  ],
+  "/ch/09/mix/04/level": [
+   0.13
+  ],
+  "/ch/09/mix/05/level": [
+   0.422
+  ],
+  "/ch/09/mix/06/level": [
+   0.911
+  ],
+  "/ch/10/config/name": [
+   "Snare"
+  ],
+  "/ch/10/config/color": [
+   2
+  ],
+  "/ch/10/config/insrc": [
+   3
+  ],
+  "/ch/10/preamp/rtnsw": [
+   1
+  ],
+  "/ch/10/preamp/hpon": [
+   1
+  ],
+  "/ch/10/preamp/hpf": [
+   0.7
+  ],
+  "/ch/10/gate/on": [
+   0
+  ],
+  "/ch/10/gate/thr": [
+   0.279
+  ],
+  "/ch/10/dyn/on": [
+   0
+  ],
+  "/ch/10/dyn/thr": [
+   0.425
+  ],
+  "/ch/10/dyn/ratio": [
+   0.072
+  ],
+  "/ch/10/eq/on": [
+   0
+  ],
+  "/ch/10/mix/on": [
+   0
+  ],
+  "/ch/10/mix/fader": [
+   0.802
+  ],
+  "/ch/10/mix/lr": [
+   0
+  ],
+  "/headamp/10/gain": [
+   0.608
+  ],
+  "/headamp/10/phantom": [
+   0
+  ],
+  "/ch/10/eq/1/type": [
+   0
+  ],
+  "/ch/10/eq/1/f": [
+   0.264
+  ],
+  "/ch/10/eq/1/g": [
+   0.122
+  ],
+  "/ch/10/eq/1/q": [
+   0.012
+  ],
+  "/ch/10/eq/2/type": [
+   3
+  ],
+  "/ch/10/eq/2/f": [
+   0.927
+  ],
+  "/ch/10/eq/2/g": [
+   0.268
+  ],
+  "/ch/10/eq/2/q": [
+   0.129
+  ],
+  "/ch/10/eq/3/type": [
+   1
+  ],
+  "/ch/10/eq/3/f": [
+   0.938
+  ],
+  "/ch/10/eq/3/g": [
+   0.969
+  ],
+  "/ch/10/eq/3/q": [
+   0.262
+  ],
+  "/ch/10/eq/4/type": [
+   1
+  ],
+  "/ch/10/eq/4/f": [
+   0.202
+  ],
+  "/ch/10/eq/4/g": [
+   0.312
+  ],
+  "/ch/10/eq/4/q": [
+   0.305
+  ],
+  "/ch/10/mix/01/level": [
+   0.759
+  ],
+  "/ch/10/mix/02/level": [
+   0.29
+  ],
+  "/ch/10/mix/03/level": [
+   0.5
+  ],
+  "/ch/10/mix/04/level": [
+   0.178
+  ],
+  "/ch/10/mix/05/level": [
+   0.347
+  ],
+  "/ch/10/mix/06/level": [
+   0.018
+  ],
+  "/ch/11/config/name": [
+   "OH L"
+  ],
+  "/ch/11/config/color": [
+   2
+  ],
+  "/ch/11/config/insrc": [
+   0
+  ],
+  "/ch/11/preamp/rtnsw": [
+   0
+  ],
+  "/ch/11/preamp/hpon": [
+   0
+  ],
+  "/ch/11/preamp/hpf": [
+   0.733
+  ],
+  "/ch/11/gate/on": [
+   0
+  ],
+  "/ch/11/gate/thr": [
+   0.514
+  ],
+  "/ch/11/dyn/on": [
+   0
+  ],
+  "/ch/11/dyn/thr": [
+   0.935
+  ],
+  "/ch/11/dyn/ratio": [
+   0.106
+  ],
+  "/ch/11/eq/on": [
+   1
+  ],
+  "/ch/11/mix/on": [
+   1
+  ],
+  "/ch/11/mix/fader": [
+   0.546
+  ],
+  "/ch/11/mix/lr": [
+   1
+  ],
+  "/headamp/11/gain": [
+   0.97
+  ],
+  "/headamp/11/phantom": [
+   1
+  ],
+  "/ch/11/eq/1/type": [
+   1
+  ],
+  "/ch/11/eq/1/f": [
+   0.982
+  ],
+  "/ch/11/eq/1/g": [
+   0.343
+  ],
+  "/ch/11/eq/1/q": [
+   0.832
+  ],
+  "/ch/11/eq/2/type": [
+   1
+  ],
+  "/ch/11/eq/2/f": [
+   0.405
+  ],
+  "/ch/11/eq/2/g": [
+   0.348
+  ],
+  "/ch/11/eq/2/q": [
+   0.054
+  ],
+  "/ch/11/eq/3/type": [
+   1
+  ],
+  "/ch/11/eq/3/f": [
+   0.014
+  ],
+  "/ch/11/eq/3/g": [
+   0.625
+  ],
+  "/ch/11/eq/3/q": [
+   0.88
+  ],
+  "/ch/11/eq/4/type": [
+   3
+  ],
+  "/ch/11/eq/4/f": [
+   0.163
+  ],
+  "/ch/11/eq/4/g": [
+   0.084
+  ],
+  "/ch/11/eq/4/q": [
+   0.841
+  ],
+  "/ch/11/mix/01/level": [
+   0.871
+  ],
+  "/ch/11/mix/02/level": [
+   0.671
+  ],
+  "/ch/11/mix/03/level": [
+   0.282
+  ],
+  "/ch/11/mix/04/level": [
+   0.242
+  ],
+  "/ch/11/mix/05/level": [
+   0.293
+  ],
+  "/ch/11/mix/06/level": [
+   0.459
+  ],
+  "/ch/12/config/name": [
+   "OH R"
+  ],
+  "/ch/12/config/color": [
+   1
+  ],
+  "/ch/12/config/insrc": [
+   2
+  ],
+  "/ch/12/preamp/rtnsw": [
+   3
+  ],
+  "/ch/12/preamp/hpon": [
+   0
+  ],
+  "/ch/12/preamp/hpf": [
+   0.263
+  ],
+  "/ch/12/gate/on": [
+   1
+  ],
+  "/ch/12/gate/thr": [
+   0.973
+  ],
+  "/ch/12/dyn/on": [
+   1
+  ],
+  "/ch/12/dyn/thr": [
+   0.244
+  ],
+  "/ch/12/dyn/ratio": [
+   0.966
+  ],
+  "/ch/12/eq/on": [
+   1
+  ],
+  "/ch/12/mix/on": [
+   0
+  ],
+  "/ch/12/mix/fader": [
+   0.357
+  ],
+  "/ch/12/mix/lr": [
+   0
+  ],
+  "/headamp/12/gain": [
+   0.335
+  ],
+  "/headamp/12/phantom": [
+   0
+  ],
+  "/ch/12/eq/1/type": [
+   3
+  ],
+  "/ch/12/eq/1/f": [
+   0.279
+  ],
+  "/ch/12/eq/1/g": [
+   0.656
+  ],
+  "/ch/12/eq/1/q": [
+   0.248
+  ],
+  "/ch/12/eq/2/type": [
+   0
+  ],
+  "/ch/12/eq/2/f": [
+   0.091
+  ],
+  "/ch/12/eq/2/g": [
+   0.817
+  ],
+  "/ch/12/eq/2/q": [
+   0.144
+  ],
+  "/ch/12/eq/3/type": [
+   0
+  ],
+  "/ch/12/eq/3/f": [
+   0.394
+  ],
+  "/ch/12/eq/3/g": [
+   0.3
+  ],
+  "/ch/12/eq/3/q": [
+   0.63
+  ],
+  "/ch/12/eq/4/type": [
+   0
+  ],
+  "/ch/12/eq/4/f": [
+   0.586
+  ],
+  "/ch/12/eq/4/g": [
+   0.529
+  ],
+  "/ch/12/eq/4/q": [
+   0.751
+  ],
+  "/ch/12/mix/01/level": [
+   0.658
+  ],
+  "/ch/12/mix/02/level": [
+   0.716
+  ],
+  "/ch/12/mix/03/level": [
+   0.879
+  ],
+  "/ch/12/mix/04/level": [
+   0.39
+  ],
+  "/ch/12/mix/05/level": [
+   0.326
+  ],
+  "/ch/12/mix/06/level": [
+   0.985
+  ],
+  "/ch/13/config/name": [
+   "Laptop L"
+  ],
+  "/ch/13/config/color": [
+   1
+  ],
+  "/ch/13/config/insrc": [
+   2
+  ],
+  "/ch/13/preamp/rtnsw": [
+   1
+  ],
+  "/ch/13/preamp/hpon": [
+   0
+  ],
+  "/ch/13/preamp/hpf": [
+   0.825
+  ],
+  "/ch/13/gate/on": [
+   1
+  ],
+  "/ch/13/gate/thr": [
+   0.734
+  ],
+  "/ch/13/dyn/on": [
+   0
+  ],
+  "/ch/13/dyn/thr": [
+   0.91
+  ],
+  "/ch/13/dyn/ratio": [
+   0.753
+  ],
+  "/ch/13/eq/on": [
+   0
+  ],
+  "/ch/13/mix/on": [
+   0
+  ],
+  "/ch/13/mix/fader": [
+   0.085
+  ],
+  "/ch/13/mix/lr": [
+   0
+  ],
+  "/headamp/13/gain": [
+   0.133
+  ],
+  "/headamp/13/phantom": [
+   1
+  ],
+  "/ch/13/eq/1/type": [
+   0
+  ],
+  "/ch/13/eq/1/f": [
+   0.377
+  ],
+  "/ch/13/eq/1/g": [
+   0.451
+  ],
+  "/ch/13/eq/1/q": [
+   0.051
+  ],
+  "/ch/13/eq/2/type": [
+   0
+  ],
+  "/ch/13/eq/2/f": [
+   0.626
+  ],
+  "/ch/13/eq/2/g": [
+   0.681
+  ],
+  "/ch/13/eq/2/q": [
+   0.489
+  ],
+  "/ch/13/eq/3/type": [
+   0
+  ],
+  "/ch/13/eq/3/f": [
+   0.457
+  ],
+  "/ch/13/eq/3/g": [
+   0.07
+  ],
+  "/ch/13/eq/3/q": [
+   0.933
+  ],
+  "/ch/13/eq/4/type": [
+   0
+  ],
+  "/ch/13/eq/4/f": [
+   0.659
+  ],
+  "/ch/13/eq/4/g": [
+   0.066
+  ],
+  "/ch/13/eq/4/q": [
+   0.737
+  ],
+  "/ch/13/mix/01/level": [
+   0.252
+  ],
+  "/ch/13/mix/02/level": [
+   0.074
+  ],
+  "/ch/13/mix/03/level": [
+   0.266
+  ],
+  "/ch/13/mix/04/level": [
+   0.729
+  ],
+  "/ch/13/mix/05/level": [
+   0.205
+  ],
+  "/ch/13/mix/06/level": [
+   0.74
+  ],
+  "/ch/14/config/name": [
+   "Laptop R"
+  ],
+  "/ch/14/config/color": [
+   3
+  ],
+  "/ch/14/config/insrc": [
+   3
+  ],
+  "/ch/14/preamp/rtnsw": [
+   3
+  ],
+  "/ch/14/preamp/hpon": [
+   0
+  ],
+  "/ch/14/preamp/hpf": [
+   0.479
+  ],
+  "/ch/14/gate/on": [
+   1
+  ],
+  "/ch/14/gate/thr": [
+   0.767
+  ],
+  "/ch/14/dyn/on": [
+   0
+  ],
+  "/ch/14/dyn/thr": [
+   0.077
+  ],
+  "/ch/14/dyn/ratio": [
+   0.147
+  ],
+  "/ch/14/eq/on": [
+   1
+  ],
+  "/ch/14/mix/on": [
+   1
+  ],
+  "/ch/14/mix/fader": [
+   0.621
+  ],
+  "/ch/14/mix/lr": [
+   0
+  ],
+  "/headamp/14/gain": [
+   0.012
+  ],
+  "/headamp/14/phantom": [
+   0
+  ],
+  "/ch/14/eq/1/type": [
+   3
+  ],
+  "/ch/14/eq/1/f": [
+   0.269
+  ],
+  "/ch/14/eq/1/g": [
+   0.672
+  ],
+  "/ch/14/eq/1/q": [
+   0.692
+  ],
+  "/ch/14/eq/2/type": [
+   3
+  ],
+  "/ch/14/eq/2/f": [
+   0.291
+  ],
+  "/ch/14/eq/2/g": [
+   0.517
+  ],
+  "/ch/14/eq/2/q": [
+   0.465
+  ],
+  "/ch/14/eq/3/type": [
+   3
+  ],
+  "/ch/14/eq/3/f": [
+   0.767
+  ],
+  "/ch/14/eq/3/g": [
+   0.993
+  ],
+  "/ch/14/eq/3/q": [
+   0.549
+  ],
+  "/ch/14/eq/4/type": [
+   2
+  ],
+  "/ch/14/eq/4/f": [
+   0.978
+  ],
+  "/ch/14/eq/4/g": [
+   0.936
+  ],
+  "/ch/14/eq/4/q": [
+   0.018
+  ],
+  "/ch/14/mix/01/level": [
+   0.459
+  ],
+  "/ch/14/mix/02/level": [
+   0.82
+  ],
+  "/ch/14/mix/03/level": [
+   0.968
+  ],
+  "/ch/14/mix/04/level": [
+   0.449
+  ],
+  "/ch/14/mix/05/level": [
+   0.269
+  ],
+  "/ch/14/mix/06/level": [
+   0.21
+  ],
+  "/ch/15/config/name": [
+   "Choir"
+  ],
+  "/ch/15/config/color": [
+   1
+  ],
+  "/ch/15/config/insrc": [
+   0
+  ],
+  "/ch/15/preamp/rtnsw": [
+   0
+  ],
+  "/ch/15/preamp/hpon": [
+   0
+  ],
+  "/ch/15/preamp/hpf": [
+   0.747
+  ],
+  "/ch/15/gate/on": [
+   1
+  ],
+  "/ch/15/gate/thr": [
+   0.953
+  ],
+  "/ch/15/dyn/on": [
+   0
+  ],
+  "/ch/15/dyn/thr": [
+   0.603
+  ],
+  "/ch/15/dyn/ratio": [
+   0.632
+  ],
+  "/ch/15/eq/on": [
+   1
+  ],
+  "/ch/15/mix/on": [
+   0
+  ],
+  "/ch/15/mix/fader": [
+   0.703
+  ],
+  "/ch/15/mix/lr": [
+   0
+  ],
+  "/headamp/15/gain": [
+   0.498
+  ],
+  "/headamp/15/phantom": [
+   1
+  ],
+  "/ch/15/eq/1/type": [
+   3
+  ],
+  "/ch/15/eq/1/f": [
+   0.025
+  ],
+  "/ch/15/eq/1/g": [
+   0.004
+  ],
+  "/ch/15/eq/1/q": [
+   0.492
+  ],
+  "/ch/15/eq/2/type": [
+   3
+  ],
+  "/ch/15/eq/2/f": [
+   0.405
+  ],
+  "/ch/15/eq/2/g": [
+   0.727
+  ],
+  "/ch/15/eq/2/q": [
+   0.416
+  ],
+  "/ch/15/eq/3/type": [
+   3
+  ],
+  "/ch/15/eq/3/f": [
+   0.316
+  ],
+  "/ch/15/eq/3/g": [
+   0.84
+  ],
+  "/ch/15/eq/3/q": [
+   0.002
+  ],
+  "/ch/15/eq/4/type": [
+   2
+  ],
+  "/ch/15/eq/4/f": [
+   0.839
+  ],
+  "/ch/15/eq/4/g": [
+   0.12
+  ],
+  "/ch/15/eq/4/q": [
+   0.926
+  ],
+  "/ch/15/mix/01/level": [
+   0.713
+  ],
+  "/ch/15/mix/02/level": [
+   0.902
+  ],
+  "/ch/15/mix/03/level": [
+   0.29
+  ],
+  "/ch/15/mix/04/level": [
+   0.372
+  ],
+  "/ch/15/mix/05/level": [
+   0.393
+  ],
+  "/ch/15/mix/06/level": [
+   0.999
+  ],
+  "/ch/16/config/name": [
+   "Spare"
+  ],
+  "/ch/16/config/color": [
+   0
+  ],
+  "/ch/16/config/insrc": [
+   2
+  ],
+  "/ch/16/preamp/rtnsw": [
+   3
+  ],
+  "/ch/16/preamp/hpon": [
+   1
+  ],
+  "/ch/16/preamp/hpf": [
+   0.854
+  ],
+  "/ch/16/gate/on": [
+   1
+  ],
+  "/ch/16/gate/thr": [
+   0.102
+  ],
+  "/ch/16/dyn/on": [
+   1
+  ],
+  "/ch/16/dyn/thr": [
+   0.635
+  ],
+  "/ch/16/dyn/ratio": [
+   0.149
+  ],
+  "/ch/16/eq/on": [
+   1
+  ],
+  "/ch/16/mix/on": [
+   1
+  ],
+  "/ch/16/mix/fader": [
+   0.511
+  ],
+  "/ch/16/mix/lr": [
+   0
+  ],
+  "/headamp/16/gain": [
+   0.773
+  ],
+  "/headamp/16/phantom": [
+   1
+  ],
+  "/ch/16/eq/1/type": [
+   0
+  ],
+  "/ch/16/eq/1/f": null,
+  "/ch/16/eq/1/g": [
+   0.631
+  ],
+  "/ch/16/eq/1/q": [
+   0.913
+  ],
+  "/ch/16/eq/2/type": [
+   1
+  ],
+  "/ch/16/eq/2/f": [
+   0.72
+  ],
+  "/ch/16/eq/2/g": [
+   0.049
+  ],
+  "/ch/16/eq/2/q": [
+   0.732
+  ],
+  "/ch/16/eq/3/type": [
+   3
+  ],
+  "/ch/16/eq/3/f": [
+   0.615
+  ],
+  "/ch/16/eq/3/g": [
+   0.139
+  ],
+  "/ch/16/eq/3/q": [
+   0.869
+  ],
+  "/ch/16/eq/4/type": [
+   3
+  ],
+  "/ch/16/eq/4/f": [
+   0.049
+  ],
+  "/ch/16/eq/4/g": [
+   0.927
+  ],
+  "/ch/16/eq/4/q": [
+   0.127
+  ],
+  "/ch/16/mix/01/level": [
+   0.472
+  ],
+  "/ch/16/mix/02/level": [
+   0.344
+  ],
+  "/ch/16/mix/03/level": [
+   0.298
+  ],
+  "/ch/16/mix/04/level": [
+   0.739
+  ],
+  "/ch/16/mix/05/level": [
+   0.976
+  ],
+  "/ch/16/mix/06/level": [
+   0.26
+  ],
+  "/bus/1/config/name": [
+   "Bus 1"
+  ],
+  "/bus/1/mix/on": [
+   0
+  ],
+  "/bus/1/mix/fader": [
+   0.301
+  ],
+  "/bus/1/eq/on": [
+   1
+  ],
+  "/bus/1/dyn/on": [
+   0
+  ],
+  "/bus/2/config/name": [
+   "Bus 2"
+  ],
+  "/bus/2/mix/on": [
+   0
+  ],
+  "/bus/2/mix/fader": [
+   0.643
+  ],
+  "/bus/2/eq/on": [
+   0
+  ],
+  "/bus/2/dyn/on": [
+   0
+  ],
+  "/bus/3/config/name": [
+   "Bus 3"
+  ],
+  "/bus/3/mix/on": [
+   1
+  ],
+  "/bus/3/mix/fader": [
+   0.55
+  ],
+  "/bus/3/eq/on": [
+   1
+  ],
+  "/bus/3/dyn/on": [
+   1
+  ],
+  "/bus/4/config/name": [
+   "Bus 4"
+  ],
+  "/bus/4/mix/on": [
+   1
+  ],
+  "/bus/4/mix/fader": [
+   0.427
+  ],
+  "/bus/4/eq/on": [
+   0
+  ],
+  "/bus/4/dyn/on": [
+   0
+  ],
+  "/bus/5/config/name": [
+   "Bus 5"
+  ],
+  "/bus/5/mix/on": [
+   0
+  ],
+  "/bus/5/mix/fader": [
+   0.175
+  ],
+  "/bus/5/eq/on": [
+   0
+  ],
+  "/bus/5/dyn/on": [
+   1
+  ],
+  "/bus/6/config/name": [
+   "Bus 6"
+  ],
+  "/bus/6/mix/on": [
+   0
+  ],
+  "/bus/6/mix/fader": [
+   0.368
+  ],
+  "/bus/6/eq/on": [
+   0
+  ],
+  "/bus/6/dyn/on": [
+   0
+  ],
+  "/lr/mix/on": [
+   1
+  ],
+  "/lr/mix/fader": [
+   0.383
+  ],
+  "/lr/eq/on": [
+   0
+  ],
+  "/lr/dyn/on": [
+   1
+  ],
+  "/lr/config/name": [
+   "Main"
+  ],
+  "/fx/1/type": [
+   2
+  ],
+  "/fx/2/type": [
+   2
+  ],
+  "/fx/3/type": [
+   0
+  ],
+  "/fx/4/type": [
+   3
+  ]
+ }
+}
