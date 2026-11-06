@@ -14,7 +14,7 @@ from pathlib import Path
 from .addresses import all_addresses
 from .client import DEFAULT_PORT, ReadOnlyClient
 from .dump import diff, run_dump
-from .report import analyze, render
+from .report import analyze, findings_json, render
 
 PROBE_ADDRESSES = ["/info", "/ch/01/config/name"]
 
@@ -44,13 +44,15 @@ def run_audit(host: str, port: int = DEFAULT_PORT, base: str | Path = "data",
     p1.write_text(json.dumps(d1, indent=2, ensure_ascii=False), encoding="utf-8")
     p2.write_text(json.dumps(d2, indent=2, ensure_ascii=False), encoding="utf-8")
     rep.write_text(render(d1, p1.as_posix()), encoding="utf-8")
+    fnd = folder / "findings.json"
+    fnd.write_text(json.dumps(findings_json(d1), indent=2, ensure_ascii=False), encoding="utf-8")
     changes = diff(d1, d2)
 
     def rel(p: Path) -> str:
         # Jalur relatif terhadap folder proyek (yang disajikan ke penampil).
         return (p.relative_to(base.parent) if base.is_absolute() else p).as_posix()
 
-    latest = {"dump": rel(p1), "compare": rel(p2), "report": rel(rep), "created": d1["created"]}
+    latest = {"dump": rel(p1), "compare": rel(p2), "report": rel(rep), "findings": rel(fnd), "created": d1["created"]}
     (base / "latest.json").write_text(json.dumps(latest, indent=2), encoding="utf-8")
 
     return {

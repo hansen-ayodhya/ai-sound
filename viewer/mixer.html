@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tampilan Mixer</title>
+<style>
+  :root {
+    --bg: #0f1216; --desk: #161b21; --strip: #1d232b; --strip-hi: #252d37;
+    --line: #2c3540; --text: #e6eaf0; --muted: #8c97a6; --dim: #5b6573;
+    --accent: #5aa2ff; --ok: #3fcf7f; --warn: #f5b041; --bad: #ff5d5d;
+    --lit-48v: #ff8f3c; --lit-hpf: #5aa2ff; --lit-gate: #c08cff; --lit-comp: #ffd23c; --lit-eq: #3fcf7f;
+    --meter-lo: #33c46f; --meter-mid: #e9c442; --meter-hi: #ff5d5d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button { font: inherit; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 10px 16px;
+    background: var(--desk); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .brand { font-weight: 700; font-size: 15px; }
+  .brand span { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
+  .flags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .flag { font-size: 11px; font-weight: 700; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
+  .flag.ro { color: var(--ok); border-color: var(--ok); }
+  .flag.est { color: var(--warn); border-color: var(--warn); }
+  .flag.sim { color: var(--accent); border-color: var(--accent); cursor: pointer; background: none; }
+  .flag.sim[aria-pressed="false"] { color: var(--dim); border-color: var(--dim); }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; align-items: center; }
+  .actions button, .actions a, .actions label { color: var(--text); background: var(--strip); border: 1px solid var(--line);
+    padding: 5px 10px; border-radius: 6px; cursor: pointer; text-decoration: none; }
+  .actions input { display: none; }
+  .source { padding: 6px 16px; color: var(--muted); font-size: 12px; }
+  .banner { margin: 6px 16px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--warn); color: var(--warn); background: #2a2210; }
+  .general { margin: 6px 16px; }
+  .desk { display: flex; gap: 14px; padding: 10px 16px 16px; overflow-x: auto; align-items: stretch; }
+  .group { display: flex; flex-direction: column; gap: 6px; }
+  .group h2 { margin: 0; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .strips { display: flex; gap: 6px; }
+  .strip { width: 92px; flex: 0 0 92px; background: var(--strip); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; position: relative; }
+  .strip:hover, .strip.sel { background: var(--strip-hi); border-color: var(--accent); }
+  .strip.master { width: 104px; flex-basis: 104px; }
+  .head { text-align: center; }
+  .num { color: var(--muted); font-size: 11px; }
+  .name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .name.empty { color: var(--dim); font-weight: 400; }
+  .badges { display: flex; justify-content: center; gap: 4px; min-height: 20px; }
+  .badge { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 7px; }
+  .badge.warn { background: #3a2a0c; color: var(--warn); }
+  .badge.info { background: #10263f; color: var(--accent); }
+  .lamps { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+  .lamp { font-size: 10px; font-weight: 700; text-align: center; padding: 2px 0; border-radius: 4px;
+    border: 1px solid var(--line); color: var(--dim); }
+  .lamp.on { color: #111; border-color: transparent; }
+  .lamp.unk { border-style: dashed; }
+  .lamp.l48.on { background: var(--lit-48v); } .lamp.lhpf.on { background: var(--lit-hpf); }
+  .lamp.lgate.on { background: var(--lit-gate); } .lamp.lcomp.on { background: var(--lit-comp); }
+  .lamp.leq.on { background: var(--lit-eq); }
+  .eq { width: 100%; height: 36px; background: #12161b; border-radius: 4px; display: block; }
+  .body { display: flex; gap: 6px; height: 190px; }
+  .meter { width: 12px; flex: 1; background: #0b0e11; border-radius: 3px; position: relative; overflow: hidden; }
+  .meter .fill { position: absolute; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to top, var(--meter-lo) 0%, var(--meter-lo) 60%, var(--meter-mid) 80%, var(--meter-hi) 100%);
+    background-size: 100% 190px; background-position: bottom; }
+  .meter .peak { position: absolute; left: 0; right: 0; height: 2px; background: #fff; opacity: .8; }
+  .meter.off .fill, .meter.off .peak { display: none; }
+  .clip { width: 12px; height: 6px; border-radius: 2px; background: #3a1414; margin-bottom: 3px; }
+  .clip.lit { background: var(--bad); }
+  .mcol { display: flex; flex-direction: column; align-items: center; height: 100%; }
+  .fader { flex: 1; position: relative; display: flex; justify-content: center; }
+  .track { width: 4px; height: 100%; background: #0b0e11; border-radius: 2px; position: relative; }
+  .knob { position: absolute; left: 50%; width: 30px; height: 14px; transform: translate(-50%, 50%);
+    background: linear-gradient(#cfd6df, #8792a0); border-radius: 3px; box-shadow: 0 1px 3px #000a; }
+  .knob::after { content: ""; position: absolute; left: 3px; right: 3px; top: 6px; height: 2px; background: #222; }
+  .db { text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .mute { text-align: center; font-weight: 700; padding: 4px 0; border-radius: 5px; font-size: 11px; }
+  .mute.on { background: #133524; color: var(--ok); }
+  .mute.muted { background: #3a1414; color: var(--bad); }
+  .mute.unk { border: 1px dashed var(--line); color: var(--dim); }
+  .sends { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; align-items: end; height: 22px; }
+  .sends div { background: var(--accent); opacity: .7; border-radius: 1px; min-height: 1px; }
+  .sends div.none { background: var(--dim); opacity: .4; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); background: var(--desk);
+    border-left: 1px solid var(--line); overflow-y: auto; padding: 14px 16px 24px; z-index: 10; box-shadow: -8px 0 24px #0008; }
+  .drawer h3 { margin: 0 0 2px; font-size: 16px; }
+  .drawer .close { float: right; background: none; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+  .drawer table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; }
+  .drawer td { padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  .drawer td:first-child { color: var(--muted); }
+  .drawer td.est::after { content: " ≈"; color: var(--warn); }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: var(--strip); }
+  .card.perhatian { border-color: var(--warn); }
+  .card h4 { margin: 0 0 6px; font-size: 13px; }
+  .card ol { margin: 0; padding-left: 18px; }
+  .card li { margin: 3px 0; }
+  .card li b { color: var(--muted); font-weight: 600; }
+  .approve { display: flex; gap: 6px; margin-top: 8px; }
+  .approve button { flex: 1; padding: 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--strip-hi); color: var(--dim); cursor: not-allowed; }
+  .note { color: var(--muted); font-size: 12px; }
+  .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
+  .empty { padding: 30px 16px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">AI Sound Engineer<span>Tampilan Mixer · purwarupa</span></div>
+  <div class="flags">
+    <span class="flag ro" title="Halaman ini tidak bisa mengubah mixer">HANYA MEMBACA</span>
+    <span class="flag est" title="Angka dB/Hz dihitung dengan rumus perkiraan, belum dicocokkan dengan MR18 Anda">ANGKA PERKIRAAN ≈</span>
+    <button class="flag sim" id="simToggle" aria-pressed="true" title="Klik untuk mematikan/menyalakan">METER SIMULASI</button>
+  </div>
+  <div class="actions">
+    <button id="btnLatest" hidden>Audit terakhir</button>
+    <button id="btnSample" hidden>Data contoh</button>
+    <label>Buka dump…<input type="file" id="fileDump" accept=".json,application/json"></label>
+    <a href="index.html">Tabel</a>
+  </div>
+</header>
+<div class="source" id="source"></div>
+<div id="banner"></div>
+<div id="general" class="general"></div>
+<main class="desk" id="desk"><div class="empty">Memuat…</div></main>
+<p class="foot">Angka bertanda ≈ dihitung dengan rumus perkiraan keluarga X Air dan belum dicocokkan dengan MR18 Anda.
+  Meter yang bergerak adalah SIMULASI dan belum tersambung ke mixer. Tidak ada tombol di halaman ini yang mengubah mixer.</p>
+<aside class="drawer" id="drawer" hidden></aside>
+
+<script>
+"use strict";
+
+// ---------- Konversi PERKIRAAN (belum diverifikasi pada MR18) ----------
+const EST = {
+  faderDb(f) {
+    if (f == null) return null;
+    if (f <= 0) return -Infinity;
+    if (f >= 0.5) return f * 40 - 30;
+    if (f >= 0.25) return f * 80 - 50;
+    if (f >= 0.0625) return f * 160 - 70;
+    return f * 480 - 90;
+  },
+  gainDb: (f) => (f == null ? null : -12 + f * 72),
+  hpfHz: (f) => (f == null ? null : 20 * Math.pow(20, f)),
+  eqHz: (f) => (f == null ? null : 20 * Math.pow(1000, f)),
+  eqGain: (f) => (f == null ? null : f * 30 - 15),
+  eqQ: (f) => (f == null ? null : 10 * Math.pow(0.3 / 10, f)),
+  compThrDb: (f) => (f == null ? null : f * 60 - 60),
+  gateThrDb: (f) => (f == null ? null : f * 80 - 80),
+};
+const fmtDb = (v) => (v == null ? "—" : v === -Infinity ? "-∞" : (v > 0 ? "+" : "") + v.toFixed(1) + " dB");
+const fmtHz = (v) => (v == null ? "—" : v >= 1000 ? (v / 1000).toFixed(1) + " kHz" : Math.round(v) + " Hz");
+
+// ---------- util ----------
+const $ = (id) => document.getElementById(id);
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  if (props) for (const [k, v] of Object.entries(props)) {
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (k === "style") n.setAttribute("style", v);
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids) if (kid != null) n.append(kid);
+  return n;
+}
+function svg(tag, attrs) {
+  const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v);
+  return n;
+}
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const state = { dump: null, findings: [], sim: true, meters: [] };
+const raw = (addr) => {
+  const v = state.dump && state.dump.values[addr];
+  return v && v.length ? v[0] : null;
+};
+
+// ---------- kurva EQ (perkiraan bentuk) ----------
+function eqResponse(ch) {
+  const c = "/ch/" + pad2(ch);
+  const bands = [1, 2, 3, 4].map((b) => ({
+    f: EST.eqHz(raw(`${c}/eq/${b}/f`)), g: EST.eqGain(raw(`${c}/eq/${b}/g`)), q: EST.eqQ(raw(`${c}/eq/${b}/q`)),
+  })).filter((b) => b.f && b.g != null && b.q);
+  const eqOn = raw(c + "/eq/on") === 1;
+  const hpOn = raw(c + "/preamp/hpon") === 1;
+  const hp = EST.hpfHz(raw(c + "/preamp/hpf"));
+  return (f) => {
+    let db = 0;
+    if (eqOn) for (const b of bands) {
+      const x = b.q * (f / b.f - b.f / f);
+      db += b.g / (1 + x * x);
+    }
+    if (hpOn && hp && f < hp) db -= 40 * Math.log10(hp / f);
+    return db;
+  };
+}
+function eqSvg(ch) {
+  const W = 80, H = 36, resp = eqResponse(ch);
+  const s = svg("svg", { class: "eq", viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none", "aria-label": "Kurva EQ perkiraan" });
+  s.append(svg("line", { x1: 0, x2: W, y1: H / 2, y2: H / 2, stroke: "#2c3540", "stroke-width": 1 }));
+  let d = "";
+  for (let i = 0; i <= W; i++) {
+    const f = 20 * Math.pow(1000, i / W);
+    const db = Math.max(-18, Math.min(18, resp(f)));
+    const y = H / 2 - (db / 18) * (H / 2 - 2);
+    d += (i ? "L" : "M") + i + " " + y.toFixed(1);
+  }
+  s.append(svg("path", { d, fill: "none", stroke: "#3fcf7f", "stroke-width": 1.5 }));
+  return s;
+}
+
+// ---------- strip ----------
+function lamp(cls, label, v) {
+  const st = v == null ? "unk" : v === 1 ? "on" : "";
+  return el("div", { class: `lamp ${cls} ${st}`, text: label, title: v == null ? "Tidak dijawab mixer" : "" });
+}
+function muteEl(v) {
+  if (v == null) return el("div", { class: "mute unk", text: "?" });
+  return v === 1 ? el("div", { class: "mute on", text: "ON" }) : el("div", { class: "mute muted", text: "MUTE" });
+}
+function faderEl(f) {
+  const pos = f == null ? 0 : Math.max(0, Math.min(1, f));
+  return el("div", { class: "fader" },
+    el("div", { class: "track" }, f == null ? null : el("div", { class: "knob", style: `bottom:${pos * 100}%` })));
+}
+function meterEl(key, muted) {
+  const fill = el("div", { class: "fill" }), peak = el("div", { class: "peak" }), clip = el("div", { class: "clip" });
+  const m = el("div", { class: "meter" + (state.sim ? "" : " off") }, fill, peak);
+  state.meters.push({ key, fill, peak, clip, meter: m, muted, level: -60, pk: -60, base: -28 + Math.random() * 14 });
+  return el("div", { class: "mcol" }, clip, m);
+}
+function badgesFor(ch) {
+  const list = state.findings.filter((f) => f.ch === ch);
+  const warn = list.filter((f) => f.severity === "perhatian").length;
+  const info = list.length - warn;
+  return el("div", { class: "badges" },
+    warn ? el("span", { class: "badge warn", text: "⚠ " + warn, title: warn + " temuan perhatian" }) : null,
+    info ? el("span", { class: "badge info", text: "💡 " + info, title: info + " saran" }) : null);
+}
+function channelStrip(n) {
+  const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
+  const name = raw(c + "/config/name");
+  const fader = raw(c + "/mix/fader"), on = raw(c + "/mix/on");
+  const sends = [1, 2, 3, 4, 5, 6].map((b) => raw(`${c}/mix/${pad2(b)}/level`));
+  const strip = el("div", { class: "strip", tabindex: "0", role: "button", "aria-label": "Detail channel " + n },
+    el("div", { class: "head" }, el("div", { class: "num", text: "CH " + pad2(n) }),
+      el("div", { class: "name" + (name ? "" : " empty"), text: name || "(tanpa nama)" })),
+    badgesFor(n),
+    el("div", { class: "lamps" },
+      lamp("l48", "48V", raw(h + "/phantom")), lamp("lhpf", "HPF", raw(c + "/preamp/hpon")),
+      lamp("lgate", "GATE", raw(c + "/gate/on")), lamp("lcomp", "COMP", raw(c + "/dyn/on")),
+      lamp("leq", "EQ", raw(c + "/eq/on")), el("div", { class: "lamp", text: "→LR " + (raw(c + "/mix/lr") === 1 ? "✓" : "✗") })),
+    eqSvg(n),
+    el("div", { class: "body" }, meterEl("ch" + n, on === 0), faderEl(fader)),
+    el("div", { class: "db", text: fmtDb(EST.faderDb(fader)) + (fader == null ? "" : " ≈") }),
+    muteEl(on),
+    el("div", { class: "sends", title: "Kiriman ke Bus 1–6 (monitor/FX)" },
+      ...sends.map((s) => el("div", { class: s == null ? "none" : "", style: `height:${Math.max(4, (s || 0) * 100)}%` }))));
+  const open = () => openChannel(n, strip);
+  strip.addEventListener("click", open);
+  strip.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+  return strip;
+}
+function masterStrip(label, prefix, key) {
+  const name = raw(prefix + "/config/name");
+  const fader = raw(prefix + "/mix/fader"), on = raw(prefix + "/mix/on");
+  const strip = el("div", { class: "strip master" },
+    el("div", { class: "head" }, el("div", { class: "num", text: label }),
+      el("div", { class: "name" + (name ? "" : " empty"), text: name || label })),
+    el("div", { class: "lamps" }, lamp("leq", "EQ", raw(prefix + "/eq/on")), lamp("lcomp", "COMP", raw(prefix + "/dyn/on"))),
+    el("div", { class: "body" }, meterEl(key, on === 0), faderEl(fader)),
+    el("div", { class: "db", text: fmtDb(EST.faderDb(fader)) + (fader == null ? "" : " ≈") }),
+    muteEl(on));
+  strip.addEventListener("click", () => openGeneric(label, prefix, strip));
+  return strip;
+}
+
+// ---------- panel detail ----------
+function row(label, value, est) { return el("tr", null, el("td", { text: label }), el("td", { class: est ? "est" : "", text: value })); }
+function findingCard(f) {
+  return el("div", { class: "card " + f.severity },
+    el("h4", { text: (f.severity === "perhatian" ? "⚠ " : "💡 ") + f.masalah }),
+    el("ol", null,
+      el("li", null, el("b", { text: "Masalah: " }), f.masalah),
+      el("li", null, el("b", { text: "Kemungkinan penyebab: " }), f.penyebab),
+      el("li", null, el("b", { text: "Data pembuktian: " }), f.data),
+      el("li", null, el("b", { text: "Langkah uji: " }), f.uji),
+      el("li", null, el("b", { text: "Rekomendasi: " }), f.rekomendasi),
+      el("li", null, el("b", { text: "Risiko perubahan: " }), f.risiko)),
+    el("div", { class: "approve" },
+      el("button", { disabled: "", title: "Aktif di Tahap 4, setelah konversi nilai terbukti", text: "Setujui (Tahap 4)" }),
+      el("button", { disabled: "", title: "Aktif di Tahap 4", text: "Tolak" })),
+    el("p", { class: "note", text: "Untuk sekarang, ubah lewat aplikasi mixer bila Anda setuju." }));
+}
+function showDrawer(strip, ...content) {
+  document.querySelectorAll(".strip.sel").forEach((s) => s.classList.remove("sel"));
+  if (strip) strip.classList.add("sel");
+  const d = $("drawer");
+  d.replaceChildren(el("button", { class: "close", text: "Tutup", onclick: closeDrawer }), ...content.filter((c) => c != null));
+  d.hidden = false;
+}
+function closeDrawer() {
+  $("drawer").hidden = true;
+  document.querySelectorAll(".strip.sel").forEach((s) => s.classList.remove("sel"));
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+
+function openChannel(n, strip) {
+  const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
+  const onoff = (v) => (v == null ? "—" : v === 1 ? "ON" : "OFF");
+  const t = el("table", null,
+    row("Gain", fmtDb(EST.gainDb(raw(h + "/gain"))), true),
+    row("48V", onoff(raw(h + "/phantom"))),
+    row("Low cut (HPF)", onoff(raw(c + "/preamp/hpon")) + " · " + fmtHz(EST.hpfHz(raw(c + "/preamp/hpf"))), true),
+    row("Gate", onoff(raw(c + "/gate/on")) + " · thr " + fmtDb(EST.gateThrDb(raw(c + "/gate/thr"))), true),
+    row("Kompresor", onoff(raw(c + "/dyn/on")) + " · thr " + fmtDb(EST.compThrDb(raw(c + "/dyn/thr"))), true),
+    row("EQ", onoff(raw(c + "/eq/on"))),
+    ...[1, 2, 3, 4].map((b) => row("EQ band " + b,
+      fmtHz(EST.eqHz(raw(`${c}/eq/${b}/f`))) + " · " + fmtDb(EST.eqGain(raw(`${c}/eq/${b}/g`))) +
+      " · Q " + (raw(`${c}/eq/${b}/q`) == null ? "—" : EST.eqQ(raw(`${c}/eq/${b}/q`)).toFixed(1)), true)),
+    row("Fader", fmtDb(EST.faderDb(raw(c + "/mix/fader"))), true),
+    row("Status", raw(c + "/mix/on") === 0 ? "MUTE" : onoff(raw(c + "/mix/on"))),
+    ...[1, 2, 3, 4, 5, 6].map((b) => row("Kirim ke Bus " + b, fmtDb(EST.faderDb(raw(`${c}/mix/${pad2(b)}/level`))), true)));
+  const list = state.findings.filter((f) => f.ch === n);
+  showDrawer(strip,
+    el("h3", { text: "CH " + pad2(n) + " · " + (raw(c + "/config/name") || "(tanpa nama)") }),
+    el("p", { class: "note", text: "Nilai bertanda ≈ adalah perkiraan. Cocokkan dengan aplikasi mixer sebelum dipercaya." }),
+    t,
+    el("h3", { text: "Saran AI (" + list.length + ")" }),
+    list.length ? null : el("p", { class: "note", text: "Belum ada temuan untuk channel ini dari aturan yang ada. Ini bukan berarti sudah ideal: belum ada pengukuran audio." }),
+    ...list.map(findingCard));
+}
+function openGeneric(label, prefix, strip) {
+  const keys = Object.keys(state.dump.values).filter((k) => k.startsWith(prefix + "/")).sort();
+  showDrawer(strip, el("h3", { text: label }),
+    el("p", { class: "note", text: "Nilai mentah dari mixer (belum dikonversi)." }),
+    el("table", null, ...keys.map((k) => row(k.slice(prefix.length + 1), JSON.stringify(state.dump.values[k])))));
+}
+
+// ---------- render ----------
+function channels() {
+  const set = new Set();
+  for (const k of Object.keys(state.dump.values)) { const m = k.match(/^\/ch\/(\d+)\//); if (m) set.add(+m[1]); }
+  return [...set].sort((a, b) => a - b);
+}
+function buses() {
+  const set = new Set();
+  for (const k of Object.keys(state.dump.values)) { const m = k.match(/^\/bus\/(\d+)\//); if (m) set.add(+m[1]); }
+  return [...set].sort((a, b) => a - b);
+}
+function render() {
+  state.meters = [];
+  closeDrawer();
+  const desk = $("desk");
+  const d = state.dump;
+  $("banner").replaceChildren(d && d.sample ? el("div", { class: "banner", text: "DATA CONTOH – bukan dari mixer Anda. Hanya untuk melihat bentuk tampilan." }) : "");
+  const general = state.findings.filter((f) => f.ch == null);
+  $("general").replaceChildren(...general.map(findingCard));
+  if (!d) { desk.replaceChildren(el("div", { class: "empty", text: "Belum ada data. Klik “Data contoh” atau “Buka dump…”." })); return; }
+  const answered = Object.values(d.values).filter((v) => v !== null).length;
+  $("source").textContent = `Sumber: ${d._name} · dibuat ${d.created || "?"} · ${answered}/${Object.keys(d.values).length} alamat dijawab · ${state.findings.length} temuan`;
+  const ins = el("div", { class: "group" }, el("h2", { text: "Input" }), el("div", { class: "strips" }, ...channels().map(channelStrip)));
+  const bs = buses();
+  const busGroup = bs.length ? el("div", { class: "group" }, el("h2", { text: "Bus (monitor/FX)" }),
+    el("div", { class: "strips" }, ...bs.map((b) => masterStrip("BUS " + b, "/bus/" + b, "bus" + b)))) : null;
+  const main = el("div", { class: "group" }, el("h2", { text: "Main" }), el("div", { class: "strips" }, masterStrip("MAIN L/R", "/lr", "lr")));
+  desk.replaceChildren(ins, busGroup || "", main);
+}
+
+// ---------- meter simulasi ----------
+let lastT = 0;
+function tick(t) {
+  if (state.sim && t - lastT > 50) {
+    lastT = t;
+    for (const m of state.meters) {
+      const target = m.muted ? -90 : m.base + (Math.random() - 0.5) * 18;
+      m.level += (target - m.level) * 0.35;
+      m.pk = Math.max(m.level, m.pk - 0.6);
+      const pct = (db) => Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+      m.fill.style.height = pct(m.level) + "%";
+      m.peak.style.bottom = pct(m.pk) + "%";
+      m.clip.classList.toggle("lit", m.pk > -1);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+$("simToggle").addEventListener("click", () => {
+  state.sim = !state.sim;
+  $("simToggle").setAttribute("aria-pressed", String(state.sim));
+  $("simToggle").textContent = state.sim ? "METER SIMULASI" : "METER MATI";
+  for (const m of state.meters) { m.meter.classList.toggle("off", !state.sim); m.clip.classList.remove("lit"); }
+});
+
+// ---------- memuat data ----------
+function validDump(d) { return d && typeof d === "object" && d.values && typeof d.values === "object" && !Array.isArray(d.values); }
+async function getJson(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(url + " (" + r.status + ")");
+  return r.json();
+}
+async function loadUrls(dumpUrl, findingsUrl) {
+  const d = await getJson(dumpUrl);
+  if (!validDump(d)) throw new Error("bukan file dump");
+  d._name = dumpUrl.split("/").slice(-2).join("/");
+  let f = [];
+  if (findingsUrl) { try { f = await getJson(findingsUrl); } catch (e) { f = []; } }
+  state.dump = d;
+  state.findings = Array.isArray(f) ? f : [];
+  render();
+}
+async function loadLatest() {
+  const l = await getJson("../data/latest.json");
+  await loadUrls("../" + l.dump, l.findings ? "../" + l.findings : null);
+}
+const loadSample = () => loadUrls("sample-dump-a.json", "sample-findings.json");
+
+$("fileDump").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const d = JSON.parse(reader.result);
+      if (!validDump(d)) throw new Error("bukan file dump yang valid");
+      d._name = file.name;
+      state.dump = d; state.findings = [];
+      render();
+      $("source").textContent += " · temuan AI tidak dimuat (buka lewat menu untuk melihat saran)";
+    } catch (err) { alert("Gagal membaca " + file.name + ": " + err.message); }
+  };
+  reader.readAsText(file);
+});
+
+if (location.protocol.startsWith("http")) {
+  $("btnLatest").hidden = false; $("btnSample").hidden = false;
+  $("btnLatest").addEventListener("click", () => loadLatest().catch(() => alert("Belum ada audit. Jalankan pilihan 3 di menu.")));
+  $("btnSample").addEventListener("click", () => loadSample().catch((e) => alert(e.message)));
+  loadLatest().catch(() => loadSample().catch(() => render()));
+} else {
+  render();
+}
+</script>
+</body>
+</html>

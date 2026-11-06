@@ -15,7 +15,7 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 VOICE_RE = re.compile(r"\b(vok|vocal|vox|khotbah|pastor|pdt|speech|choir|paduan|singer|mc)", re.I)
@@ -33,6 +33,7 @@ class Finding:
     uji: str
     rekomendasi: str
     risiko: str
+    ch: int | None = None  # nomor channel bila temuan terkait satu channel
 
 
 def _first(values: dict, addr: str):
@@ -95,7 +96,14 @@ def analyze(dump: dict) -> list[Finding]:
                 "Cek apa yang fisik terpasang ke input itu.",
                 "Matikan 48V jika sumbernya bukan mikrofon kondenser/DI aktif yang membutuhkannya.",
                 "Mematikan 48V pada kondenser membuatnya diam; ubah hanya oleh operator dengan fader turun."))
+    for f in findings:
+        m = re.search(r"ch(\d+)$", f.id)
+        f.ch = int(m.group(1)) if m else None
     return findings
+
+
+def findings_json(dump: dict) -> list[dict]:
+    return [asdict(f) for f in analyze(dump)]
 
 
 def render(dump: dict, source: str = "") -> str:

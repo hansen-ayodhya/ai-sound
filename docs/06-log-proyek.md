@@ -52,6 +52,14 @@
 - Penampil memuat audit terakhir otomatis saat dibuka dari menu (localhost:8765, hanya dari laptop itu).
 - 26 tes lulus. Diuji ujung-ke-ujung dengan mixer tiruan; belum dengan MR18 nyata.
 
+## Update: purwarupa tampilan mixer
+
+- `viewer/mixer.html` (menu pilihan 8): channel strip mirip aplikasi mixer (nama, lampu 48V/HPF/GATE/COMP/EQ, kurva EQ, fader, mute, kiriman bus), bus, main, dan lencana saran AI per channel. Klik strip untuk detail dan kartu saran enam-unsur.
+- HANYA MEMBACA. Tombol Setujui/Tolak sengaja nonaktif sampai Tahap 4.
+- Angka dB/Hz memakai rumus PERKIRAAN keluarga X Air (bertanda ≈), belum dicocokkan dengan MR18.
+- Meter bergerak adalah SIMULASI; belum tersambung ke mixer.
+- Audit kini juga menulis `findings.json` (temuan per channel) untuk lencana di tampilan mixer.
+
 ## Catatan
 
 Repositori ini awalnya berisi proyek lain (aplikasi POS); proyek ini ditempatkan di folder `ai-sound-engineer/` agar terpisah dan tidak menyentuh file yang sudah ada. Bila ingin repositori sendiri, folder ini bisa dipindahkan utuh.

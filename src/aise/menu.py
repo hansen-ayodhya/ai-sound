@@ -29,13 +29,14 @@ MENU = """
 ==============================================
   AI SOUND ENGINEER  -  hanya MEMBACA mixer
 ==============================================
-  1. Buka penampil (browser)
+  1. Buka penampil tabel (browser)
   2. Uji kecil ke mixer (2 pertanyaan saja)
   3. Audit lengkap (baca semua setting 2x + laporan)
   4. Rekam meter 30 detik
   5. Buka laporan audit terakhir
   6. Update program
   7. Cek program (jalankan tes)
+  8. Buka tampilan mixer (purwarupa)
   0. Keluar
 """
 
@@ -78,7 +79,7 @@ def _port_in_use(port: int) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-def open_viewer() -> None:
+def open_viewer(page: str = "") -> None:
     global _server
     if not _port_in_use(VIEW_PORT):
         _server = subprocess.Popen(
@@ -87,7 +88,7 @@ def open_viewer() -> None:
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         atexit.register(_server.terminate)
         time.sleep(1.0)
-    url = f"http://localhost:{VIEW_PORT}/viewer/"
+    url = f"http://localhost:{VIEW_PORT}/viewer/{page}"
     webbrowser.open(url)
     print(f"Penampil dibuka di browser: {url}")
     print("Biarkan jendela menu ini terbuka selama memakai penampil.")
@@ -167,7 +168,8 @@ def do_tests() -> None:
 
 
 ACTIONS = {"1": open_viewer, "2": do_probe, "3": do_audit, "4": do_meters,
-           "5": do_open_report, "6": do_update, "7": do_tests}
+           "5": do_open_report, "6": do_update, "7": do_tests,
+           "8": lambda: open_viewer("mixer.html")}
 
 
 def main() -> int:

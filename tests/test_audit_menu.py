@@ -27,11 +27,13 @@ class Audit(unittest.TestCase):
             self.assertEqual(res["answered"], 3)
             self.assertGreaterEqual(res["findings"], 1)  # HPF mati di Vokal 1
             folder = Path(res["folder"])
-            for name in ("dump1.json", "dump2.json", "report.md", "osc_log.jsonl"):
+            for name in ("dump1.json", "dump2.json", "report.md", "findings.json", "osc_log.jsonl"):
                 self.assertTrue((folder / name).exists(), name)
             latest = json.loads((base / "latest.json").read_text())
             self.assertTrue(latest["dump"].startswith("data/audit-"))
             self.assertTrue((Path(tmp) / latest["dump"]).exists())
+            fnd = json.loads((Path(tmp) / latest["findings"]).read_text())
+            self.assertIn(1, [f["ch"] for f in fnd])
             self.assertEqual(mixer.write_attempts, [])
 
     def test_aborts_quickly_when_mixer_silent(self):
