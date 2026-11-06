@@ -7,7 +7,7 @@
 <style>
   :root {
     --bg: #0f1216; --panel: #171c22; --panel-2: #1e252d; --line: #2c3540;
-    --text: #e6eaf0; --muted: #8c97a6; --accent: #5aa2ff; --ok: #3fcf7f; --warn: #f5b041; --bad: #ff6b6b; --sug: #b48cff;
+    --text: #e6eaf0; --muted: #8c97a6; --accent: #5aa2ff; --ok: #3fcf7f; --warn: #f5b041; --bad: #ff6b6b; --sug: #3cc9f0; /* biru muda = Gemini */
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -60,6 +60,7 @@
   .cliprow .meta b { display: block; }
   .cliprow button { padding: 5px 10px; font-size: 13px; }
   audio { width: 100%; margin-top: 8px; }
+  .golink { display: inline-block; margin-top: 8px; color: var(--sug); font-weight: 600; }
   .alert { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--bad); color: var(--bad); background: #2a1313; }
 </style>
 </head>
@@ -387,7 +388,8 @@ function fcard(f) {
     el("h4", { text: f.masalah }),
     el("ol", null, ...[["Kemungkinan penyebab", f.penyebab], ["Data pembuktian", f.data], ["Langkah uji", f.uji],
       ["Rekomendasi", f.rekomendasi], ["Risiko perubahan", f.risiko]].map(([k, v]) => el("li", null, el("b", { text: k + ": " }), v || "—"))),
-    f.usulan && f.usulan.length ? el("ul", { class: "ind" }, ...f.usulan.map((u) => el("li", { text: (f.ch ? "CH " + String(f.ch).padStart(2, "0") + ": " : "") + u.teks }))) : null);
+    f.usulan && f.usulan.length ? el("ul", { class: "ind" }, ...f.usulan.map((u) => el("li", { text: (f.ch ? "CH " + String(f.ch).padStart(2, "0") + ": " : "") + u.teks }))) : null,
+    f.ch ? el("a", { href: "mixer.html#ch=" + f.ch, class: "golink", text: "Lihat di grafik (Tampilan Mixer) → CH " + String(f.ch).padStart(2, "0") }) : null);
 }
 const ASPEK = { kejelasan_vokal: "Kejelasan vokal", kejelasan_khotbah: "Kejelasan khotbah", boomy: "Boomy (nada rendah berlebih)", tajam: "Tajam / menusuk",
   gema: "Gema / pantulan", feedback: "Feedback / dengung", keseimbangan_musik_vokal: "Keseimbangan musik–vokal", terlalu_keras: "Terlalu keras" };

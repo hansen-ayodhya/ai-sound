@@ -175,7 +175,10 @@ Aturan menjawab:
 1. Hanya berdasarkan data yang diberikan. Jangan mengarang pengukuran, frekuensi resonansi, atau model perangkat.
 2. Cari akar masalah dan urutkan prioritas; jangan hanya menyarankan naik/turun EQ.
 3. Setiap rekomendasi memuat: masalah, kemungkinan penyebab, data pembuktian (dari data yang ada), langkah uji, rekomendasi, risiko perubahan, dan tingkat keyakinan (rendah/sedang/tinggi).
-4. Usulan angka hanya untuk parameter yang tersedia di skema dan hanya bila didukung data; bila data kurang, kosongkan usulan dan tulis data apa yang dibutuhkan di 'butuh_data'.
+4. Operator ingin melihat saran dalam bentuk grafik. Untuk setiap rekomendasi yang menyangkut satu channel, WAJIB isi 'ch'
+   dan beri 'usulan' angka sebagai TITIK AWAL yang aman (langkah kecil: EQ maksimal ±6 dB per langkah, low cut 80–150 Hz
+   untuk suara, rasio kompresor 2–4:1 untuk vokal), memakai parameter di skema saja, lalu sesuaikan 'keyakinan'.
+   Kosongkan usulan hanya bila benar-benar tidak ada dasar; jelaskan kekurangannya di 'butuh_data'.
 5. Ingat: perubahan dilakukan operator sendiri; jangan menyarankan perubahan routing, master, atau limiter tanpa data DSP.
 6. Bahasa Indonesia yang sederhana dan praktis untuk operator gereja."""
 

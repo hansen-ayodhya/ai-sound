@@ -154,6 +154,13 @@
 - Kunci dikirim lewat header `x-goog-api-key`; bila ditolak (401/403), dicoba sekali lewat parameter `?key=`. Pesan khusus untuk `ACCESS_TOKEN_TYPE_UNSUPPORTED` (dilaporkan sebagian pengguna kunci AQ.) dan izin proyek.
 - Belum diuji dengan kunci AQ. asli dari sesi ini.
 
+## Update: saran Gemini dalam grafik + tiga warna
+
+- Gemini kini diminta memberi usulan angka TITIK AWAL (langkah kecil) untuk tiap saran yang menyangkut satu channel; tetap disaring rentang/parameternya.
+- Hasil "✦ Analisis AI" menampilkan grafik (EQ / kompresor & gate / kiriman) langsung di bawah tiap saran, dengan tombol "Buka detail CH". Hasil Klip Suara juga menjadi analisis terakhir dan punya tautan "Lihat di grafik" (mixer.html#ch=N).
+- Tiga warna konsisten: hijau = sekarang, ungu = usulan program (aturan lokal), biru muda = usulan Gemini. Kedua bayangan digambar bersamaan; lampu strip, legenda, daftar usulan, batang kiriman, dan kartu ikut berwarna sesuai sumber.
+- Perbaikan: definisi ganda hasProposalRe (yang lama menimpa yang baru) dihapus.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

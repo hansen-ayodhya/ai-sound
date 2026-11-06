@@ -295,6 +295,8 @@ class App:
             findings = findings_json(dump, profile) if dump else []
             res = ai.analyze_clip(ai.load_config(self.ai_cfg_path), rec, wav, dump, profile, findings, base=self.ai_base)
             self.clips.set_ai(cid, res)
+            # Hasil klip juga menjadi "analisis AI terakhir" supaya bayangannya tampil di Tampilan Mixer.
+            (self.data / "ai-last.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
             return res
         finally:
             self._ai_lock.release()

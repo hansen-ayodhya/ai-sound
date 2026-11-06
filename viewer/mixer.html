@@ -157,19 +157,19 @@
   .sendbar .now { position: absolute; left: 0; top: 0; bottom: 0; background: #5aa2ff; border-radius: 3px; }
   .sendbar .ghost { position: absolute; left: 0; top: -3px; bottom: -3px; border: 2px dashed #b48cff; border-radius: 4px; background: rgba(180,140,255,.15); }
   .sendbar .ghost.zero { width: 4px !important; }
-  .aitag { display: inline-block; font-size: 11px; font-weight: 700; color: #0f1216; background: #b48cff; border-radius: 999px; padding: 1px 8px; margin-bottom: 6px; }
+  .aitag { display: inline-block; font-size: 11px; font-weight: 700; color: #0f1216; background: #3cc9f0; border-radius: 999px; padding: 1px 8px; margin-bottom: 6px; }
   .ai textarea, .ai select { width: 100%; font: inherit; font-size: 13px; padding: 7px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
   .ai textarea { min-height: 70px; resize: vertical; }
   .ai label.f { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
   .chips button { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--strip); color: var(--text); cursor: pointer; }
-  .ai .go { width: 100%; margin-top: 10px; padding: 9px; font: inherit; font-weight: 700; border-radius: 7px; border: 0; background: #b48cff; color: #0f1216; cursor: pointer; }
+  .ai .go { width: 100%; margin-top: 10px; padding: 9px; font: inherit; font-weight: 700; border-radius: 7px; border: 0; background: #3cc9f0; color: #0f1216; cursor: pointer; }
   .ai .go:disabled { opacity: .5; cursor: wait; }
-  .aibox { border: 1px solid #b48cff; border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: #1c1729; }
-  .aibox h4 { margin: 0 0 4px; font-size: 13px; color: #d6c4ff; }
+  .aibox { border: 1px solid #3cc9f0; border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: #0f2129; }
+  .aibox h4 { margin: 0 0 4px; font-size: 13px; color: #9be6fa; }
   .aibox p { margin: 4px 0; white-space: pre-wrap; }
   .toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; margin: 8px 0; }
-  .actions .aiBtn { border-color: #b48cff; color: #d6c4ff; }
+  .actions .aiBtn { border-color: #3cc9f0; color: #9be6fa; }
   .viewbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 6px 16px; font-size: 13px; color: var(--muted); }
   .viewbar .grp { display: flex; gap: 4px; align-items: center; }
   .viewbar button, .viewbar select { font: inherit; font-size: 13px; padding: 4px 9px; border-radius: 6px; border: 1px solid var(--line);
@@ -196,6 +196,21 @@
     .desk { padding: 4px 10px 8px; }
     .foot, #general { display: none; }
   }
+  .aivis { border: 1px dashed #3cc9f0; border-radius: 8px; padding: 8px 10px; margin: -4px 0 12px; background: #17131f; }
+  .aivis h4 { margin: 0 0 4px; font-size: 13px; color: #9be6fa; }
+  .aivis .open { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid #3cc9f0; background: none; color: #9be6fa; cursor: pointer; margin-top: 6px; }
+  /* warna sumber usulan */
+  .legend .rule::before { border-top: 2px dashed #b48cff; }
+  .legend .gem::before { border-top: 2px dashed #3cc9f0; }
+  .lamp.sug-rule { outline: 2px solid #b48cff; outline-offset: 1px; }
+  .lamp.sug-gem { box-shadow: 0 0 0 4px #3cc9f0; }
+  .lamp.sug-gem:not(.sug-rule) { box-shadow: none; outline: 2px solid #3cc9f0; outline-offset: 1px; }
+  .changes li.gem { background: #10262f; border-left-color: #3cc9f0; }
+  .dynline.rule { color: #d6c4ff; } .dynline.gem { color: #9be6fa; }
+  .sendbar .ghost.gem { border-color: #3cc9f0; background: rgba(60,201,240,.14); top: -5px; bottom: -5px; }
+  .sendrow .v.rule { color: #d6c4ff; } .sendrow .v.gem { color: #9be6fa; }
+  .card.gemcard { border-color: #3cc9f0; }
+  .card.gemcard .usulan { color: #9be6fa; }
   .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
@@ -339,20 +354,30 @@ function eqState(ch, get) {
     hp: EST.hpfHz(get(c + "/preamp/hpf")),
   };
 }
-// Nilai usulan AI untuk satu channel (dari temuan); bila tidak ada usulan, nilai sekarang.
-function proposals(ch) {
+// Tiga warna: sekarang (hijau), usulan PROGRAM/aturan lokal (ungu), usulan GEMINI (biru muda).
+const SRC = {
+  rule: { color: "#b48cff", fill: "rgba(180,140,255,.16)", name: "program" },
+  gem: { color: "#3cc9f0", fill: "rgba(60,201,240,.14)", name: "Gemini" },
+};
+const srcOf = (f) => (f.sumber === "gemini" ? "gem" : "rule");
+let markSeq = 0;
+// Nilai usulan untuk satu channel; src = "rule" | "gem" | undefined (semua).
+function proposals(ch, src) {
   const m = new Map();
-  for (const f of state.findings) if (f.ch === ch) for (const u of (f.usulan || [])) m.set(u.alamat, u.usulan);
+  for (const f of state.findings) if (f.ch === ch && (!src || srcOf(f) === src)) for (const u of (f.usulan || [])) m.set(u.alamat, u.usulan);
   return m;
 }
-function proposedGetter(ch) {
-  const m = proposals(ch);
+function proposedGetter(ch, src) {
+  const m = proposals(ch, src);
   return (addr) => (m.has(addr) ? m.get(addr) : raw(addr));
 }
-function hasEqProposal(ch) {
-  for (const a of proposals(ch).keys()) if (/\/(eq\/|preamp\/hp)/.test(a)) return true;
+const EQ_RE = /\/(eq\/|preamp\/hp)/;
+function hasProposalRe(ch, re, src) {
+  for (const a of proposals(ch, src).keys()) if (re.test(a)) return true;
   return false;
 }
+function hasEqProposal(ch, src) { return hasProposalRe(ch, EQ_RE, src); }
+function sugOf(ch, re) { return { rule: hasProposalRe(ch, re, "rule"), gem: hasProposalRe(ch, re, "gem") }; }
 function eqResponse(ch, get = raw) {
   const { bands, eqOn, hpOn, hp } = eqState(ch, get);
   return (f) => {
@@ -378,9 +403,9 @@ function eqSvg(ch) {
   const W = 80, H = 36;
   const s = svg("svg", { class: "eq", viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none", "aria-label": "Kurva EQ perkiraan" });
   s.append(svg("line", { x1: 0, x2: W, y1: H / 2, y2: H / 2, stroke: "#2c3540", "stroke-width": 1 }));
-  if (hasEqProposal(ch)) {
-    s.append(svg("path", { d: curvePath(eqResponse(ch, proposedGetter(ch)), W, H), fill: "none",
-      stroke: "#b48cff", "stroke-width": 1.3, "stroke-dasharray": "3 2" }));
+  for (const src of ["rule", "gem"]) if (hasEqProposal(ch, src)) {
+    s.append(svg("path", { d: curvePath(eqResponse(ch, proposedGetter(ch, src)), W, H), fill: "none",
+      stroke: SRC[src].color, "stroke-width": 1.3, "stroke-dasharray": "3 2" }));
   }
   s.append(svg("path", { d: curvePath(eqResponse(ch), W, H), fill: "none", stroke: "#3fcf7f", "stroke-width": 1.5 }));
   return s;
@@ -410,38 +435,46 @@ function eqChart(ch) {
     return d;
   };
   const area = (resp) => path(resp) + ` L${L + PW} ${dy(0)} L${L} ${dy(0)} Z`;
-  const now = eqResponse(ch), getP = proposedGetter(ch), sug = hasEqProposal(ch) ? eqResponse(ch, getP) : null;
+  const now = eqResponse(ch), cur = eqState(ch, raw);
+  const sugs = ["rule", "gem"].filter((src) => hasEqProposal(ch, src)).map((src) => {
+    const get = proposedGetter(ch, src);
+    return { src, resp: eqResponse(ch, get), st: eqState(ch, get) };
+  });
   s.append(svg("path", { d: area(now), fill: "rgba(63,207,127,.12)" }));
-  if (sug) {
-    s.append(svg("path", { d: area(sug), fill: "rgba(180,140,255,.18)" }));
-    s.append(svg("path", { d: path(sug), fill: "none", stroke: "#b48cff", "stroke-width": 2, "stroke-dasharray": "6 4" }));
+  for (const g of sugs) {
+    s.append(svg("path", { d: area(g.resp), fill: SRC[g.src].fill }));
+    s.append(svg("path", { d: path(g.resp), fill: "none", stroke: SRC[g.src].color, "stroke-width": 2, "stroke-dasharray": "6 4" }));
   }
   s.append(svg("path", { d: path(now), fill: "none", stroke: "#3fcf7f", "stroke-width": 2 }));
   // Penanda low cut
-  const cur = eqState(ch, raw), pro = eqState(ch, getP);
   const lc = (hz, color, dash, label, yy) => {
     if (!hz) return;
     s.append(svg("line", { x1: fx(hz), x2: fx(hz), y1: T, y2: T + PH, stroke: color, "stroke-width": 1.5, "stroke-dasharray": dash }));
     const t = svg("text", { x: fx(hz) + 3, y: yy }); t.textContent = label; t.setAttribute("style", "fill:" + color); s.append(t);
   };
   if (cur.hpOn) lc(cur.hp, "#3fcf7f", "", "low cut", T + 10);
-  if (sug && pro.hpOn && (!cur.hpOn || Math.abs(pro.hp - cur.hp) > 1)) lc(pro.hp, "#b48cff", "4 3", "low cut usulan", T + 22);
-  // Titik band: sekarang (hijau, bernomor) dan usulan (ungu berongga + panah)
+  sugs.forEach((g, i) => {
+    if (g.st.hpOn && (!cur.hpOn || Math.abs(g.st.hp - cur.hp) > 1)) lc(g.st.hp, SRC[g.src].color, "4 3", "low cut " + SRC[g.src].name, T + 22 + i * 12);
+  });
+  // Titik band: sekarang (hijau, bernomor) dan usulan (berongga, warna sumbernya, dengan panah)
+  const defs = svg("defs");
   const curBands = new Map(cur.bands.map((x) => [x.b, x]));
-  for (const pb of (sug ? pro.bands : [])) {
-    const cb = curBands.get(pb.b);
-    if (!cb || (Math.abs(cb.g - pb.g) < 0.05 && Math.abs(cb.f - pb.f) < 1)) continue;
-    s.append(svg("line", { x1: fx(cb.f), y1: dy(cb.g), x2: fx(pb.f), y2: dy(pb.g), stroke: "#b48cff", "stroke-width": 1.5, "marker-end": "url(#arrow" + ch + ")" }));
-    s.append(svg("circle", { cx: fx(pb.f), cy: dy(pb.g), r: 7, fill: "none", stroke: "#b48cff", "stroke-width": 2 }));
+  for (const g of sugs) {
+    const id = "arw" + (++markSeq);
+    const mk = svg("marker", { id, viewBox: "0 0 10 10", refX: 16, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto-start-reverse" });
+    mk.append(svg("path", { d: "M0 0 L10 5 L0 10 z", fill: SRC[g.src].color }));
+    defs.append(mk);
+    for (const pb of g.st.bands) {
+      const cb = curBands.get(pb.b);
+      if (!cb || (Math.abs(cb.g - pb.g) < 0.05 && Math.abs(cb.f - pb.f) < 1)) continue;
+      s.append(svg("line", { x1: fx(cb.f), y1: dy(cb.g), x2: fx(pb.f), y2: dy(pb.g), stroke: SRC[g.src].color, "stroke-width": 1.5, "marker-end": `url(#${id})` }));
+      s.append(svg("circle", { cx: fx(pb.f), cy: dy(pb.g), r: 7, fill: "none", stroke: SRC[g.src].color, "stroke-width": 2 }));
+    }
   }
   if (cur.eqOn) for (const cb of cur.bands) {
     s.append(svg("circle", { cx: fx(cb.f), cy: dy(cb.g), r: 7, fill: "#3fcf7f" }));
     const t = svg("text", { x: fx(cb.f), y: dy(cb.g) + 3, "text-anchor": "middle", class: "bandnum" }); t.textContent = cb.b; s.append(t);
   }
-  const defs = svg("defs");
-  const mk = svg("marker", { id: "arrow" + ch, viewBox: "0 0 10 10", refX: 16, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto-start-reverse" });
-  mk.append(svg("path", { d: "M0 0 L10 5 L0 10 z", fill: "#b48cff" }));
-  defs.append(mk);
   s.prepend(defs);
   return s;
 }
@@ -461,7 +494,7 @@ function gateFn(ch, get) {
   if (!on || thr == null) return { fn: (x) => x, on, thr, range };
   return { fn: (x) => (x >= thr ? x : x - rg), on, thr, range };
 }
-function transferChart(now, sug, label) {
+function transferChart(now, sugs, label) {
   const W = 220, H = 200, L = 28, B = 22, T = 6, R = 6, PW = W - L - R, PH = H - T - B, LO = -60;
   const px = (db) => L + ((Math.max(LO, Math.min(0, db)) - LO) / -LO) * PW;
   const py = (db) => T + PH - ((Math.max(LO, Math.min(0, db)) - LO) / -LO) * PH;
@@ -477,9 +510,10 @@ function transferChart(now, sug, label) {
   const path = (fn) => { let d = ""; for (let x = LO; x <= 0.001; x += 0.5) d += (d ? "L" : "M") + px(x).toFixed(1) + " " + py(fn(x)).toFixed(1); return d; };
   const thrLine = (thr, color, dash) => { if (thr != null) s.append(svg("line", { x1: px(thr), x2: px(thr), y1: T, y2: T + PH, stroke: color, "stroke-width": 1.5, "stroke-dasharray": dash })); };
   if (now.on) thrLine(now.thr, "#3fcf7f", "");
-  if (sug) {
-    if (sug.on) thrLine(sug.thr, "#b48cff", "4 3");
-    s.append(svg("path", { d: path(sug.fn), fill: "none", stroke: "#b48cff", "stroke-width": 2, "stroke-dasharray": "6 4" }));
+  for (const sug of sugs) {
+    const color = SRC[sug.src].color;
+    if (sug.on) thrLine(sug.thr, color, "4 3");
+    s.append(svg("path", { d: path(sug.fn), fill: "none", stroke: color, "stroke-width": 2, "stroke-dasharray": "6 4" }));
   }
   s.append(svg("path", { d: path(now.fn), fill: "none", stroke: "#3fcf7f", "stroke-width": 2 }));
   return s;
@@ -487,64 +521,74 @@ function transferChart(now, sug, label) {
 const fmtR = (r) => (r == null ? "—" : r + ":1");
 const fmtMs = (v) => (v == null ? "—" : v >= 1000 ? (v / 1000).toFixed(1) + " s" : Math.round(v) + " ms");
 function dynSection(n) {
-  const c = "/ch/" + pad2(n), getP = proposedGetter(n);
+  const c = "/ch/" + pad2(n);
   const cNow = compFn(n, raw), gNow = gateFn(n, raw);
-  const cSug = hasProposalRe(n, /\/dyn\//) ? compFn(n, getP) : null;
-  const gSug = hasProposalRe(n, /\/gate\//) ? gateFn(n, getP) : null;
+  const cS = [], gS = [];
+  for (const src of ["rule", "gem"]) {
+    const get = proposedGetter(n, src);
+    if (hasProposalRe(n, /\/dyn\//, src)) cS.push({ ...compFn(n, get), src });
+    if (hasProposalRe(n, /\/gate\//, src)) gS.push({ ...gateFn(n, get), src });
+  }
   const onoff = (v) => (v ? "ON" : "OFF");
+  const who = (src) => (src === "gem" ? "✦ Gemini" : "Program");
   const compBox = el("div", { class: "dynbox" }, el("h4", { text: "Kompresor" }),
-    transferChart(cNow, cSug, "Kurva kompresor: sekarang dan usulan"),
+    transferChart(cNow, cS, "Kurva kompresor: sekarang dan usulan"),
     el("div", { class: "dynline", text: `Sekarang: ${onoff(cNow.on)} · threshold ${fmtDb(cNow.thr)} · rasio ${fmtR(cNow.r)} ≈` }),
     el("div", { class: "dynline", text: `Attack ${fmtMs(EST.attackMs(raw(c + "/dyn/attack")))} · release ${fmtMs(EST.releaseMs(raw(c + "/dyn/release")))} ≈` }),
-    cSug ? el("div", { class: "dynline sug", text: `Usulan: ${onoff(cSug.on)} · threshold ${fmtDb(cSug.thr)} · rasio ${fmtR(cSug.r)}` }) : null);
+    ...cS.map((x) => el("div", { class: "dynline " + x.src, text: `${who(x.src)}: ${onoff(x.on)} · threshold ${fmtDb(x.thr)} · rasio ${fmtR(x.r)}` })));
   const gateBox = el("div", { class: "dynbox" }, el("h4", { text: "Gate" }),
-    transferChart(gNow, gSug, "Kurva gate: sekarang dan usulan"),
+    transferChart(gNow, gS, "Kurva gate: sekarang dan usulan"),
     el("div", { class: "dynline", text: `Sekarang: ${onoff(gNow.on)} · threshold ${fmtDb(gNow.thr)} · range ${gNow.range == null ? "—" : Math.round(gNow.range) + " dB"} ≈` }),
-    gSug ? el("div", { class: "dynline sug", text: `Usulan: ${onoff(gSug.on)} · threshold ${fmtDb(gSug.thr)}` }) : null);
+    ...gS.map((x) => el("div", { class: "dynline " + x.src, text: `${who(x.src)}: ${onoff(x.on)} · threshold ${fmtDb(x.thr)}` })));
   return [
     el("h3", { text: "Kompresor & Gate" }),
-    legendEl(!!(cSug || gSug)),
+    legendEl(cS.some((x) => x.src === "rule") || gS.some((x) => x.src === "rule"), cS.some((x) => x.src === "gem") || gS.some((x) => x.src === "gem")),
     el("div", { class: "dyngrid" }, compBox, gateBox),
     el("p", { class: "note", text: "Sumbu datar = level masuk, tegak = level keluar. Garis tegak = threshold. Kompresor menekan di atas threshold; gate memotong di bawah threshold." }),
   ];
 }
 function sendSection(n) {
-  const c = "/ch/" + pad2(n), getP = proposedGetter(n), props = proposals(n);
+  const c = "/ch/" + pad2(n);
+  const P = { rule: proposals(n, "rule"), gem: proposals(n, "gem") };
   const pct = (db) => (db == null || db === -Infinity ? 0 : ((Math.max(-60, Math.min(10, db)) + 60) / 70) * 100);
   const rows = [];
   const add = (label, addr) => {
     const now = raw(addr);
-    if (now == null && !props.has(addr)) return;
-    const dNow = EST.faderDb(now), hasSug = props.has(addr), dSug = hasSug ? EST.faderDb(getP(addr)) : null;
-    const bar = el("div", { class: "sendbar" }, el("div", { class: "now", style: `width:${pct(dNow)}%` }),
-      hasSug ? el("div", { class: "ghost" + (pct(dSug) === 0 ? " zero" : ""), style: `width:${pct(dSug)}%` }) : null);
-    rows.push(el("div", { class: "sendrow" }, el("span", { class: "lbl", text: label }), bar,
-      el("span", { class: "val" + (hasSug ? " sug" : ""), text: fmtDb(dNow) + (hasSug ? " → " + fmtDb(dSug) : "") })));
+    if (now == null && !P.rule.has(addr) && !P.gem.has(addr)) return;
+    const dNow = EST.faderDb(now);
+    const ghosts = [], vals = [];
+    for (const src of ["rule", "gem"]) if (P[src].has(addr)) {
+      const d = EST.faderDb(P[src].get(addr));
+      ghosts.push(el("div", { class: "ghost " + src + (pct(d) === 0 ? " zero" : ""), style: `width:${pct(d)}%` }));
+      vals.push(el("span", { class: "v " + src, text: " → " + fmtDb(d) }));
+    }
+    rows.push(el("div", { class: "sendrow" }, el("span", { class: "lbl", text: label }),
+      el("div", { class: "sendbar" }, el("div", { class: "now", style: `width:${pct(dNow)}%` }), ...ghosts),
+      el("span", { class: "val" }, fmtDb(dNow), ...vals)));
   };
   for (let b = 1; b <= 6; b++) add("Bus " + b, `${c}/mix/${pad2(b)}/level`);
   for (let fx = 1; fx <= 4; fx++) add("FX " + fx, `${c}/mix/${pad2(6 + fx)}/level`);
   if (!rows.length) return [];
+  const re = /\/mix\/\d\d\/level/;
   return [
     el("h3", { text: "Kiriman ke monitor & FX" }),
-    legendEl([...props.keys()].some((a) => /\/mix\/\d\d\/level/.test(a))),
+    legendEl(hasProposalRe(n, re, "rule"), hasProposalRe(n, re, "gem")),
     ...rows,
     el("p", { class: "note", text: "Bus 1–6 biasanya monitor/aux; FX 1–4 adalah kiriman efek. Alamat kiriman FX dan jenis efeknya belum diverifikasi pada MR18 ini." }),
   ];
 }
-function legendEl(hasSug) {
+function legendEl(hasRule, hasGem) {
   return el("div", { class: "legend" }, el("span", { class: "now", text: "sekarang ≈" }),
-    hasSug ? el("span", { class: "sug", text: "usulan AI (bayangan)" }) : null);
+    hasRule ? el("span", { class: "rule", text: "usulan program" }) : null,
+    hasGem ? el("span", { class: "gem", text: "usulan Gemini" }) : null);
 }
 
 // ---------- strip ----------
 function lamp(cls, label, v, sug) {
   const st = v == null ? "unk" : v === 1 ? "on" : "";
-  return el("div", { class: `lamp ${cls} ${st}${sug ? " sug" : ""}`, text: label,
-    title: (v == null ? "Tidak dijawab mixer. " : "") + (sug ? "Ada usulan AI untuk bagian ini." : "") });
-}
-function hasProposalRe(ch, re) {
-  for (const a of proposals(ch).keys()) if (re.test(a)) return true;
-  return false;
+  const r = sug && sug.rule, g = sug && sug.gem;
+  return el("div", { class: `lamp ${cls} ${st}${r ? " sug-rule" : ""}${g ? " sug-gem" : ""}`, text: label,
+    title: (v == null ? "Tidak dijawab mixer. " : "") + (r ? "Ada usulan program. " : "") + (g ? "Ada usulan Gemini." : "") });
 }
 function muteEl(v) {
   if (v == null) return el("div", { class: "mute unk", text: "?" });
@@ -586,11 +630,11 @@ function channelStrip(n) {
       el("div", { class: "role", text: roleFor(n), title: roleFor(n) ? "Daftar Channel: " + roleFor(n) : "" })),
     badgesFor(n),
     el("div", { class: "lamps" },
-      lamp("l48", "48V", raw(h + "/phantom"), hasProposalRe(n, /\/headamp\//)),
-      lamp("lhpf", "HPF", raw(c + "/preamp/hpon"), hasProposalRe(n, /\/preamp\/hp/)),
-      lamp("lgate", "GATE", raw(c + "/gate/on"), hasProposalRe(n, /\/gate\//)),
-      lamp("lcomp", "COMP", raw(c + "/dyn/on"), hasProposalRe(n, /\/dyn\//)),
-      lamp("leq", "EQ", raw(c + "/eq/on"), hasProposalRe(n, /\/eq\//)), el("div", { class: "lamp", text: "→LR " + (raw(c + "/mix/lr") === 1 ? "✓" : "✗") })),
+      lamp("l48", "48V", raw(h + "/phantom"), sugOf(n, /\/headamp\//)),
+      lamp("lhpf", "HPF", raw(c + "/preamp/hpon"), sugOf(n, /\/preamp\/hp/)),
+      lamp("lgate", "GATE", raw(c + "/gate/on"), sugOf(n, /\/gate\//)),
+      lamp("lcomp", "COMP", raw(c + "/dyn/on"), sugOf(n, /\/dyn\//)),
+      lamp("leq", "EQ", raw(c + "/eq/on"), sugOf(n, /\/eq\//)), el("div", { class: "lamp", text: "→LR " + (raw(c + "/mix/lr") === 1 ? "✓" : "✗") })),
     eqSvg(n),
     el("div", { class: "body" }, meterEl("ch" + n, on === 0), faderEl(fader)),
     el("div", { class: "db", text: fmtDb(EST.faderDb(fader)) + (fader == null ? "" : " ≈") }),
@@ -620,7 +664,7 @@ function masterStrip(label, prefix, key) {
 // ---------- panel detail ----------
 function row(label, value, est) { return el("tr", null, el("td", { text: label }), el("td", { class: est ? "est" : "", text: value })); }
 function findingCard(f) {
-  return el("div", { class: "card " + f.severity },
+  return el("div", { class: "card " + f.severity + (f.sumber === "gemini" ? " gemcard" : "") },
     f.sumber === "gemini" ? el("span", { class: "aitag", text: "✦ Gemini · keyakinan " + (f.keyakinan || "rendah") }) : null,
     el("h4", { text: (f.severity === "perhatian" ? "⚠ " : "💡 ") + f.masalah }),
     el("ol", null,
@@ -666,17 +710,17 @@ function openChannel(n, strip) {
     row("Status", raw(c + "/mix/on") === 0 ? "MUTE" : onoff(raw(c + "/mix/on"))),
     ...[1, 2, 3, 4, 5, 6].map((b) => row("Kirim ke Bus " + b, fmtDb(EST.faderDb(raw(`${c}/mix/${pad2(b)}/level`))), true)));
   const list = state.findings.filter((f) => f.ch === n);
-  const changes = list.flatMap((f) => (f.usulan || []).map((u) => ({ ...u, gem: f.sumber === "gemini" })));
+  const changes = list.flatMap((f) => (f.usulan || []).map((u) => ({ ...u, src: srcOf(f) })));
   const eqChanges = changes.filter((u) => /\/(eq\/|preamp\/hp)/.test(u.alamat));
   showDrawer(strip,
     el("h3", { text: "CH " + pad2(n) + " · " + (raw(c + "/config/name") || "(tanpa nama)") }),
     el("p", { class: "note", text: "Nilai bertanda ≈ adalah perkiraan. Cocokkan dengan aplikasi mixer sebelum dipercaya." }),
     changes.length ? el("h3", { text: "Usulan perubahan (" + changes.length + ")" }) : null,
-    changes.length ? el("ul", { class: "changes" }, ...changes.map((u) => el("li", { text: (u.gem ? "✦ Gemini: " : "") + u.teks }))) : null,
-    changes.some((u) => u.gem) ? el("p", { class: "note", text: "Bila aturan lokal dan Gemini mengusulkan parameter yang sama, bayangan di grafik memakai usulan Gemini. Pilih yang paling masuk akal saat soundcheck." }) : null,
+    changes.length ? el("ul", { class: "changes" }, ...changes.map((u) => el("li", { class: u.src, text: (u.src === "gem" ? "✦ Gemini: " : "Program: ") + u.teks }))) : null,
+    changes.some((u) => u.src === "gem") && changes.some((u) => u.src === "rule") ? el("p", { class: "note", text: "Ungu = usulan program (aturan), biru muda = usulan Gemini. Bila keduanya menyentuh bagian yang sama, kedua bayangan digambar; pilih yang paling masuk akal saat soundcheck." }) : null,
     changes.length ? el("p", { class: "note", text: "Usulan belum diterapkan. Bila setuju, ubah sendiri di aplikasi mixer (M-AIR), satu per satu, saat soundcheck." }) : null,
     el("h3", { text: "EQ" }),
-    legendEl(eqChanges.length > 0),
+    legendEl(hasEqProposal(n, "rule"), hasEqProposal(n, "gem")),
     eqChart(n),
     el("p", { class: "note", text: raw(c + "/eq/on") === 0
       ? "EQ channel ini sedang OFF; titik band tidak ditampilkan. Bentuk kurva adalah perkiraan dari nilai mixer."
@@ -732,6 +776,11 @@ function render() {
   if (!parts.length) parts.push(el("div", { class: "empty", text: "Semua strip disembunyikan. Klik “Pilih channel” untuk menampilkan." }));
   desk.replaceChildren(...parts);
   applyZoom();
+  const m = location.hash.match(/^#ch=(\d{1,2})$/);
+  if (m && !state.keepDrawer && channels().includes(+m[1])) {
+    history.replaceState(null, "", location.pathname);
+    setTimeout(() => openChannel(+m[1], state.stripEls["ch" + m[1]]), 0);
+  }
 }
 
 // ---------- tampilan: zoom & pilih channel (disimpan per perangkat) ----------
@@ -923,10 +972,29 @@ function aiResultView(res) {
     (res.usulan_dibuang ? ` · ${res.usulan_dibuang} usulan angka dari Gemini dibuang karena di luar batas aman/tidak dikenal.` : "") }));
   const tg = el("input", { type: "checkbox" }); tg.checked = state.showAI;
   tg.addEventListener("change", () => { state.showAI = tg.checked; mergeFindings(); state.keepDrawer = true; render(); state.keepDrawer = false; });
-  nodes.push(el("label", { class: "toggle" }, tg, "Tampilkan usulan Gemini di strip dan grafik (bayangan ungu)"));
+  nodes.push(el("label", { class: "toggle" }, tg, "Tampilkan usulan Gemini di strip dan grafik (bayangan biru muda)"));
   nodes.push(el("h3", { text: "Prioritas (" + res.prioritas.length + ")" }));
-  for (const f of res.prioritas) nodes.push(findingCard(f));
+  for (const f of res.prioritas) {
+    nodes.push(findingCard(f));
+    const v = aiVisual(f);
+    if (v) nodes.push(v);
+  }
   return nodes;
+}
+// Gambar usulan Gemini langsung di bawah kartunya (grafik yang sama dengan panel channel).
+function aiVisual(f) {
+  if (!f.ch || !f.usulan || !f.usulan.length || !state.dump || !state.showAI) return null;
+  const addrs = f.usulan.map((u) => u.alamat);
+  const has = (re) => addrs.some((a) => re.test(a));
+  const parts = [el("h4", { text: "Gambaran usulan · CH " + pad2(f.ch) + " " + (raw("/ch/" + pad2(f.ch) + "/config/name") || "") }),
+    legendEl(hasProposalRe(f.ch, /./, "rule"), true)];
+  if (has(/\/(eq\/|preamp\/hp)/)) parts.push(eqChart(f.ch));
+  if (has(/\/(dyn|gate)\//)) parts.push(...dynSection(f.ch).slice(2, 3));
+  if (has(/\/mix\/(\d\d\/level|fader)/)) parts.push(...sendSection(f.ch).slice(2, -1));
+  if (parts.length === 2) parts.push(el("ul", { class: "usulan" }, ...f.usulan.map((u) => el("li", { text: u.teks }))));
+  parts.push(el("button", { class: "open", type: "button", text: "Buka detail CH " + pad2(f.ch),
+    onclick: () => openChannel(f.ch, state.stripEls["ch" + f.ch]) }));
+  return el("div", { class: "aivis" }, ...parts);
 }
 function useAIResult(res) {
   state.aiFindings = (res && res.prioritas) || [];
