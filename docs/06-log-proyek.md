@@ -161,6 +161,17 @@
 - Tiga warna konsisten: hijau = sekarang, ungu = usulan program (aturan lokal), biru muda = usulan Gemini. Kedua bayangan digambar bersamaan; lampu strip, legenda, daftar usulan, batang kiriman, dan kartu ikut berwarna sesuai sumber.
 - Perbaikan: definisi ganda hasProposalRe (yang lama menimpa yang baru) dihapus.
 
+## Update: halaman Data DSP (Ashly Protea 4.8SP)
+
+- `viewer/dsp.html` + `aise/dsp.py`. Program TIDAK berkomunikasi dengan DSP.
+- Unggah file preset (maks 5 MB) → disimpan di `data/dsp/presets/`, jenisnya dikenali (XML/JSON/INI/teks/biner) dan isinya ditampilkan sekilas. Format preset Ashly belum diketahui; belum ada pembaca otomatis.
+- "✦ Baca dengan Gemini" (izin per kali): dari tangkapan layar software Protea, atau dari preset bila isinya teks. Hasil = DRAF di formulir (kotak biru muda), nilai di luar rentang dibuang, yang tak terbaca dicatat; operator memeriksa lalu Simpan.
+- Formulir 8 output (peran, nama, sumber, gain, mute, polaritas, delay, HPF/LPF + tipe, limiter, PEQ) + 4 input → `data/dsp/dsp.json`.
+- Saran program sistem: crossover sub–utama tumpang tindih / berlubang, utama tanpa HPF, limiter belum tercatat, boost EQ sistem > +6 dB, beda kiri–kanan, beda polaritas sub–utama, delay semua 0. Grafik crossover/EQ sistem dengan bayangan ungu usulan.
+- Data DSP + temuan DSP ikut dikirim ke Gemini pada Analisis AI dan Klip Suara.
+- 94 tes lulus; diuji di browser dengan preset contoh + Gemini tiruan.
+- Berikutnya: bila operator mengirim contoh file preset asli, buat pembaca otomatis sesuai formatnya.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

@@ -33,6 +33,19 @@ REPLY = {
 }
 
 
+DSP_REPLY = {
+    "output": [
+        {"no": 1, "nama": "Main L", "peran": "utama_kiri", "hpf_hz": 80, "hpf_tipe": "LR24", "lpf_hz": None,
+         "gain_db": 0, "delay_ms": 0, "peq": [{"hz": 3000, "db": 8, "q": 1.4}, {"hz": 99999, "db": 1, "q": 1}]},
+        {"no": 2, "nama": "Main R", "peran": "utama_kanan", "hpf_hz": 80, "gain_db": 2.5},
+        {"no": 3, "nama": "Sub", "peran": "sub", "lpf_hz": 150, "lpf_tipe": "LR24", "delay_ms": 5000},
+        {"no": 9, "nama": "tidak ada"},
+    ],
+    "input": [{"nama": "In A", "sumber": "MR18 Main L", "gain_db": 0}],
+    "tidak_terbaca": ["limiter semua output"],
+}
+
+
 class FakeGemini(BaseHTTPRequestHandler):
     calls: list = []
     mode = "ok"
@@ -73,6 +86,8 @@ class FakeGemini(BaseHTTPRequestHandler):
         FakeGemini.calls.append(("POST", self.path, self.headers.get("x-goog-api-key"), body))
         if FakeGemini.mode == "429":
             return self._send(429, {"error": {"message": "Resource exhausted"}})
+        if b"BACA_DSP" in body:
+            return self._send(200, {"candidates": [{"content": {"parts": [{"text": json.dumps(DSP_REPLY)}]}}]})
         self._send(200, {"candidates": [{"content": {"parts": [{"text": "```json\n" + json.dumps(REPLY) + "\n```"}]}}]})
 
 

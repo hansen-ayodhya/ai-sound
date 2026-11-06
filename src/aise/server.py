@@ -18,6 +18,7 @@ Keamanan:
 from __future__ import annotations
 
 import argparse
+import base64
 import html
 import ipaddress
 import json
@@ -34,6 +35,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlparse
 
 from . import ai, channels, meters
+from . import dsp as dspmod
 from .clips import ClipError, ClipStore
 from .audit import PROBE_ADDRESSES, MixerNotAnswering, run_audit
 from .client import DEFAULT_PORT, ReadOnlyClient
@@ -51,6 +53,9 @@ CONTENT_TYPES = {".html": "text/html", ".json": "application/json", ".md": "text
 DEFAULT_HTTP_PORT = 8765
 MAX_BODY = 60_000
 MAX_CLIP_BODY = 3_000_000  # klip ≤30 dtk WAV 16 kHz mono ≈ 1 MB, base64 ≈ 1,3 MB
+MAX_DSP_BODY = 10_000_000  # preset ≤5 MB atau tangkapan layar, dalam base64
+BIG_BODY = {"/api/clips": MAX_CLIP_BODY, "/api/dsp/preset": MAX_DSP_BODY, "/api/dsp/ai-read": MAX_DSP_BODY}
+IMAGE_MIME = ("image/png", "image/jpeg", "image/webp")
 MAX_PIN_FAILS = 5
 PIN_LOCK_S = 300
 # Kunci Gemini boleh DITULIS dari perangkat yang sudah masuk (PIN); kunci tidak pernah dikirim balik.
@@ -293,11 +298,52 @@ class App:
             _, dump = self.latest_dump()
             profile = self.profile()
             findings = findings_json(dump, profile) if dump else []
-            res = ai.analyze_clip(ai.load_config(self.ai_cfg_path), rec, wav, dump, profile, findings, base=self.ai_base)
+            res = ai.analyze_clip(ai.load_config(self.ai_cfg_path), rec, wav, dump, profile, findings, base=self.ai_base,
+                                  dsp=self.dsp_data())
             self.clips.set_ai(cid, res)
             # Hasil klip juga menjadi "analisis AI terakhir" supaya bayangannya tampil di Tampilan Mixer.
             (self.data / "ai-last.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
             return res
+        finally:
+            self._ai_lock.release()
+
+    # ---------- DSP ----------
+    @property
+    def dsp_path(self) -> Path:
+        return self.data / "dsp" / "dsp.json"
+
+    def dsp_data(self) -> dict | None:
+        return dspmod.load(self.dsp_path)
+
+    def dsp_view(self) -> dict:
+        data = self.dsp_data()
+        return {"data": data or dspmod.blank(), "saved": data is not None, "peran": dspmod.PERAN,
+                "presets": dspmod.PresetStore(self.data).list(), "findings": dspmod.analyze(data)}
+
+    def dsp_ai_read(self, body: dict) -> dict:
+        if body.get("izin") is not True:
+            raise ValueError("Centang izin dulu sebelum data dikirim ke Google.")
+        if body.get("preset_id"):
+            rec, raw = dspmod.PresetStore(self.data).get(str(body["preset_id"]))
+            if not rec["info"].get("teks"):
+                raise ValueError("File preset ini biner (bukan teks), jadi tidak bisa dibaca Gemini. Pakai tangkapan layar software Protea.")
+            text = raw.decode("utf-16" if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else "utf-8", errors="replace")[:200_000]
+            parts = [{"text": "Isi file preset '" + rec["nama_file"] + "':\n" + text}]
+        else:
+            mime = str(body.get("mime", ""))
+            if mime not in IMAGE_MIME:
+                raise ValueError("Gambar harus PNG, JPG, atau WEBP.")
+            try:
+                img = base64.b64decode(body.get("image_b64") or "", validate=True)
+            except ValueError:
+                raise ValueError("Gambar rusak saat diunggah.") from None
+            if not img or len(img) > 7_000_000:
+                raise ValueError("Gambar kosong atau terlalu besar (maks 7 MB).")
+            parts = [{"inline_data": {"mime_type": mime, "data": base64.b64encode(img).decode("ascii")}}]
+        if not self._ai_lock.acquire(blocking=False):
+            raise Busy("Gemini masih memproses permintaan sebelumnya. Tunggu sebentar.")
+        try:
+            return ai.read_dsp(ai.load_config(self.ai_cfg_path), parts, base=self.ai_base)
         finally:
             self._ai_lock.release()
 
@@ -310,7 +356,7 @@ class App:
             findings = findings_json(dump, profile) if dump else []
             live = self.live.snapshot() if self.live else None
             res = ai.analyze(ai.load_config(self.ai_cfg_path), dump, profile, findings, live,
-                             situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base)
+                             situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base, dsp=self.dsp_data())
             (self.data / "ai-last.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
             return res
         finally:
@@ -570,6 +616,14 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, {**app.ai_view(), "is_local": self._is_local()})
                 if path == "/api/clips":
                     return self._json(200, {"clips": app.clips.list()})
+                if path == "/api/dsp":
+                    return self._json(200, app.dsp_view())
+                if path == "/api/dsp/preset":
+                    pid = parse_qs(urlparse(self.path).query).get("id", [""])[0]
+                    try:
+                        return self._json(200, dspmod.PresetStore(app.data).get(pid)[0])
+                    except dspmod.DSPError as exc:
+                        return self._json(400, {"error": str(exc)})
                 return self._json(404, {"error": "Tidak dikenal."})
             return self._static(path)
 
@@ -587,7 +641,7 @@ def make_handler(app: App, http_port: int):
             if path in LOCAL_ONLY and not self._is_local():
                 return self._json(403, {"error": "Tombol ini hanya bisa dipakai dari laptop yang menjalankan aplikasi."})
             try:
-                body = self._body(MAX_CLIP_BODY if path == "/api/clips" else MAX_BODY)
+                body = self._body(BIG_BODY.get(path, MAX_BODY))
                 if path == "/api/ip":
                     ip, _ = _parse_target(body)
                     save_ip(ip, app.data / "mixer-ip.txt")
@@ -626,6 +680,13 @@ def make_handler(app: App, http_port: int):
                 if path == "/api/clips":
                     rec = app.clips.save(body.get("wav_b64", ""), body.get("meta"), body.get("analisis"))
                     return self._json(200, rec)
+                if path == "/api/dsp":
+                    clean = dspmod.save(app.dsp_path, body.get("data"))
+                    return self._json(200, {"ok": True, "data": clean, "findings": dspmod.analyze(clean)})
+                if path == "/api/dsp/preset":
+                    return self._json(200, dspmod.PresetStore(app.data).save(body.get("b64", ""), body.get("nama", "")))
+                if path == "/api/dsp/ai-read":
+                    return self._json(200, app.dsp_ai_read(body))
                 if path == "/api/clips/ai":
                     if body.get("izin") is not True:
                         raise ValueError("Centang izin dulu sebelum klip dikirim ke Google.")
@@ -655,7 +716,7 @@ def make_handler(app: App, http_port: int):
                 return self._json(409, {"error": str(exc)})
             except ai.AIError as exc:
                 return self._json(502, {"error": str(exc)})
-            except (ValueError, ReadOnlyViolation, channels.ProfileError, ClipError) as exc:
+            except (ValueError, ReadOnlyViolation, channels.ProfileError, ClipError, dspmod.DSPError) as exc:
                 return self._json(400, {"error": str(exc)})
 
     return Handler

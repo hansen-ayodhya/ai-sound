@@ -21,6 +21,7 @@ import urllib.request
 from pathlib import Path
 
 from . import channels, convert
+from . import dsp as dspmod
 
 API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 TIMEOUT_S = 90
@@ -170,7 +171,8 @@ Konteks tetap:
 - Sistem: Midas MR18 -> speaker management Ashly Protea 4.8SP -> 2 speaker utama aktif (Mickey) + 2 subwoofer aktif; 2 monitor panggung.
 - Ruangan: plafon relatif rendah, pilar besar di tengah, banyak permukaan keras yang memantul.
 - Keluhan operator: vokal kurang jelas, sering feedback/mendenging, bass boomy, musik kadang terlalu keras, vokal tajam/menusuk, khotbah kurang jelas, mixing tidak konsisten.
-- Konfigurasi DSP Ashly dan pengukuran audio/ruangan BELUM tersedia. Konversi nilai mixer ke dB/Hz masih PERKIRAAN.
+- Pengukuran audio/ruangan BELUM tersedia. Konversi nilai mixer ke dB/Hz masih PERKIRAAN. Data DSP Ashly (bila ada di
+  'dsp') diisi/diperiksa operator dari software Protea; bila kosong, konfigurasi DSP belum diketahui.
 Aturan menjawab:
 1. Hanya berdasarkan data yang diberikan. Jangan mengarang pengukuran, frekuensi resonansi, atau model perangkat.
 2. Cari akar masalah dan urutkan prioritas; jangan hanya menyarankan naik/turun EQ.
@@ -274,8 +276,10 @@ SITUASI = {"umum": "ibadah umum", "lagu": "sesi pujian/lagu", "khotbah": "khotba
 
 
 def build_prompt(dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
-                 situasi: str, pertanyaan: str) -> str:
+                 situasi: str, pertanyaan: str, dsp: dict | None = None) -> str:
     ctx = {
+        "dsp": dspmod.summary(dsp) or None,
+        "temuan_dsp": [{"masalah": f["masalah"], "usulan": [u["teks"] for u in f["usulan"]]} for f in dspmod.analyze(dsp)],
         "situasi": SITUASI.get(situasi, "ibadah umum"),
         "pertanyaan_operator": (pertanyaan or "").strip()[:MAX_QUESTION] or None,
         "konversi_terverifikasi": convert.VERIFIED,
@@ -429,8 +433,8 @@ def _generate(cfg: dict, parts: list, schema: dict, base: str) -> dict:
 
 
 def analyze(cfg: dict, dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
-            situasi: str = "umum", pertanyaan: str = "", base: str = API_BASE) -> dict:
-    parsed = _generate(cfg, [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan)}],
+            situasi: str = "umum", pertanyaan: str = "", base: str = API_BASE, dsp: dict | None = None) -> dict:
+    parsed = _generate(cfg, [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan, dsp)}],
                        RESPONSE_SCHEMA, base)
     out = sanitize(parsed, dump)
     out.update(model=cfg.get("model"), dibuat=time.strftime("%Y-%m-%dT%H:%M:%S%z"), situasi=situasi,
@@ -456,8 +460,9 @@ CLIP_SCHEMA = {
 }
 
 
-def clip_prompt(rec: dict, dump: dict | None, profile: dict | None, findings: list[dict]) -> str:
+def clip_prompt(rec: dict, dump: dict | None, profile: dict | None, findings: list[dict], dsp: dict | None = None) -> str:
     ctx = {
+        "dsp": dspmod.summary(dsp) or None,
         "klip": {"posisi_rekam": rec["meta"].get("posisi") or None, "situasi": SITUASI.get(rec["meta"]["situasi"]),
                  "catatan_operator": rec["meta"].get("catatan") or None, "durasi_detik": rec["audio"]["seconds"],
                  "perekam": "kemungkinan mikrofon HP (tidak dikalibrasi; mewarnai suara)"},
@@ -477,9 +482,9 @@ def clip_prompt(rec: dict, dump: dict | None, profile: dict | None, findings: li
 
 
 def analyze_clip(cfg: dict, rec: dict, wav: bytes, dump: dict | None, profile: dict | None, findings: list[dict],
-                 base: str = API_BASE) -> dict:
+                 base: str = API_BASE, dsp: dict | None = None) -> dict:
     import base64
-    parts = [{"text": clip_prompt(rec, dump, profile, findings)},
+    parts = [{"text": clip_prompt(rec, dump, profile, findings, dsp)},
              {"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(wav).decode("ascii")}}]
     parsed = _generate(cfg, parts, CLIP_SCHEMA, base)
     out = sanitize(parsed, dump)
@@ -492,3 +497,69 @@ def analyze_clip(cfg: dict, rec: dict, wav: bytes, dump: dict | None, profile: d
     for p in out["prioritas"]:
         p["id"] = p["id"].replace("gemini-", "gemini-klip-", 1)
     return out
+
+
+# ---------- membaca DSP dari tangkapan layar / preset teks ----------
+_NUM = {"type": "NUMBER", "nullable": True}
+DSP_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "output": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+            "no": {"type": "INTEGER"}, "nama": {"type": "STRING"},
+            "peran": {"type": "STRING", "enum": ["utama_kiri", "utama_kanan", "sub", "monitor", "lainnya", "tidak_dipakai", ""]},
+            "sumber": {"type": "STRING"}, "gain_db": _NUM, "mute": {"type": "BOOLEAN"}, "polaritas_terbalik": {"type": "BOOLEAN"},
+            "delay_ms": _NUM, "hpf_hz": _NUM, "hpf_tipe": {"type": "STRING"}, "lpf_hz": _NUM, "lpf_tipe": {"type": "STRING"},
+            "limiter_thr_db": _NUM, "limiter_attack_ms": _NUM, "limiter_release_ms": _NUM,
+            "peq": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"hz": _NUM, "db": _NUM, "q": _NUM}}},
+        }, "required": ["no"]}},
+        "input": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+            "nama": {"type": "STRING"}, "sumber": {"type": "STRING"}, "gain_db": _NUM}}},
+        "tidak_terbaca": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "catatan": {"type": "STRING"},
+    },
+    "required": ["output", "tidak_terbaca"],
+}
+
+DSP_READ_PROMPT = """TUGAS: BACA_DSP.
+Lampiran adalah tangkapan layar software Ashly Protea atau isi file preset DSP Ashly Protea 4.8SP (4 input, 8 output).
+Salin HANYA angka/teks yang benar-benar terlihat ke skema. Jangan menebak: kosongkan (null) yang tidak terlihat dan
+sebutkan di 'tidak_terbaca'. Satuan: Hz, dB, ms. 'peran' isi bila nama output jelas (mis. 'Main L' -> utama_kiri,
+'Sub' -> sub, 'Mon' -> monitor); bila ragu biarkan "". Tipe filter tulis seperti terlihat (mis. LR24, BW12)."""
+
+
+def read_dsp(cfg: dict, parts: list, base: str = API_BASE) -> dict:
+    """Minta Gemini menyalin data DSP. Hasil divalidasi; nilai yang tidak lolos dikosongkan dan dicatat."""
+    parsed = _generate(cfg, [{"text": DSP_READ_PROMPT}] + parts, DSP_SCHEMA, base)
+    draft, dropped = dspmod.blank(), []
+    for o in (parsed.get("output") or [])[:dspmod.N_OUT]:
+        if not isinstance(o, dict):
+            continue
+        no = o.get("no")
+        if not isinstance(no, int) or not 1 <= no <= dspmod.N_OUT:
+            continue
+        slot = draft["output"][no - 1]
+        for k in slot:
+            if k in ("no", "peq") or k not in o:
+                continue
+            trial = dict(slot, **{k: o[k]})
+            try:
+                dspmod.validate({"output": [trial]})
+                slot[k] = o[k]
+            except dspmod.DSPError:
+                dropped.append(f"Output {no} {k}")
+        peq = []
+        for b in (o.get("peq") or [])[:dspmod.MAX_PEQ]:
+            try:
+                peq += dspmod.validate({"output": [dict(slot, peq=[b])]})["output"][0]["peq"]
+            except dspmod.DSPError:
+                dropped.append(f"Output {no} PEQ")
+        slot["peq"] = peq
+    for i, x in enumerate((parsed.get("input") or [])[:dspmod.N_IN]):
+        if isinstance(x, dict):
+            try:
+                draft["input"][i] = dict(dspmod.validate({"input": [x]})["input"][0], no=i + 1)
+            except dspmod.DSPError:
+                dropped.append(f"Input {i + 1}")
+    draft["sumber_data"] = "draf Gemini (perlu diperiksa)"
+    return {"draf": draft, "tidak_terbaca": [_s(x, 200) for x in (parsed.get("tidak_terbaca") or [])[:30]],
+            "dibuang": dropped[:30], "catatan": _s(parsed.get("catatan"), 500), "model": cfg.get("model")}

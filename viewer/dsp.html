@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data DSP</title>
+<style>
+  :root {
+    --bg: #0f1216; --panel: #171c22; --panel-2: #1e252d; --line: #2c3540;
+    --text: #e6eaf0; --muted: #8c97a6; --accent: #5aa2ff; --ok: #3fcf7f; --warn: #f5b041; --bad: #ff6b6b;
+    --rule: #b48cff; --gem: #3cc9f0;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 16px; background: var(--panel);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .brand { font-weight: 700; font-size: 16px; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; }
+  nav a.cur { color: var(--text); background: var(--panel-2); }
+  .ro { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--ok); border: 1px solid var(--ok); border-radius: 999px; padding: 2px 9px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  h2 { margin: 0 0 4px; font-size: 16px; } h3 { margin: 10px 0 6px; font-size: 14px; }
+  .sub, .note { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  label.f { display: block; font-size: 11px; color: var(--muted); margin: 6px 0 2px; }
+  input[type=text], input[type=number], select { width: 100%; font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  input.fromai, select.fromai { border-color: var(--gem); box-shadow: 0 0 0 1px var(--gem); }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  button { font: inherit; border-radius: 7px; padding: 7px 13px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button.primary { background: var(--accent); color: #0b1a2e; border-color: var(--accent); font-weight: 700; }
+  button.ai { background: var(--gem); color: #0f1216; border-color: var(--gem); font-weight: 700; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .out { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); white-space: pre-wrap; font-size: 13px; }
+  .out:empty { display: none; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  pre.peek { white-space: pre-wrap; word-break: break-all; font: 12px/1.45 ui-monospace, Consolas, monospace; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px; max-height: 280px; overflow: auto; margin: 8px 0 0; }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; cursor: pointer; font-size: 13px; }
+  .check input { margin-top: 3px; width: 16px; height: 16px; }
+  .outs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+  .ocard { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--panel-2); }
+  .ocard h4 { margin: 0 0 4px; font-size: 13px; display: flex; gap: 6px; align-items: center; }
+  .ocard h4 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
+  .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 6px; }
+  .tick { display: flex; gap: 6px; align-items: center; font-size: 12px; margin-top: 6px; }
+  .peqrow { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 4px; margin-top: 4px; }
+  .peqrow button, .addpeq { padding: 3px 8px; font-size: 12px; }
+  svg.chart { width: 100%; height: auto; display: block; background: #12161b; border-radius: 8px; }
+  svg.chart text { font: 10px system-ui, sans-serif; fill: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin: 6px 0; }
+  .legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; margin-right: 6px; vertical-align: middle; }
+  .fcard { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: var(--panel-2); }
+  .fcard.perhatian { border-color: var(--warn); }
+  .fcard h4 { margin: 0 0 6px; font-size: 13px; }
+  .fcard ol { margin: 0; padding-left: 18px; } .fcard li b { color: var(--muted); font-weight: 600; }
+  .fcard ul.us { margin: 8px 0 0; padding-left: 18px; color: #d6c4ff; }
+  .prow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .prow .m { flex: 1; min-width: 200px; }
+  .prow button { padding: 4px 10px; font-size: 12px; }
+  .alert { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--bad); color: var(--bad); background: #2a1313; }
+  .draftbox { border: 1px solid var(--gem); border-radius: 8px; padding: 10px 12px; background: #0f2129; margin-top: 10px; font-size: 13px; }
+  .savebar { position: sticky; bottom: 0; background: var(--panel); padding: 10px 0 2px; box-shadow: 0 -8px 12px var(--panel); }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">AI Sound Engineer</div>
+  <nav>
+    <a href="home.html">Beranda</a>
+    <a href="mixer.html">Tampilan Mixer</a>
+    <a href="clips.html">Klip Suara</a>
+    <a href="dsp.html" class="cur">Data DSP</a>
+    <a href="index.html">Tabel</a>
+  </nav>
+  <span class="ro" title="Program tidak berkomunikasi dengan DSP">TIDAK MENYENTUH DSP</span>
+</header>
+
+<main class="wrap">
+  <div class="alert" id="noServer" hidden>Halaman ini harus dibuka lewat aplikasi (AI-Sound-Engineer.bat / exe).</div>
+
+  <section class="card">
+    <h2>Ashly Protea 4.8SP</h2>
+    <p class="sub">Program <b>tidak</b> terhubung ke DSP. Data di sini berasal dari file preset yang Anda unggah, tangkapan layar software Protea,
+      atau isian Anda. Saat mengambil data di software Protea: hanya <b>baca dari unit</b>, jangan pernah <b>kirim ke unit</b>.</p>
+  </section>
+
+  <section class="card">
+    <h2>1. Unggah file preset</h2>
+    <p class="sub">File yang disimpan dari software Protea (File → Save As). Format preset Ashly belum diketahui, jadi program memeriksa jenis filenya
+      dan menampilkan isinya sekilas. Bila isinya teks, Gemini bisa diminta menyalinnya ke formulir.</p>
+    <input type="file" id="presetFile">
+    <div class="btns"><button class="primary" id="btnUpload" disabled>Unggah &amp; periksa</button></div>
+    <div class="out" id="upOut"></div>
+    <div id="presetDetail"></div>
+    <h3>Preset tersimpan</h3>
+    <div id="presetList"><p class="note">Belum ada.</p></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Baca dari tangkapan layar (Gemini)</h2>
+    <p class="sub">Foto layar halaman software Protea (output, crossover, EQ, delay, limiter). Gemini menyalin angka yang terlihat ke formulir di bawah
+      sebagai <b>draf</b> (kotak biru muda); periksa setiap angka sebelum Simpan. Unggah satu gambar per kali; ulangi untuk halaman lain.</p>
+    <input type="file" id="shotFile" accept="image/png,image/jpeg,image/webp">
+    <label class="check"><input type="checkbox" id="izinShot"> <span>Saya setuju gambar ini dikirim ke Google Gemini untuk dibaca.</span></label>
+    <div class="btns"><button class="ai" id="btnShot" disabled>✦ Baca gambar dengan Gemini</button></div>
+    <div class="out" id="shotOut"></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Data per output</h2>
+    <p class="sub">Isi atau periksa. Kosongkan bila tidak tahu — program tidak akan menebak. Kotak biru muda = diisi Gemini, perlu diperiksa.</p>
+    <div id="draftInfo"></div>
+    <div class="outs" id="outs"></div>
+    <h3>Input DSP</h3>
+    <div class="outs" id="ins"></div>
+    <label class="f" for="dspNote">Catatan umum</label>
+    <input type="text" id="dspNote" maxlength="500" placeholder="mis. preset 'Ibadah Minggu', diperiksa 7 Nov">
+    <div class="savebar">
+      <div class="btns"><button class="primary" id="btnSave">Simpan data DSP</button><span id="saveOut" class="note"></span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>4. Gambaran crossover &amp; EQ sistem</h2>
+    <p class="sub">Bentuk perkiraan dari isian di atas (HPF/LPF + PEQ, tanpa gain). Garis putus-putus ungu = usulan program.</p>
+    <div class="legend" id="specLegend"></div>
+    <svg class="chart" id="xo" viewBox="0 0 900 300" role="img" aria-label="Grafik crossover dan EQ sistem"></svg>
+  </section>
+
+  <section class="card">
+    <h2>5. Saran program untuk sistem</h2>
+    <p class="sub">Dari aturan lokal. Data DSP ini juga ikut dikirim ke Gemini saat "✦ Analisis AI" di Tampilan Mixer.</p>
+    <div id="findings"><p class="note">Simpan data DSP untuk melihat saran.</p></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const tokenMeta = document.querySelector('meta[name="aise-token"]');
+const TOKEN = tokenMeta ? tokenMeta.content : null;
+async function api(path, body) {
+  const opt = { method: body === undefined ? "GET" : "POST", headers: { "X-AISE-Token": TOKEN || "" } };
+  if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  let data = {};
+  try { data = await r.json(); } catch (e) { /* kosong */ }
+  if (!r.ok) throw new Error(data.error || ("Gagal (" + r.status + ")"));
+  return data;
+}
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  if (props) for (const [k, v] of Object.entries(props)) {
+    if (k === "class") n.className = v; else if (k === "text") n.textContent = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v);
+  }
+  for (const c of kids) if (c != null) n.append(c);
+  return n;
+}
+function svg(tag, attrs) { const n = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v); return n; }
+function say(id, text, cls) { const o = $(id); o.textContent = text; o.className = "out" + (cls ? " " + cls : ""); }
+const ROLE_COLOR = { utama_kiri: "#3fcf7f", utama_kanan: "#2fb8a0", sub: "#f5b041", monitor: "#8c97a6", lainnya: "#5aa2ff" };
+const st = { view: null, findings: [], fromAI: new Set() };
+function readFile(f) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(",")[1]); r.onerror = rej; r.readAsDataURL(f); });
+}
+
+// ---------- formulir ----------
+function numIn(val, ph, key) {
+  const i = el("input", { type: "number", step: "any", placeholder: ph || "" });
+  if (val != null) i.value = val;
+  i.dataset.k = key || "";
+  i.addEventListener("input", () => { i.classList.remove("fromai"); scheduleChart(); });
+  return i;
+}
+function txtIn(val, ph, max) {
+  const i = el("input", { type: "text", maxlength: String(max || 40), placeholder: ph || "" });
+  i.value = val || ""; i.addEventListener("input", () => i.classList.remove("fromai"));
+  return i;
+}
+const numOf = (i) => (i.value.trim() === "" ? null : Number(i.value));
+function peqRow(b, onChange) {
+  const hz = numIn(b && b.hz, "Hz"), db = numIn(b && b.db, "dB"), q = numIn(b && b.q, "Q");
+  const row = el("div", { class: "peqrow" }, hz, db, q, el("button", { type: "button", text: "×", "aria-label": "Hapus band", onclick: () => { row.remove(); onChange(); } }));
+  row._get = () => ({ hz: numOf(hz), db: numOf(db), q: numOf(q) });
+  row._ins = [hz, db, q];
+  return row;
+}
+function outCard(o) {
+  const f = {
+    nama: txtIn(o.nama, "mis. Main L"), sumber: txtIn(o.sumber, "mis. Main L MR18", 30),
+    peran: el("select"), gain_db: numIn(o.gain_db, "dB"), delay_ms: numIn(o.delay_ms, "ms"),
+    hpf_hz: numIn(o.hpf_hz, "Hz"), hpf_tipe: txtIn(o.hpf_tipe, "LR24", 16), lpf_hz: numIn(o.lpf_hz, "Hz"), lpf_tipe: txtIn(o.lpf_tipe, "LR24", 16),
+    limiter_thr_db: numIn(o.limiter_thr_db, "dB"), limiter_attack_ms: numIn(o.limiter_attack_ms, "ms"), limiter_release_ms: numIn(o.limiter_release_ms, "ms"),
+    mute: el("input", { type: "checkbox" }), polaritas_terbalik: el("input", { type: "checkbox" }), catatan: txtIn(o.catatan, "catatan", 120),
+  };
+  for (const [k, v] of Object.entries(st.view.peran)) { const op = el("option", { value: k, text: v }); if (k === o.peran) op.selected = true; f.peran.append(op); }
+  f.peran.addEventListener("change", () => { f.peran.classList.remove("fromai"); dot.style.background = ROLE_COLOR[f.peran.value] || "#3a4552"; scheduleChart(); });
+  f.mute.checked = !!o.mute; f.polaritas_terbalik.checked = !!o.polaritas_terbalik;
+  const peqBox = el("div");
+  for (const b of o.peq || []) peqBox.append(peqRow(b, scheduleChart));
+  const dot = el("span", { class: "dot" }); dot.style.background = ROLE_COLOR[o.peran] || "#3a4552";
+  const card = el("div", { class: "ocard" },
+    el("h4", null, dot, "Output " + o.no),
+    el("div", { class: "g2" },
+      el("div", null, el("label", { class: "f", text: "Nama di DSP" }), f.nama),
+      el("div", null, el("label", { class: "f", text: "Peran" }), f.peran),
+      el("div", null, el("label", { class: "f", text: "Sumber (input DSP)" }), f.sumber),
+      el("div", null, el("label", { class: "f", text: "Gain (dB)" }), f.gain_db)),
+    el("div", { class: "g3" },
+      el("div", null, el("label", { class: "f", text: "HPF (Hz)" }), f.hpf_hz),
+      el("div", null, el("label", { class: "f", text: "Tipe HPF" }), f.hpf_tipe),
+      el("div", null, el("label", { class: "f", text: "Delay (ms)" }), f.delay_ms),
+      el("div", null, el("label", { class: "f", text: "LPF (Hz)" }), f.lpf_hz),
+      el("div", null, el("label", { class: "f", text: "Tipe LPF" }), f.lpf_tipe),
+      el("div", null, el("label", { class: "f", text: "Limiter thr (dB)" }), f.limiter_thr_db),
+      el("div", null, el("label", { class: "f", text: "Attack (ms)" }), f.limiter_attack_ms),
+      el("div", null, el("label", { class: "f", text: "Release (ms)" }), f.limiter_release_ms)),
+    el("div", { class: "g2" },
+      el("label", { class: "tick" }, f.mute, "Mute"), el("label", { class: "tick" }, f.polaritas_terbalik, "Polaritas terbalik")),
+    el("label", { class: "f", text: "PEQ (Hz · dB · Q)" }), peqBox,
+    el("button", { type: "button", class: "addpeq", text: "+ band PEQ", onclick: () => { peqBox.append(peqRow(null, scheduleChart)); } }),
+    el("label", { class: "f", text: "Catatan" }), f.catatan);
+  card._get = () => ({
+    no: o.no, nama: f.nama.value, peran: f.peran.value, sumber: f.sumber.value, gain_db: numOf(f.gain_db), delay_ms: numOf(f.delay_ms),
+    hpf_hz: numOf(f.hpf_hz), hpf_tipe: f.hpf_tipe.value, lpf_hz: numOf(f.lpf_hz), lpf_tipe: f.lpf_tipe.value,
+    limiter_thr_db: numOf(f.limiter_thr_db), limiter_attack_ms: numOf(f.limiter_attack_ms), limiter_release_ms: numOf(f.limiter_release_ms),
+    mute: f.mute.checked, polaritas_terbalik: f.polaritas_terbalik.checked, catatan: f.catatan.value,
+    peq: [...peqBox.children].map((r) => r._get()).filter((b) => b.hz != null && b.db != null),
+  });
+  card._fields = f; card._peqBox = peqBox;
+  return card;
+}
+function inCard(x) {
+  const nama = txtIn(x.nama, "mis. In A"), sumber = txtIn(x.sumber, "mis. MR18 Main L", 30), gain = numIn(x.gain_db, "dB");
+  const c = el("div", { class: "ocard" }, el("h4", { text: "Input " + x.no }),
+    el("div", { class: "g3" }, el("div", null, el("label", { class: "f", text: "Nama" }), nama),
+      el("div", null, el("label", { class: "f", text: "Dari (MR18)" }), sumber), el("div", null, el("label", { class: "f", text: "Gain (dB)" }), gain)));
+  c._get = () => ({ nama: nama.value, sumber: sumber.value, gain_db: numOf(gain) });
+  c._fields = { nama, sumber, gain_db: gain };
+  return c;
+}
+function renderForm(data) {
+  $("outs").replaceChildren(...data.output.map(outCard));
+  $("ins").replaceChildren(...data.input.map(inCard));
+  $("dspNote").value = data.catatan || "";
+  drawChart();
+}
+function collect() {
+  return { output: [...$("outs").children].map((c) => c._get()), input: [...$("ins").children].map((c) => c._get()),
+    catatan: $("dspNote").value, sumber_data: st.fromAI.size ? "isian operator + draf Gemini" : "isian operator" };
+}
+
+// Terapkan draf Gemini: hanya isian yang terbaca; tandai biru muda.
+function applyDraft(res) {
+  const d = res.draf; let n = 0;
+  d.output.forEach((o, i) => {
+    const card = $("outs").children[i]; if (!card) return;
+    for (const [k, inp] of Object.entries(card._fields)) {
+      const v = o[k];
+      if (v === null || v === undefined || v === "" || (v === false && inp.type !== "checkbox")) continue;
+      if (inp.type === "checkbox") { if (v) { inp.checked = true; n++; } continue; }
+      inp.value = v; inp.classList.add("fromai"); n++;
+      if (k === "peran") inp.dispatchEvent(new Event("change"));
+      inp.classList.add("fromai");
+    }
+    if (o.peq && o.peq.length) {
+      card._peqBox.replaceChildren(...o.peq.map((b) => { const r = peqRow(b, scheduleChart); r._ins.forEach((x) => x.classList.add("fromai")); return r; }));
+      n += o.peq.length;
+    }
+  });
+  d.input.forEach((x, i) => {
+    const c = $("ins").children[i]; if (!c) return;
+    for (const [k, inp] of Object.entries(c._fields)) if (x[k] != null && x[k] !== "") { inp.value = x[k]; inp.classList.add("fromai"); n++; }
+  });
+  st.fromAI.add(Date.now());
+  $("draftInfo").replaceChildren(el("div", { class: "draftbox" },
+    el("b", { text: `✦ Draf Gemini: ${n} isian terisi (kotak biru muda). Periksa dengan layar software Protea, lalu Simpan.` }),
+    res.tidak_terbaca && res.tidak_terbaca.length ? el("div", { text: "Tidak terbaca: " + res.tidak_terbaca.join("; ") }) : null,
+    res.dibuang && res.dibuang.length ? el("div", { text: "Dibuang karena di luar rentang wajar: " + res.dibuang.join("; ") }) : null,
+    res.catatan ? el("div", { text: "Catatan Gemini: " + res.catatan }) : null));
+  drawChart();
+  $("outs").scrollIntoView({ behavior: "smooth" });
+}
+
+// ---------- grafik ----------
+let chartTimer = null;
+function scheduleChart() { clearTimeout(chartTimer); chartTimer = setTimeout(drawChart, 200); }
+function slopeOf(t) { const m = String(t || "").match(/(\d{1,2})/); const v = m ? +m[1] : 24; return [6, 12, 18, 24, 36, 48].includes(v) ? v : 24; }
+function respOf(o) {
+  return (f) => {
+    let db = 0;
+    for (const b of o.peq || []) { if (b.hz && b.db != null) { const q = b.q || 1, x = q * (f / b.hz - b.hz / f); db += b.db / (1 + x * x); } }
+    if (o.hpf_hz && f < o.hpf_hz) db -= slopeOf(o.hpf_tipe) * Math.log2(o.hpf_hz / f);
+    if (o.lpf_hz && f > o.lpf_hz) db -= slopeOf(o.lpf_tipe) * Math.log2(f / o.lpf_hz);
+    return db;
+  };
+}
+function proposedOut(o) {
+  const out = JSON.parse(JSON.stringify(o)); let any = false;
+  for (const f of st.findings) for (const u of f.usulan || []) {
+    const m = String(u.alamat).match(/^dsp:out(\d)\/(hpf_hz|lpf_hz|peq(\d+)_db)$/);
+    if (!m || +m[1] !== o.no) continue;
+    any = true;
+    if (m[3]) { const b = out.peq[+m[3] - 1]; if (b) b.db = u.usulan; } else out[m[2]] = u.usulan;
+  }
+  return any ? out : null;
+}
+function drawChart() {
+  const s = $("xo"), W = 900, H = 300, L = 36, R = 10, T = 10, B = 24, PW = W - L - R, PH = H - T - B, LO = -36, HI = 12;
+  s.replaceChildren();
+  const fx = (f) => L + (Math.log10(f / 20) / 3) * PW;
+  const dy = (db) => T + ((HI - Math.max(LO, Math.min(HI, db))) / (HI - LO)) * PH;
+  for (const db of [-30, -24, -18, -12, -6, 0, 6]) {
+    s.append(svg("line", { x1: L, x2: W - R, y1: dy(db), y2: dy(db), stroke: db === 0 ? "#3a4552" : "#222a33" }));
+    const t = svg("text", { x: L - 4, y: dy(db) + 3, "text-anchor": "end" }); t.textContent = (db > 0 ? "+" : "") + db; s.append(t);
+  }
+  for (const [f, l] of [[30, "30"], [50, "50"], [100, "100"], [200, "200"], [500, "500"], [1000, "1k"], [2000, "2k"], [5000, "5k"], [10000, "10k"]]) {
+    s.append(svg("line", { x1: fx(f), x2: fx(f), y1: T, y2: T + PH, stroke: "#222a33" }));
+    const t = svg("text", { x: fx(f), y: H - 8, "text-anchor": "middle" }); t.textContent = l; s.append(t);
+  }
+  const path = (resp) => { let d = ""; for (let i = 0; i <= PW; i += 3) { const f = 20 * Math.pow(1000, i / PW); d += (i ? "L" : "M") + (L + i) + " " + dy(resp(f)).toFixed(1); } return d; };
+  const data = $("outs").children.length ? collect() : st.view.data;
+  const legend = [];
+  for (const o of data.output) {
+    if (!o.peran || o.peran === "tidak_dipakai") continue;
+    const col = ROLE_COLOR[o.peran] || "#5aa2ff";
+    const p = proposedOut(o);
+    if (p) s.append(svg("path", { d: path(respOf(p)), fill: "none", stroke: "#b48cff", "stroke-width": 2, "stroke-dasharray": "6 4" }));
+    s.append(svg("path", { d: path(respOf(o)), fill: "none", stroke: col, "stroke-width": 2, opacity: o.mute ? 0.35 : 1 }));
+    legend.push(el("span", null, Object.assign(el("i"), { style: `border-color:${col}` }), `Out ${o.no} ${o.nama || st.view.peran[o.peran]}`));
+  }
+  if (st.findings.some((f) => (f.usulan || []).some((u) => String(u.alamat).startsWith("dsp:"))))
+    legend.push(el("span", null, Object.assign(el("i"), { style: "border-color:#b48cff;border-top-style:dashed" }), "usulan program"));
+  if (!legend.length) legend.push(el("span", { text: "Isi peran output (utama/sub/monitor) dan HPF/LPF untuk melihat gambar." }));
+  $("specLegend").replaceChildren(...legend);
+}
+
+// ---------- saran ----------
+function renderFindings(list) {
+  st.findings = list || [];
+  if (!st.findings.length) { $("findings").replaceChildren(el("p", { class: "note", text: st.view.saved ? "Tidak ada temuan dari aturan yang ada. Ini bukan berarti sistem sudah ideal: belum ada pengukuran." : "Simpan data DSP untuk melihat saran." })); return; }
+  $("findings").replaceChildren(...st.findings.map((f) => el("div", { class: "fcard " + f.severity },
+    el("h4", { text: (f.severity === "perhatian" ? "⚠ " : "💡 ") + f.masalah }),
+    el("ol", null, ...[["Kemungkinan penyebab", f.penyebab], ["Data pembuktian", f.data], ["Langkah uji", f.uji], ["Rekomendasi", f.rekomendasi], ["Risiko perubahan", f.risiko]]
+      .map(([k, v]) => el("li", null, el("b", { text: k + ": " }), v))),
+    f.usulan && f.usulan.length ? el("ul", { class: "us" }, ...f.usulan.map((u) => el("li", { text: "Program: " + u.teks }))) : null,
+    f.usulan && f.usulan.length ? el("p", { class: "note", text: "Ubah sendiri di software Protea bila setuju (simpan preset lama dulu). Program tidak mengubah DSP." }) : null)));
+  drawChart();
+}
+
+// ---------- preset ----------
+$("presetFile").addEventListener("change", () => { $("btnUpload").disabled = !$("presetFile").files[0]; });
+$("btnUpload").addEventListener("click", async () => {
+  const f = $("presetFile").files[0]; if (!f) return;
+  $("btnUpload").disabled = true; say("upOut", "Mengunggah…");
+  try { const rec = await api("/api/dsp/preset", { b64: await readFile(f), nama: f.name }); say("upOut", "Tersimpan sebagai " + rec.id + ".", "ok"); showPreset(rec); loadAll(false); }
+  catch (e) { say("upOut", e.message, "bad"); }
+  $("btnUpload").disabled = false;
+});
+function showPreset(rec) {
+  const i = rec.info, izin = el("input", { type: "checkbox" });
+  const btn = el("button", { class: "ai", type: "button", text: "✦ Minta Gemini menyalin preset ini ke formulir", disabled: "" });
+  izin.addEventListener("change", () => { btn.disabled = !izin.checked; });
+  btn.addEventListener("click", async () => {
+    btn.disabled = true; btn.textContent = "Menunggu Gemini…";
+    try { applyDraft(await api("/api/dsp/ai-read", { izin: true, preset_id: rec.id })); }
+    catch (e) { alert(e.message); }
+    btn.textContent = "✦ Minta Gemini menyalin preset ini ke formulir"; btn.disabled = !izin.checked;
+  });
+  const kind = { xml: "teks XML", json: "teks JSON", ini: "teks bergaya INI", teks: "teks biasa", biner: "biner (bukan teks)" }[i.jenis] || i.jenis;
+  $("presetDetail").replaceChildren(el("div", { class: "out" },
+    el("div", { text: `${rec.nama_file} · ${(i.ukuran / 1024).toFixed(1)} KB · jenis: ${kind}` + (i.teks ? ` · ${i.baris} baris · ${i.angka} angka` : "") }),
+    el("div", { class: "note", text: i.teks
+      ? "Isinya teks: kemungkinan bisa dibaca. Kirim file ini ke Claude untuk dibuatkan pembaca otomatis, atau minta Gemini menyalinnya sekarang."
+      : "Isinya biner: belum bisa dibaca program maupun Gemini. Pakai tangkapan layar (langkah 2); kirim file ini ke Claude untuk dipelajari formatnya." }),
+    el("pre", { class: "peek", text: i.cuplikan || "" }),
+    i.teks ? el("label", { class: "check" }, izin, el("span", { text: "Saya setuju isi file preset ini dikirim ke Google Gemini." })) : null,
+    i.teks ? btn : null));
+}
+function renderPresets(list) {
+  if (!list.length) { $("presetList").replaceChildren(el("p", { class: "note", text: "Belum ada." })); return; }
+  $("presetList").replaceChildren(...list.map((r) => el("div", { class: "prow" },
+    el("span", { class: "m", text: `${r.nama_file} · ${r.diunggah.replace("T", " ").slice(0, 16)} · ${r.info.jenis} · ${(r.info.ukuran / 1024).toFixed(1)} KB` }),
+    el("button", { type: "button", text: "Lihat", onclick: async () => { try { showPreset(await api("/api/dsp/preset?id=" + encodeURIComponent(r.id))); } catch (e) { alert(e.message); } } }))));
+}
+
+// ---------- tangkapan layar ----------
+const shotReady = () => { $("btnShot").disabled = !($("shotFile").files[0] && $("izinShot").checked && st.aiReady); };
+$("shotFile").addEventListener("change", shotReady);
+$("izinShot").addEventListener("change", shotReady);
+$("btnShot").addEventListener("click", async () => {
+  const f = $("shotFile").files[0]; if (!f) return;
+  $("btnShot").disabled = true; say("shotOut", "Menunggu Gemini membaca gambar… (10–60 detik)");
+  try { applyDraft(await api("/api/dsp/ai-read", { izin: true, image_b64: await readFile(f), mime: f.type })); say("shotOut", "Draf diterapkan ke formulir. Periksa kotak biru muda.", "ok"); }
+  catch (e) { say("shotOut", e.message, "bad"); }
+  shotReady();
+});
+
+// ---------- simpan & muat ----------
+$("btnSave").addEventListener("click", async () => {
+  $("btnSave").disabled = true; $("saveOut").textContent = "Menyimpan…"; $("saveOut").className = "note";
+  try {
+    const r = await api("/api/dsp", { data: collect() });
+    st.view.saved = true; st.view.data = r.data;
+    document.querySelectorAll(".fromai").forEach((x) => x.classList.remove("fromai"));
+    $("draftInfo").replaceChildren();
+    $("saveOut").textContent = `Tersimpan. ${r.findings.length} saran program.`; $("saveOut").className = "ok";
+    renderFindings(r.findings);
+  } catch (e) { $("saveOut").textContent = e.message; $("saveOut").className = "bad"; }
+  $("btnSave").disabled = false;
+});
+async function loadAll(withForm) {
+  const v = await api("/api/dsp");
+  st.view = v;
+  if (withForm) renderForm(v.data);
+  renderPresets(v.presets);
+  renderFindings(v.findings);
+}
+(async function init() {
+  if (!TOKEN || !location.protocol.startsWith("http")) { $("noServer").hidden = false; return; }
+  try { st.aiReady = (await api("/api/ai")).status.configured; } catch (e) { st.aiReady = false; }
+  if (!st.aiReady) say("shotOut", "Gemini belum diatur (isi API key di Beranda).", "warn");
+  await loadAll(true);
+})();
+</script>
+</body>
+</html>

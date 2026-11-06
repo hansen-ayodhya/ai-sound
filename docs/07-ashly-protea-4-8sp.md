@@ -49,6 +49,10 @@ Status: **panduan persiapan, belum dijalankan.** Informasi tentang unit ini bera
 | Rekomendasi | Baca dan simpan dulu; baru bahas perubahan setelah ada pengukuran |
 | Risiko | Salah arah sinkronisasi bisa menimpa preset unit; salah colok/cabut saat transfer. Karena itu: aturan 1–6 di atas, dan foto layar sebagai cadangan |
 
+## Di aplikasi
+
+Halaman **Data DSP** (menu atas): unggah preset, baca tangkapan layar dengan Gemini (draf), periksa/isi formulir per output, lihat grafik crossover dan saran program. Program tidak pernah terhubung ke DSP.
+
 ## Data dari DSP dan repo
 
 Preset/ekspor DSP disimpan di `data/` (sudah di-`.gitignore`), bukan di repo. Kirim ke percakapan hanya ringkasan atau foto layar yang diperlukan.
