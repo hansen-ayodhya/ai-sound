@@ -172,6 +172,14 @@
 - 94 tes lulus; diuji di browser dengan preset contoh + Gemini tiruan.
 - Berikutnya: bila operator mengirim contoh file preset asli, buat pembaca otomatis sesuai formatnya.
 
+## Update: setting ikut live, tombol Baca setting, Gemini di grafik saat data contoh, catatan ringkas
+
+- Selama live, setting mixer dibaca ulang otomatis (5 dtk setelah mulai, lalu tiap 60 dtk; hanya alamat yang terbukti dijawab) → `data/live-setting/` + latest.json; Tampilan Mixer memuat ulang saran/grafik otomatis.
+- Tombol "↻ Baca setting": saat live mempercepat pembacaan; saat tidak live membaca sekali (pakai IP tersimpan).
+- Penyebab "usulan Gemini tidak di grafik": tanpa audit (melihat data contoh) semua usulan dibuang. Kini usulan tetap disimpan tanpa data mixer, dan bila operator melihat data contoh, data contoh ikut dikirim ke Gemini (berlabel DATA CONTOH). Hasil menampilkan berapa usulan yang digambar atau alasannya.
+- Catatan umum di atas strip jadi satu baris yang bisa dibuka; peringatan live bisa diringkas. Pilihan diingat per perangkat.
+- Beban ke mixer (perkiraan, belum diukur di MR18): meter ~20 paket kecil/dtk dari mixer; query dibatasi ≤50/dtk; baca ulang setting tiap 60 dtk. Pemrosesan audio MR18 terpisah dari jaringan.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

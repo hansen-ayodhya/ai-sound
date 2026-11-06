@@ -37,6 +37,7 @@ from urllib.parse import parse_qs, unquote_plus, urlparse
 from . import ai, channels, meters
 from . import dsp as dspmod
 from .clips import ClipError, ClipStore
+from .addresses import all_addresses
 from .audit import PROBE_ADDRESSES, MixerNotAnswering, run_audit
 from .client import DEFAULT_PORT, ReadOnlyClient
 from .dump import run_dump
@@ -56,6 +57,7 @@ MAX_CLIP_BODY = 3_000_000  # klip ≤30 dtk WAV 16 kHz mono ≈ 1 MB, base64 ≈
 MAX_DSP_BODY = 10_000_000  # preset ≤5 MB atau tangkapan layar, dalam base64
 BIG_BODY = {"/api/clips": MAX_CLIP_BODY, "/api/dsp/preset": MAX_DSP_BODY, "/api/dsp/ai-read": MAX_DSP_BODY}
 IMAGE_MIME = ("image/png", "image/jpeg", "image/webp")
+LIVE_REFRESH_S = 60  # baca ulang setting mixer selama live
 MAX_PIN_FAILS = 5
 PIN_LOCK_S = 300
 # Kunci Gemini boleh DITULIS dari perangkat yang sudah masuk (PIN); kunci tidak pernah dikirim balik.
@@ -104,6 +106,8 @@ class App:
         self.job: dict = {"state": "idle"}
         self.shutdown_cb = None
         self.live: LiveMonitor | None = None
+        self.live_settings_at: str | None = None
+        self._refresh_now = threading.Event()
 
     # ---------- pekerjaan ----------
     def _acquire(self) -> None:
@@ -184,6 +188,64 @@ class App:
         except Exception:
             on_stop()
             raise
+        # Selama live, setting mixer dibaca ulang berkala (hanya query) supaya saran mengikuti situasi terbaru.
+        known = [a for a, v in (dump or {}).get("values", {}).items() if v is not None] or None
+        threading.Thread(target=self._refresh_settings_loop, args=(ip, port, self.live, known), daemon=True).start()
+
+    def _read_settings(self, ip: str, port: int, addresses: list[str] | None) -> dict:
+        """Baca setting sekali (hanya query), simpan sebagai 'setting terbaru' dan jadikan acuan tampilan."""
+        with ReadOnlyClient(ip, port, timeout=0.3, retries=0, log_path=self.data / "osc_log.jsonl") as c:
+            d = run_dump(c, addresses or self.addresses or all_addresses())
+        if not d["answered"]:
+            raise MixerNotAnswering(f"Mixer di {ip}:{port} tidak menjawab saat membaca setting.")
+        folder = self.data / "live-setting"
+        folder.mkdir(parents=True, exist_ok=True)
+        profile = self.profile()
+        (folder / "dump1.json").write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
+        (folder / "findings.json").write_text(json.dumps(findings_json(d, profile), indent=2, ensure_ascii=False), encoding="utf-8")
+        (folder / "report.md").write_text(render(d, "live-setting/dump1.json", profile), encoding="utf-8")
+        latest = {"dump": "data/live-setting/dump1.json", "findings": "data/live-setting/findings.json",
+                  "report": "data/live-setting/report.md", "created": d["created"], "live": True}
+        (self.data / "latest.json").write_text(json.dumps(latest, indent=2), encoding="utf-8")
+        self.live_settings_at = d["created"]
+        return d
+
+    def _refresh_settings_loop(self, ip: str, port: int, mon, addresses: list[str] | None) -> None:
+        wait = 5.0
+        while True:
+            waited = 0.0
+            while waited < wait:          # tunggu jadwal, kecuali operator menekan "Baca setting"
+                if mon._stop.wait(0.5):
+                    return
+                if self._refresh_now.is_set():
+                    break
+                waited += 0.5
+            self._refresh_now.clear()
+            wait = LIVE_REFRESH_S
+            if not mon.running:
+                return
+            try:
+                d = self._read_settings(ip, port, addresses)
+                addresses = [a for a, v in d["values"].items() if v is not None]  # berikutnya lebih cepat
+            except Exception:  # pembaruan setting tidak boleh mematikan pantau meter
+                continue
+
+    def refresh_settings(self) -> dict:
+        """Tombol '↻ Baca setting': saat live -> percepat jadwal; bila tidak live -> baca sekali sekarang."""
+        if self.live and self.live.running:
+            self._refresh_now.set()
+            return {"mode": "live"}
+        ip, port = load_ip(self.data / "mixer-ip.txt"), self.load_port()
+        if not valid_ip(ip):
+            raise ValueError("IP mixer belum diisi. Isi di Beranda (Uji kecil) dulu.")
+        _, dump = self.latest_dump()
+        known = [a for a, v in (dump or {}).get("values", {}).items() if v is not None] or None
+        self._acquire()
+        try:
+            d = self._read_settings(ip, port, known)
+        finally:
+            self._lock.release()
+        return {"mode": "sekarang", "answered": d["answered"], "queried": d["queried"], "created": d["created"]}
 
     # ---------- Daftar Channel ----------
     def profile(self) -> dict | None:
@@ -347,16 +409,19 @@ class App:
         finally:
             self._ai_lock.release()
 
-    def ai_analyze(self, situasi: str, pertanyaan: str) -> dict:
+    def ai_analyze(self, situasi: str, pertanyaan: str, contoh: bool = False) -> dict:
         if not self._ai_lock.acquire(blocking=False):
             raise Busy("Gemini masih memproses permintaan sebelumnya. Tunggu sebentar.")
         try:
-            _, dump = self.latest_dump()
+            if contoh:  # operator sedang melihat DATA CONTOH di Tampilan Mixer
+                dump = json.loads((self.root / "viewer" / "sample-dump-a.json").read_text(encoding="utf-8"))
+            else:
+                _, dump = self.latest_dump()
             profile = self.profile()
             findings = findings_json(dump, profile) if dump else []
             live = self.live.snapshot() if self.live else None
             res = ai.analyze(ai.load_config(self.ai_cfg_path), dump, profile, findings, live,
-                             situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base, dsp=self.dsp_data())
+                             situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base, dsp=self.dsp_data(), contoh=contoh)
             (self.data / "ai-last.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
             return res
         finally:
@@ -545,7 +610,7 @@ def make_handler(app: App, http_port: int):
                     # TIDAK PERNAH: gemini.json (API key), pin.txt, mixer-ip.txt, channels.json, log.
                     if prefix == "/data/":
                         rel = target.relative_to(base.resolve())
-                        ok_file = (rel.parts[0].startswith("audit-") and target.suffix in (".json", ".md")) or \
+                        ok_file = ((rel.parts[0].startswith("audit-") or rel.parts[0] == "live-setting") and target.suffix in (".json", ".md")) or \
                             rel.as_posix() in ("latest.json", "ai-last.json") or \
                             (len(rel.parts) == 1 and rel.name.startswith("meters-") and target.suffix == ".json") or \
                             (rel.parts[0] == "clips" and len(rel.parts) == 2 and target.suffix in (".wav", ".json"))
@@ -607,7 +672,7 @@ def make_handler(app: App, http_port: int):
                     if not app.live:
                         return self._json(200, {"running": False, "frames": 0, "alerts": []})
                     want = parse_qs(urlparse(self.path).query).get("alerts", ["1"])[0] == "1"
-                    return self._json(200, app.live.snapshot(include_alerts=want))
+                    return self._json(200, {**app.live.snapshot(include_alerts=want), "settings_at": app.live_settings_at})
                 if path == "/api/job":
                     return self._json(200, app.job)
                 if path == "/api/channels":
@@ -695,7 +760,10 @@ def make_handler(app: App, http_port: int):
                     situasi = str(body.get("situasi", "umum"))
                     if situasi not in ai.SITUASI:
                         raise ValueError("Situasi tidak dikenal.")
-                    return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", ""))))
+                    return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", "")),
+                                                          contoh=body.get("pakai_contoh") is True))
+                if path == "/api/settings/refresh":
+                    return self._json(200, app.refresh_settings())
                 if path == "/api/live/stop":
                     app.stop_live()
                     return self._json(200, {"ok": True})

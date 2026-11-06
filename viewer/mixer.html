@@ -211,6 +211,12 @@
   .sendrow .v.rule { color: #d6c4ff; } .sendrow .v.gem { color: #9be6fa; }
   .card.gemcard { border-color: #3cc9f0; }
   .card.gemcard .usulan { color: #9be6fa; }
+  details.notes { margin: 4px 0; background: var(--desk); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; }
+  details.notes summary { cursor: pointer; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  details.notes .notes-top { color: var(--muted); }
+  details.notes[open] { max-height: 45vh; overflow: auto; }
+  .alerts.min ul { max-height: 34px; overflow: hidden; }
+  .alerts h2 { cursor: pointer; user-select: none; }
   .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
@@ -226,6 +232,7 @@
   </div>
   <div class="actions">
     <button id="btnLive" class="liveBtn" hidden>▶ Mulai pantau live</button>
+    <button id="btnRefresh" hidden title="Baca ulang setting dari mixer sekarang (hanya membaca)">↻ Baca setting</button>
     <button id="btnChannels" hidden>Daftar Channel</button>
     <button id="btnAI" class="aiBtn" hidden>✦ Analisis AI</button>
     <button id="btnLatest" hidden>Audit terakhir</button>
@@ -242,7 +249,7 @@
 <div id="general" class="general"></div>
 <div class="livebar" id="liveBar" hidden></div>
 <section class="alerts" id="alerts" hidden>
-  <h2>Peringatan live <span id="alertCount"></span></h2>
+  <h2 id="alertHead" title="Klik untuk meringkas/membuka">Peringatan live <span id="alertCount"></span> <span id="alertToggle">▾ ringkas</span></h2>
   <ul id="alertList"><li class="empty">Belum ada peringatan.</li></ul>
 </section>
 <div class="viewbar" id="viewbar">
@@ -752,6 +759,21 @@ function buses() {
   for (const k of Object.keys(state.dump.values)) { const m = k.match(/^\/bus\/(\d+)\//); if (m) set.add(+m[1]); }
   return [...set].sort((a, b) => a - b);
 }
+// Catatan umum (tanpa channel): satu baris ringkas yang bisa dibuka; tidak menutupi fader.
+function renderNotes(list) {
+  const box = $("general");
+  if (!list.length) { box.replaceChildren(); return; }
+  const order = (f) => (f.severity === "perhatian" ? 0 : 1);
+  const sorted = list.slice().sort((a, b) => order(a) - order(b));
+  const d = el("details", { class: "notes" });
+  d.open = !!state.view.notesOpen;
+  d.addEventListener("toggle", () => { state.view.notesOpen = d.open; saveView(); });
+  const top = sorted[0];
+  d.append(el("summary", null, el("b", { text: `${list.length} catatan umum` }),
+    el("span", { class: "notes-top", text: " · " + (top.sumber === "gemini" ? "✦ " : "") + top.masalah })),
+    ...sorted.map(findingCard));
+  box.replaceChildren(d);
+}
 function render() {
   state.meters = [];
   state.stripEls = {};
@@ -759,8 +781,7 @@ function render() {
   const desk = $("desk");
   const d = state.dump;
   $("banner").replaceChildren(d && d.sample ? el("div", { class: "banner", text: "DATA CONTOH – bukan dari mixer Anda. Hanya untuk melihat bentuk tampilan." }) : "");
-  const general = state.findings.filter((f) => f.ch == null);
-  $("general").replaceChildren(...general.map(findingCard));
+  renderNotes(state.findings.filter((f) => f.ch == null));
   if (!d) { desk.replaceChildren(el("div", { class: "empty", text: "Belum ada data. Klik “Data contoh” atau “Buka dump…”." })); return; }
   const answered = Object.values(d.values).filter((v) => v !== null).length;
   $("source").textContent = `Sumber: ${d._name} · dibuat ${d.created || "?"} · ${answered}/${Object.keys(d.values).length} alamat dijawab · ${state.findings.length} temuan`;
@@ -974,6 +995,14 @@ function aiResultView(res) {
   const tg = el("input", { type: "checkbox" }); tg.checked = state.showAI;
   tg.addEventListener("change", () => { state.showAI = tg.checked; mergeFindings(); state.keepDrawer = true; render(); state.keepDrawer = false; });
   nodes.push(el("label", { class: "toggle" }, tg, "Tampilkan usulan Gemini di strip dan grafik (bayangan biru muda)"));
+  const drawn = res.prioritas.filter((f) => f.ch && f.usulan && f.usulan.length);
+  const nUs = drawn.reduce((a, f) => a + f.usulan.length, 0);
+  nodes.push(el("div", { class: "aibox" }, el("h4", { text: "Di grafik" }), el("p", { text: nUs
+    ? `${nUs} usulan angka untuk ${drawn.length} channel digambar (biru muda) — di bawah tiap saran dan di strip channel.`
+    : !res.ada_data_mixer && !res.data_contoh
+      ? "Tidak ada yang digambar: belum ada data mixer (jalankan Audit di Beranda, atau buka Data contoh), jadi Gemini tidak tahu channel mana yang dimaksud."
+      : "Tidak ada yang digambar: Gemini tidak memberi usulan angka untuk channel tertentu kali ini. Coba tanyakan keluhan yang lebih spesifik (mis. 'khotbah kurang jelas')." })));
+  if (res.data_contoh) nodes.push(el("p", { class: "note", text: "Analisis ini memakai DATA CONTOH, bukan mixer asli." }));
   nodes.push(el("h3", { text: "Prioritas (" + res.prioritas.length + ")" }));
   for (const f of res.prioritas) {
     nodes.push(findingCard(f));
@@ -1017,7 +1046,7 @@ async function openAI() {
   go.addEventListener("click", async () => {
     go.disabled = true; go.textContent = "Menunggu Gemini… (bisa 10–60 detik)";
     try {
-      const res = await api("/api/ai/analyze", { situasi: sit.value, pertanyaan: q.value });
+      const res = await api("/api/ai/analyze", { situasi: sit.value, pertanyaan: q.value, pakai_contoh: !!(state.dump && state.dump.sample) });
       useAIResult(res);
       state.keepDrawer = true; render(); state.keepDrawer = false;
       out.replaceChildren(...aiResultView(res));
@@ -1037,6 +1066,23 @@ async function openAI() {
     out);
 }
 $("btnAI").addEventListener("click", openAI);
+$("btnRefresh").addEventListener("click", async () => {
+  const b = $("btnRefresh");
+  b.disabled = true; b.textContent = "↻ Membaca…";
+  try {
+    const r = await api("/api/settings/refresh", {});
+    if (r.mode === "live") {
+      $("liveBar").hidden = false;
+      b.textContent = "↻ Diminta…";
+      setTimeout(() => { b.textContent = "↻ Baca setting"; b.disabled = false; }, 4000);
+      return;
+    }
+    state.keepDrawer = true;
+    try { await loadLatest(); } finally { state.keepDrawer = false; }
+    $("source").textContent += ` · setting dibaca ${String(r.created).slice(11, 19)} (${r.answered}/${r.queried})`;
+  } catch (e) { alert(e.message); }
+  b.textContent = "↻ Baca setting"; b.disabled = false;
+});
 
 // ---------- DAFTAR CHANNEL (diisi operator; dipakai aturan AI) ----------
 state.profile = null;
@@ -1151,6 +1197,7 @@ function applyLive(snap) {
     bar.replaceChildren(el("b", { text: "● LIVE" }),
       ` sejak ${snap.started} · ${snap.fps} frame/detik · ` +
       (snap.age == null ? "menunggu data meter…" : `data terakhir ${snap.age} detik lalu`) +
+      (snap.settings_at ? ` · setting diperbarui ${String(snap.settings_at).slice(11, 19)}` : " · setting dibaca ulang tiap 60 detik") +
       (snap.bad_frames ? ` · ${snap.bad_frames} frame tidak terbaca` : ""));
   } else bar.textContent = `Pemantauan berhenti. ${snap.frames} frame diterima. Peringatan tersimpan di data/live-*.jsonl.`;
 }
@@ -1162,8 +1209,14 @@ function flash(index, sev) {
   clearTimeout(strip["_t" + cls]);
   strip["_t" + cls] = setTimeout(() => strip.classList.remove(cls), 6000);
 }
+function applyAlertsMin() {
+  $("alerts").classList.toggle("min", !!state.view.alertsMin);
+  $("alertToggle").textContent = state.view.alertsMin ? "▸ buka semua" : "▾ ringkas";
+}
+$("alertHead").addEventListener("click", () => { state.view.alertsMin = !state.view.alertsMin; saveView(); applyAlertsMin(); });
 function showAlerts(list) {
   $("alerts").hidden = false;
+  applyAlertsMin();
   $("alertCount").textContent = "(" + list.length + ")";
   for (const a of list.slice(state.seenAlerts)) if (a.index >= 0) flash(a.index, a.severity);
   state.seenAlerts = list.length;
@@ -1197,6 +1250,11 @@ async function poll() {
     const snap = await api("/api/live?alerts=" + (withAlerts ? "1" : "0"));
     if (snap.levels) applyLive(snap);
     if (withAlerts && snap.alerts) showAlerts(snap.alerts);
+    if (snap.settings_at && snap.settings_at !== state.settingsAt) {
+      state.settingsAt = snap.settings_at;
+      state.keepDrawer = true;
+      try { await loadLatest(); } catch (e) { /* abaikan */ } finally { state.keepDrawer = false; }
+    }
     if (!snap.running) {
       const fin = await api("/api/live?alerts=1");
       if (fin.alerts) showAlerts(fin.alerts);
@@ -1221,6 +1279,7 @@ $("btnLive").addEventListener("click", async () => {
 if (TOKEN && location.protocol.startsWith("http")) {
   $("btnLive").hidden = false;
   $("btnChannels").hidden = false;
+  $("btnRefresh").hidden = false;
   $("btnAI").hidden = false;
   api("/api/ai").then((v) => { if (v.last) { useAIResult(v.last); if (state.dump) render(); } }).catch(() => {});
   loadProfile().then(() => { if (state.dump) render(); });

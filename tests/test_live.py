@@ -156,3 +156,83 @@ class ServerLive(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LiveSettingsRefresh(unittest.TestCase):
+    def test_settings_reread_during_live(self):
+        from aise import server as srv
+        tmp = tempfile.TemporaryDirectory()
+        mixer = FakeMixer({"/info": ("x",), "/ch/01/config/name": ("Vokal 1",), "/ch/01/preamp/hpon": (0,)}).start()
+        mixer.meter_generator = lambda: meters.make_blob([-20.0])
+        app = App(root=ROOT, data=Path(tmp.name) / "data", addresses=["/info", "/ch/01/config/name", "/ch/01/preamp/hpon"])
+        old = srv.LIVE_REFRESH_S
+        srv.LIVE_REFRESH_S = 1
+        try:
+            app.start_live("127.0.0.1", mixer.port, "/meters/1")
+            for _ in range(100):
+                if app.live_settings_at:
+                    break
+                time.sleep(0.1)
+            self.assertIsNotNone(app.live_settings_at)
+            latest = json.loads((app.data / "latest.json").read_text())
+            self.assertEqual(latest["dump"], "data/live-setting/dump1.json")
+            self.assertTrue(latest["live"])
+            mixer.state["/ch/01/config/name"] = ("WL",)     # operator mengganti nama di mixer
+            first = app.live_settings_at
+            for _ in range(60):
+                d = json.loads((app.data / "live-setting" / "dump1.json").read_text())
+                if d["values"].get("/ch/01/config/name") == ["WL"]:
+                    break
+                time.sleep(0.1)
+            self.assertEqual(d["values"]["/ch/01/config/name"], ["WL"])
+            fnd = json.loads((app.data / "live-setting" / "findings.json").read_text())
+            self.assertIsInstance(fnd, list)
+            self.assertEqual(mixer.write_attempts, [])
+        finally:
+            srv.LIVE_REFRESH_S = old
+            app.stop_live()
+            time.sleep(0.5)
+            mixer.stop()
+            tmp.cleanup()
+
+
+class ManualRefresh(unittest.TestCase):
+    def test_refresh_without_live_and_during_live(self):
+        from aise import server as srv
+        tmp = tempfile.TemporaryDirectory()
+        mixer = FakeMixer({"/info": ("x",), "/ch/01/config/name": ("Vokal 1",)}).start()
+        mixer.meter_generator = lambda: meters.make_blob([-20.0])
+        app = App(root=ROOT, data=Path(tmp.name) / "data", addresses=["/info", "/ch/01/config/name"])
+        try:
+            with self.assertRaises(ValueError):
+                app.refresh_settings()  # IP belum diisi
+            app.data.mkdir(parents=True, exist_ok=True)
+            (app.data / "mixer-ip.txt").write_text("127.0.0.1")
+            app.save_port(mixer.port)
+            r = app.refresh_settings()
+            self.assertEqual((r["mode"], r["answered"]), ("sekarang", 2))
+            self.assertEqual(json.loads((app.data / "latest.json").read_text())["dump"], "data/live-setting/dump1.json")
+            old = srv.LIVE_REFRESH_S
+            srv.LIVE_REFRESH_S = 3600  # jadwal jauh: hanya tombol yang memicu
+            try:
+                app.start_live("127.0.0.1", mixer.port, "/meters/1")
+                time.sleep(6)                       # putaran pertama (5 dtk) selesai
+                first = app.live_settings_at
+                mixer.state["/ch/01/config/name"] = ("WL",)
+                time.sleep(1.1)
+                self.assertEqual(app.refresh_settings(), {"mode": "live"})
+                for _ in range(40):
+                    d = json.loads((app.data / "live-setting" / "dump1.json").read_text())
+                    if d["values"]["/ch/01/config/name"] == ["WL"]:
+                        break
+                    time.sleep(0.1)
+                self.assertEqual(d["values"]["/ch/01/config/name"], ["WL"])
+                self.assertNotEqual(app.live_settings_at, first)
+            finally:
+                srv.LIVE_REFRESH_S = old
+            self.assertEqual(mixer.write_attempts, [])
+        finally:
+            app.stop_live()
+            time.sleep(0.6)
+            mixer.stop()
+            tmp.cleanup()

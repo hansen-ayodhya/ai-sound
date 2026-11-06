@@ -138,6 +138,15 @@ class Pure(unittest.TestCase):
         self.assertIsNone(ai.key_problem(KEY))
         self.assertIsNone(ai.key_problem("AQ.Ab8RN6" + "x" * 40))  # format lain tetap dicoba ke Google
 
+    def test_usulan_kept_without_mixer_data(self):
+        out = ai.sanitize(REPLY, None)
+        self.assertEqual(len(out["prioritas"][0]["usulan"]), 3)  # tetap digambar; nilai 'sekarang' kosong
+        self.assertIsNone(out["prioritas"][0]["usulan"][0]["sekarang"])
+
+    def test_prompt_marks_sample_data(self):
+        text = ai.build_prompt({"values": {"/ch/01/config/name": ["Vokal 1"]}}, None, [], None, "umum", "", None, True)
+        self.assertIn("DATA CONTOH", text)
+
     def test_prompt_has_no_secrets(self):
         dump = {"created": "t", "values": {"/ch/01/config/name": ["WL"], "/ch/01/mix/fader": [0.75]}}
         text = ai.build_prompt(dump, None, [], None, "khotbah", "kenapa?")
@@ -237,6 +246,12 @@ class ServerAI(Base):
         self.assertTrue((self.data / "ai-last.json").exists())
         code, raw = self.call("/api/ai")
         self.assertEqual(json.loads(raw)["last"]["ringkasan"], "Prioritas: khotbah dulu.")
+        code, raw = self.call("/api/ai/analyze", {"situasi": "umum", "pakai_contoh": True})
+        self.assertEqual(code, 200, raw)
+        self.assertTrue(json.loads(raw)["data_contoh"])
+        sent = json.loads(FakeGemini.calls[-1][3])["contents"][0]["parts"][0]["text"]
+        self.assertIn("DATA CONTOH", sent)
+        self.assertIn("Khotbah", sent)  # channel dari data contoh ikut terkirim
         code, _ = self.call("/api/ai/analyze", {"situasi": "konser"})
         self.assertEqual(code, 400)
         code, raw = self.call("/api/ai/config", {"hapus": True})

@@ -276,8 +276,10 @@ SITUASI = {"umum": "ibadah umum", "lagu": "sesi pujian/lagu", "khotbah": "khotba
 
 
 def build_prompt(dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
-                 situasi: str, pertanyaan: str, dsp: dict | None = None) -> str:
+                 situasi: str, pertanyaan: str, dsp: dict | None = None, contoh: bool = False) -> str:
     ctx = {
+        "data_contoh": ("YA: data mixer ini DATA CONTOH untuk mencoba aplikasi, bukan mixer asli gereja. "
+                        "Tetap analisis seperti biasa, sebutkan di ringkasan bahwa ini data contoh.") if contoh else None,
         "dsp": dspmod.summary(dsp) or None,
         "temuan_dsp": [{"masalah": f["masalah"], "usulan": [u["teks"] for u in f["usulan"]]} for f in dspmod.analyze(dsp)],
         "situasi": SITUASI.get(situasi, "ibadah umum"),
@@ -377,10 +379,10 @@ def sanitize(resp: dict, dump: dict | None) -> dict:
         ch = ch if isinstance(ch, int) and not isinstance(ch, bool) and 1 <= ch <= 16 else None
         usulan = []
         for u in (p.get("usulan") or [])[:8]:
-            if not isinstance(u, dict) or ch is None or not dump:
+            if not isinstance(u, dict) or ch is None:
                 dropped += 1
                 continue
-            ok = to_usulan(ch, str(u.get("parameter", "")), u.get("nilai"), dump)
+            ok = to_usulan(ch, str(u.get("parameter", "")), u.get("nilai"), dump or {"values": {}})
             if ok:
                 usulan.append(ok)
             else:
@@ -433,12 +435,13 @@ def _generate(cfg: dict, parts: list, schema: dict, base: str) -> dict:
 
 
 def analyze(cfg: dict, dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
-            situasi: str = "umum", pertanyaan: str = "", base: str = API_BASE, dsp: dict | None = None) -> dict:
-    parsed = _generate(cfg, [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan, dsp)}],
+            situasi: str = "umum", pertanyaan: str = "", base: str = API_BASE, dsp: dict | None = None,
+            contoh: bool = False) -> dict:
+    parsed = _generate(cfg, [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan, dsp, contoh)}],
                        RESPONSE_SCHEMA, base)
     out = sanitize(parsed, dump)
     out.update(model=cfg.get("model"), dibuat=time.strftime("%Y-%m-%dT%H:%M:%S%z"), situasi=situasi,
-               pertanyaan=_s(pertanyaan, MAX_QUESTION))
+               pertanyaan=_s(pertanyaan, MAX_QUESTION), data_contoh=contoh, ada_data_mixer=bool(dump))
     return out
 
 
