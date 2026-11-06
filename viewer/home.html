@@ -145,6 +145,7 @@
 </main>
 <p class="foot">Semua tombol hanya membaca mixer atau mengurus program di laptop ini. Perubahan setting tetap dilakukan operator lewat aplikasi mixer.
   Halaman ini hanya bisa dibuka dari laptop ini, atau dari perangkat lain di jaringan gereja bila mode jaringan dinyalakan (dengan PIN).</p>
+<p class="foot" id="versionLine"></p>
 
 <script>
 "use strict";
@@ -345,6 +346,8 @@ function showLan(s) {
     const s = await api("/api/status");
     $("ip").value = s.ip || "";
     showLan(s);
+    $("versionLine").textContent = "Versi program: " + (s.version || "?") +
+      " · Mode: " + (s.lan ? "JARINGAN (HP/tablet bisa masuk dengan PIN)" : "hanya laptop ini");
     $("port").value = s.port || s.default_port;
     if (s.job && s.job.state === "running") watchJob();
   } catch (e) { $("noServer").hidden = false; }

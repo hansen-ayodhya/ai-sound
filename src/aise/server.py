@@ -79,6 +79,7 @@ class App:
         self.pin_fails: dict[str, tuple[int, float]] = {}
         self.lan_url: str | None = None
         self.root = root
+        self.version = _version(root)
         self.data = data or root / "data"
         self.addresses = addresses
         self.token = secrets.token_urlsafe(24)
@@ -210,6 +211,15 @@ def _parse_target(body: dict) -> tuple[str, int]:
     if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
         raise ValueError("Port tidak valid.")
     return ip, port
+
+
+def _version(root: Path) -> str:
+    try:
+        r = subprocess.run(["git", "log", "-1", "--format=%h %cd", "--date=format:%d-%m-%Y %H:%M"],
+                           cwd=root, capture_output=True, text=True, timeout=3)
+        return r.stdout.strip() or "?"
+    except (OSError, subprocess.SubprocessError):
+        return "?"
 
 
 def load_or_create_pin(path: Path) -> str:
@@ -379,7 +389,7 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, {"ip": load_ip(app.data / "mixer-ip.txt"), "default_port": DEFAULT_PORT,
                                             "port": app.load_port(), "job": app.job, "latest": app.latest(),
                                             "live": bool(app.live and app.live.running),
-                                            "is_local": local, "lan": app.lan,
+                                            "is_local": local, "lan": app.lan, "version": app.version,
                                             "lan_url": app.lan_url if local else None,
                                             "pin": app.pin if (local and app.lan) else None})
                 if path == "/api/live":
@@ -480,6 +490,14 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     url = f"http://localhost:{args.port}/viewer/home.html"
     if _in_use(args.port):
+        if args.lan:
+            print("=" * 56)
+            print("  MODE JARINGAN BELUM AKTIF")
+            print("  Aplikasi lama masih berjalan di jendela hitam lain.")
+            print("  1. Tutup SEMUA jendela hitam AI Sound Engineer.")
+            print("  2. Klik dua kali AI-Sound-Engineer-Jaringan.bat lagi.")
+            print("=" * 56)
+            return 1
         print("Aplikasi sudah berjalan. Membuka browser...")
         webbrowser.open(url)
         return 0
