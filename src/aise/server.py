@@ -25,13 +25,14 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from . import meters
 from .audit import PROBE_ADDRESSES, MixerNotAnswering, run_audit
 from .client import DEFAULT_PORT, ReadOnlyClient
 from .dump import run_dump
 from .guard import ReadOnlyViolation, check
+from .live import LiveMonitor, labels_from_dump
 from .menu import load_ip, save_ip, valid_ip
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,6 +53,7 @@ class App:
         self._lock = threading.Lock()
         self.job: dict = {"state": "idle"}
         self.shutdown_cb = None
+        self.live: LiveMonitor | None = None
 
     # ---------- pekerjaan ----------
     def _acquire(self) -> None:
@@ -110,6 +112,42 @@ class App:
 
         self.start_job("meters", fn)
 
+    def start_live(self, ip: str, port: int, path: str) -> None:
+        self._acquire()  # dilepas saat pemantauan berhenti
+        self.job = {"state": "live", "kind": "live", "started": time.strftime("%H:%M:%S")}
+        dump = None
+        latest = self.latest()
+        if latest:
+            try:
+                dump = json.loads((self.data.parent / latest["dump"]).read_text(encoding="utf-8"))
+            except (OSError, ValueError, KeyError):
+                dump = None
+
+        def on_stop():
+            self.job = {"state": "idle"}
+            self._lock.release()
+
+        log = self.data / f"live-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
+        self.live = LiveMonitor(ip, port, path, labels_from_dump(dump), log, on_stop=on_stop)
+        try:
+            self.live.start()
+        except Exception:
+            on_stop()
+            raise
+
+    def stop_live(self) -> None:
+        if self.live:
+            self.live.stop()
+
+    def save_port(self, port: int) -> None:
+        (self.data / "mixer-port.txt").write_text(str(port), encoding="utf-8")
+
+    def load_port(self) -> int:
+        try:
+            return int((self.data / "mixer-port.txt").read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            return DEFAULT_PORT
+
     def latest(self) -> dict | None:
         try:
             return json.loads((self.data / "latest.json").read_text(encoding="utf-8"))
@@ -125,6 +163,11 @@ class App:
             return {"ok": False, "output": "Waktu habis."}
         out = (r.stdout + r.stderr).strip()
         return {"ok": r.returncode == 0, "output": out[-4000:]}
+
+
+def _remember(app: "App", ip: str, port: int) -> None:
+    save_ip(ip, app.data / "mixer-ip.txt")
+    app.save_port(port)
 
 
 def _parse_target(body: dict) -> tuple[str, int]:
@@ -209,7 +252,13 @@ def make_handler(app: App, http_port: int):
                     return self._json(403, {"error": "Token tidak valid. Buka lewat AI-Sound-Engineer.bat."})
                 if path == "/api/status":
                     return self._json(200, {"ip": load_ip(app.data / "mixer-ip.txt"), "default_port": DEFAULT_PORT,
-                                            "job": app.job, "latest": app.latest()})
+                                            "port": app.load_port(), "job": app.job, "latest": app.latest(),
+                                            "live": bool(app.live and app.live.running)})
+                if path == "/api/live":
+                    if not app.live:
+                        return self._json(200, {"running": False, "frames": 0, "alerts": []})
+                    want = parse_qs(urlparse(self.path).query).get("alerts", ["1"])[0] == "1"
+                    return self._json(200, app.live.snapshot(include_alerts=want))
                 if path == "/api/job":
                     return self._json(200, app.job)
                 return self._json(404, {"error": "Tidak dikenal."})
@@ -230,13 +279,13 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, {"ok": True})
                 if path == "/api/probe":
                     ip, port = _parse_target(body)
-                    save_ip(ip, app.data / "mixer-ip.txt")
+                    _remember(app, ip, port)
                     return self._json(200, app.probe(ip, port))
                 if path == "/api/audit":
                     if body.get("no_service") is not True or body.get("scene_saved") is not True:
                         raise ValueError("Centang dulu: tidak sedang ibadah, dan scene sudah disimpan.")
                     ip, port = _parse_target(body)
-                    save_ip(ip, app.data / "mixer-ip.txt")
+                    _remember(app, ip, port)
                     app.audit(ip, port)
                     return self._json(202, {"ok": True})
                 if path == "/api/meters":
@@ -248,6 +297,16 @@ def make_handler(app: App, http_port: int):
                         raise ValueError("Durasi harus 1–120 detik.")
                     app.record_meters(ip, port, mpath, float(seconds))
                     return self._json(202, {"ok": True})
+                if path == "/api/live/start":
+                    ip, port = _parse_target(body)
+                    mpath = str(body.get("path", "/meters/1"))
+                    check("/meters", (mpath,))
+                    _remember(app, ip, port)
+                    app.start_live(ip, port, mpath)
+                    return self._json(202, {"ok": True})
+                if path == "/api/live/stop":
+                    app.stop_live()
+                    return self._json(200, {"ok": True})
                 if path == "/api/update":
                     return self._json(200, app.run_cmd(["git", "pull"], 90))
                 if path == "/api/tests":

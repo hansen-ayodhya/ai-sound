@@ -68,6 +68,15 @@
 - Keamanan: hanya 127.0.0.1, cek Host, token API per sesi, satu pekerjaan mixer pada satu waktu.
 - 32 tes lulus; diuji ujung-ke-ujung di browser dengan mixer tiruan. Belum dengan MR18 nyata; .bat belum dicoba di Windows.
 
+## Update: mode live
+
+- `aise.live`: stream meter terus-menerus (`ReadOnlyClient.stream_meters`) + aturan lokal cepat: clipping (≥ -1 dB), panas berulang (≥ -3 dB, 3x/5 dtk), sinyal lemah (puncak -60..-40 dB selama 30 dtk), dan koneksi meter terputus (3 dtk). Ada cooldown agar tidak membanjiri.
+- Tampilan Mixer: tombol Mulai/Hentikan pantau live, meter asli, strip menyala (merah/kuning/biru), daftar peringatan. Peringatan disimpan di `data/live-*.jsonl`.
+- Selama live, pekerjaan lain ke mixer ditolak (satu koneksi mixer pada satu waktu). Berhenti otomatis setelah 4 jam.
+- BELUM: keseimbangan musik vs vokal (butuh meter sesudah fader/bus yang terbukti), deteksi feedback dan frekuensi (butuh audio USB, Tahap 2).
+- Belum diverifikasi: path/format meter, pemetaan indeks 0..15 = CH 01..16, ambang yang cocok untuk gereja ini.
+- 42 tes lulus; diuji di browser dengan mixer tiruan yang mengalirkan meter.
+
 ## Catatan
 
 Repositori ini awalnya berisi proyek lain (aplikasi POS); proyek ini ditempatkan di folder `ai-sound-engineer/` agar terpisah dan tidak menyentuh file yang sudah ada. Bila ingin repositori sendiri, folder ini bisa dipindahkan utuh.

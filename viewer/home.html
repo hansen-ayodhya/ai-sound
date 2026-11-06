@@ -108,7 +108,8 @@
 
   <section class="card">
     <h2>3. Rekam meter</h2>
-    <p class="sub">Merekam level selama beberapa detik dan menandai yang mendekati clipping. Format meter MR18 belum terbukti, jadi hasil pertama mungkin kosong.</p>
+    <p class="sub">Merekam level selama beberapa detik dan menandai yang mendekati clipping. Format meter MR18 belum terbukti, jadi hasil pertama mungkin kosong.
+      Untuk pantau terus-menerus, buka <a href="mixer.html" style="color:var(--accent)">Tampilan Mixer</a> lalu klik <b>Mulai pantau live</b>.</p>
     <div class="row">
       <div><label class="f" for="secs">Durasi</label>
         <select id="secs"><option value="10">10 detik</option><option value="30" selected>30 detik</option><option value="60">60 detik</option></select></div>
@@ -311,7 +312,7 @@ $("btnShowReport").addEventListener("click", () => $("reportCard").scrollIntoVie
   try {
     const s = await api("/api/status");
     $("ip").value = s.ip || "";
-    $("port").value = s.default_port;
+    $("port").value = s.port || s.default_port;
     if (s.job && s.job.state === "running") watchJob();
   } catch (e) { $("noServer").hidden = false; }
   loadReport();

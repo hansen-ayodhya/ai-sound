@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import socket
 import threading
+import time
 
 from .osc import OscError, decode, encode
 
@@ -19,6 +20,12 @@ class FakeMixer:
         self.queries: list[str] = []
         self.meter_requests: list[tuple] = []
         self.meter_frames: dict[str, list[bytes]] = {}
+        # Bila diisi: fungsi tanpa argumen yang mengembalikan blob meter; mixer tiruan
+        # lalu mengalirkan frame ~20x/detik selama `stream_seconds` setelah tiap permintaan.
+        self.meter_generator = None
+        self.stream_seconds = 10.0
+        self._stream_until: dict[str, float] = {}
+        self._streams: dict[str, threading.Thread] = {}
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock.bind(("127.0.0.1", 0))
         self._sock.settimeout(0.1)
@@ -57,6 +64,8 @@ class FakeMixer:
                 self.meter_requests.append(args)
                 for blob in self.meter_frames.get(args[0], []):
                     self._sock.sendto(encode(args[0], (blob,)), peer)
+                if self.meter_generator:
+                    self._start_stream(args[0], peer)
                 continue
             if args:
                 self.write_attempts.append((address, args))
@@ -65,3 +74,21 @@ class FakeMixer:
             self.queries.append(address)
             if address in self.state:
                 self._sock.sendto(encode(address, self.state[address]), peer)
+
+    def _start_stream(self, path: str, peer) -> None:
+        self._stream_until[path] = time.monotonic() + self.stream_seconds
+        t = self._streams.get(path)
+        if t and t.is_alive():
+            return
+
+        def run():
+            while not self._stop.is_set() and time.monotonic() < self._stream_until[path]:
+                try:
+                    self._sock.sendto(encode(path, (self.meter_generator(),)), peer)
+                except OSError:
+                    return
+                time.sleep(0.05)
+
+        t = threading.Thread(target=run, daemon=True)
+        self._streams[path] = t
+        t.start()

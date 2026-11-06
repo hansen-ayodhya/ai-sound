@@ -82,22 +82,21 @@ class ReadOnlyClient:
         self._log(event="no_reply", address=address)
         return None
 
-    def subscribe_meters(self, path: str, seconds: float, renew_every: float = 8.0) -> list[bytes]:
-        """Minta stream meter selama `seconds` detik; kembalikan daftar blob mentah.
+    def stream_meters(self, path: str, on_blob, should_stop, renew_every: float = 8.0) -> int:
+        """Alirkan meter terus-menerus sampai `should_stop()` bernilai True.
 
-        Permintaan diperiksa penjaga seperti pesan lain. Langganan di mixer
-        kedaluwarsa sendiri, jadi permintaan diulang tiap `renew_every` detik.
+        `on_blob(bytes)` dipanggil untuk setiap frame. Permintaan /meters tetap
+        diperiksa penjaga (lewat _send) dan diulang tiap `renew_every` detik
+        karena langganan di mixer kedaluwarsa sendiri. Mengembalikan jumlah frame.
         """
         packet = encode("/meters", (path,))
-        blobs: list[bytes] = []
-        start = time.monotonic()
-        end = start + seconds
-        next_renew = start
-        self._log(event="meters_start", path=path, seconds=seconds)
+        frames = 0
+        next_renew = time.monotonic()
+        self._log(event="meters_start", path=path)
         old_timeout = self._sock.gettimeout()
         self._sock.settimeout(0.2)
         try:
-            while time.monotonic() < end:
+            while not should_stop():
                 if time.monotonic() >= next_renew:
                     self._send(packet)
                     next_renew = time.monotonic() + renew_every
@@ -110,8 +109,16 @@ class ReadOnlyClient:
                 except OscError:
                     continue
                 if addr == path and args and isinstance(args[0], (bytes, bytearray)):
-                    blobs.append(bytes(args[0]))
+                    frames += 1
+                    on_blob(bytes(args[0]))
         finally:
             self._sock.settimeout(old_timeout)
-        self._log(event="meters_end", path=path, frames=len(blobs))
+            self._log(event="meters_end", path=path, frames=frames)
+        return frames
+
+    def subscribe_meters(self, path: str, seconds: float, renew_every: float = 8.0) -> list[bytes]:
+        """Minta stream meter selama `seconds` detik; kembalikan daftar blob mentah."""
+        blobs: list[bytes] = []
+        end = time.monotonic() + seconds
+        self.stream_meters(path, blobs.append, lambda: time.monotonic() >= end, renew_every)
         return blobs

@@ -98,6 +98,22 @@
   .approve { display: flex; gap: 6px; margin-top: 8px; }
   .approve button { flex: 1; padding: 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--strip-hi); color: var(--dim); cursor: not-allowed; }
   .note { color: var(--muted); font-size: 12px; }
+  .strip.al-bad { box-shadow: 0 0 0 2px var(--bad) inset; background: #2a1717; }
+  .strip.al-warn { box-shadow: 0 0 0 2px var(--warn) inset; }
+  .strip.al-info { box-shadow: 0 0 0 2px var(--accent) inset; }
+  .flag.live { color: var(--bad); border-color: var(--bad); }
+  .actions .liveBtn { background: #153a26; border-color: var(--ok); color: var(--ok); font-weight: 700; }
+  .actions .liveBtn.on { background: #3a1414; border-color: var(--bad); color: var(--bad); }
+  .livebar { margin: 4px 16px; font-size: 12px; color: var(--muted); }
+  .livebar b { color: var(--bad); }
+  .alerts { margin: 0 16px 10px; background: var(--desk); border: 1px solid var(--line); border-radius: 8px; }
+  .alerts h2 { margin: 0; padding: 8px 12px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .alerts ul { list-style: none; margin: 0; padding: 0; max-height: 230px; overflow: auto; }
+  .alerts li { padding: 6px 12px; border-top: 1px solid var(--line); display: flex; gap: 10px; align-items: baseline; }
+  .alerts .tm { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .alerts .lb { font-weight: 700; flex: 0 0 auto; }
+  .alerts li.bad .lb { color: var(--bad); } .alerts li.warn .lb { color: var(--warn); } .alerts li.info .lb { color: var(--accent); }
+  .alerts .empty { color: var(--muted); }
   .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
@@ -108,9 +124,11 @@
   <div class="flags">
     <span class="flag ro" title="Halaman ini tidak bisa mengubah mixer">HANYA MEMBACA</span>
     <span class="flag est" title="Angka dB/Hz dihitung dengan rumus perkiraan, belum dicocokkan dengan MR18 Anda">ANGKA PERKIRAAN ≈</span>
+    <span class="flag est" id="mapFlag" hidden title="Indeks meter 0–15 dianggap CH 01–16; belum dicocokkan dengan MR18">PEMETAAN METER PERKIRAAN</span>
     <button class="flag sim" id="simToggle" aria-pressed="true" title="Klik untuk mematikan/menyalakan">METER SIMULASI</button>
   </div>
   <div class="actions">
+    <button id="btnLive" class="liveBtn" hidden>▶ Mulai pantau live</button>
     <button id="btnLatest" hidden>Audit terakhir</button>
     <button id="btnSample" hidden>Data contoh</button>
     <label>Buka dump…<input type="file" id="fileDump" accept=".json,application/json"></label>
@@ -121,9 +139,14 @@
 <div class="source" id="source"></div>
 <div id="banner"></div>
 <div id="general" class="general"></div>
+<div class="livebar" id="liveBar" hidden></div>
+<section class="alerts" id="alerts" hidden>
+  <h2>Peringatan live <span id="alertCount"></span></h2>
+  <ul id="alertList"><li class="empty">Belum ada peringatan.</li></ul>
+</section>
 <main class="desk" id="desk"><div class="empty">Memuat…</div></main>
 <p class="foot">Angka bertanda ≈ dihitung dengan rumus perkiraan keluarga X Air dan belum dicocokkan dengan MR18 Anda.
-  Meter yang bergerak adalah SIMULASI dan belum tersambung ke mixer. Tidak ada tombol di halaman ini yang mengubah mixer.</p>
+  <span id="meterNote">Meter yang bergerak adalah SIMULASI dan belum tersambung ke mixer.</span> Tidak ada tombol di halaman ini yang mengubah mixer.</p>
 <aside class="drawer" id="drawer" hidden></aside>
 
 <script>
@@ -171,7 +194,18 @@ function svg(tag, attrs) {
 }
 const pad2 = (n) => String(n).padStart(2, "0");
 
-const state = { dump: null, findings: [], sim: true, meters: [] };
+const state = { dump: null, findings: [], sim: true, meters: [], live: false, stripEls: {}, seenAlerts: 0 };
+const tokenMeta = document.querySelector('meta[name="aise-token"]');
+const TOKEN = tokenMeta ? tokenMeta.content : null;
+async function api(path, body) {
+  const opt = { method: body === undefined ? "GET" : "POST", headers: { "X-AISE-Token": TOKEN || "" } };
+  if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  let data = {};
+  try { data = await r.json(); } catch (e) { /* kosong */ }
+  if (!r.ok) throw new Error(data.error || ("Gagal (" + r.status + ")"));
+  return data;
+}
 const raw = (addr) => {
   const v = state.dump && state.dump.values[addr];
   return v && v.length ? v[0] : null;
@@ -258,6 +292,7 @@ function channelStrip(n) {
     muteEl(on),
     el("div", { class: "sends", title: "Kiriman ke Bus 1–6 (monitor/FX)" },
       ...sends.map((s) => el("div", { class: s == null ? "none" : "", style: `height:${Math.max(4, (s || 0) * 100)}%` }))));
+  state.stripEls["ch" + n] = strip;
   const open = () => openChannel(n, strip);
   strip.addEventListener("click", open);
   strip.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
@@ -352,6 +387,7 @@ function buses() {
 }
 function render() {
   state.meters = [];
+  state.stripEls = {};
   closeDrawer();
   const desk = $("desk");
   const d = state.dump;
@@ -372,7 +408,7 @@ function render() {
 // ---------- meter simulasi ----------
 let lastT = 0;
 function tick(t) {
-  if (state.sim && t - lastT > 50) {
+  if (state.sim && !state.live && t - lastT > 50) {
     lastT = t;
     for (const m of state.meters) {
       const target = m.muted ? -90 : m.base + (Math.random() - 0.5) * 18;
@@ -441,6 +477,97 @@ if (location.protocol.startsWith("http")) {
   loadLatest().catch(() => loadSample().catch(() => render()));
 } else {
   render();
+}
+
+// ---------- MODE LIVE (meter asli dari mixer, hanya membaca) ----------
+const pctDb = (db) => Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+function applyLive(snap) {
+  for (const m of state.meters) {
+    const ch = m.key.startsWith("ch") ? parseInt(m.key.slice(2), 10) : null;
+    const lvl = ch ? snap.levels[ch - 1] : undefined, pk = ch ? snap.peaks[ch - 1] : undefined;
+    if (lvl === undefined) { m.meter.classList.add("off"); m.clip.classList.remove("lit"); continue; }
+    m.meter.classList.remove("off");
+    m.fill.style.height = pctDb(lvl) + "%";
+    m.peak.style.bottom = pctDb(pk) + "%";
+    m.clip.classList.toggle("lit", pk >= -1);
+  }
+  const bar = $("liveBar");
+  bar.hidden = false;
+  if (snap.error) bar.textContent = "Pemantauan berhenti karena kesalahan: " + snap.error;
+  else if (snap.running) {
+    bar.replaceChildren(el("b", { text: "● LIVE" }),
+      ` sejak ${snap.started} · ${snap.fps} frame/detik · ` +
+      (snap.age == null ? "menunggu data meter…" : `data terakhir ${snap.age} detik lalu`) +
+      (snap.bad_frames ? ` · ${snap.bad_frames} frame tidak terbaca` : ""));
+  } else bar.textContent = `Pemantauan berhenti. ${snap.frames} frame diterima. Peringatan tersimpan di data/live-*.jsonl.`;
+}
+function flash(index, sev) {
+  const strip = state.stripEls["ch" + (index + 1)];
+  if (!strip) return;
+  const cls = "al-" + sev;
+  strip.classList.add(cls);
+  clearTimeout(strip["_t" + cls]);
+  strip["_t" + cls] = setTimeout(() => strip.classList.remove(cls), 6000);
+}
+function showAlerts(list) {
+  $("alerts").hidden = false;
+  $("alertCount").textContent = "(" + list.length + ")";
+  for (const a of list.slice(state.seenAlerts)) if (a.index >= 0) flash(a.index, a.severity);
+  state.seenAlerts = list.length;
+  const ul = $("alertList");
+  if (!list.length) { ul.replaceChildren(el("li", { class: "empty", text: "Belum ada peringatan." })); return; }
+  ul.replaceChildren(...list.slice().reverse().slice(0, 60).map((a) =>
+    el("li", { class: a.severity }, el("span", { class: "tm", text: a.time }),
+      el("span", { class: "lb", text: a.index >= 0 ? a.label : "Koneksi" }),
+      el("span", { text: a.index >= 0 && a.message.startsWith(a.label + " ") ? a.message.slice(a.label.length + 1) : a.message }))));
+}
+function setLiveUi(on) {
+  state.live = on;
+  const b = $("btnLive");
+  b.textContent = on ? "■ Hentikan pantau" : "▶ Mulai pantau live";
+  b.classList.toggle("on", on);
+  const f = $("simToggle");
+  f.disabled = on;
+  f.classList.toggle("live", on);
+  f.textContent = on ? "METER LIVE" : (state.sim ? "METER SIMULASI" : "METER MATI");
+  $("mapFlag").hidden = !on;
+  $("meterNote").textContent = on
+    ? "Meter LIVE dari mixer; pemetaan indeks meter ke channel masih perkiraan, dan aturan peringatan memakai ambang umum."
+    : "Meter yang bergerak adalah SIMULASI dan belum tersambung ke mixer.";
+  if (!on) for (const m of state.meters) { m.meter.classList.toggle("off", !state.sim); m.clip.classList.remove("lit"); }
+}
+let pollTimer = null, pollN = 0;
+async function poll() {
+  pollN++;
+  const withAlerts = pollN % 7 === 1;
+  try {
+    const snap = await api("/api/live?alerts=" + (withAlerts ? "1" : "0"));
+    if (snap.levels) applyLive(snap);
+    if (withAlerts && snap.alerts) showAlerts(snap.alerts);
+    if (!snap.running) {
+      const fin = await api("/api/live?alerts=1");
+      if (fin.alerts) showAlerts(fin.alerts);
+      if (fin.levels) applyLive(fin);
+      setLiveUi(false);
+      pollTimer = null;
+      return;
+    }
+  } catch (e) { $("liveBar").hidden = false; $("liveBar").textContent = "Tidak bisa menghubungi aplikasi: " + e.message; }
+  pollTimer = setTimeout(poll, 150);
+}
+function startPolling() { if (!pollTimer) { pollN = 0; state.seenAlerts = 0; setLiveUi(true); poll(); } }
+$("btnLive").addEventListener("click", async () => {
+  try {
+    if (state.live) { await api("/api/live/stop", {}); return; }
+    const s = await api("/api/status");
+    if (!s.ip) { alert("Isi IP mixer dulu di halaman Beranda (Uji kecil)."); return; }
+    await api("/api/live/start", { ip: s.ip, port: s.port || s.default_port });
+    startPolling();
+  } catch (e) { alert(e.message); }
+});
+if (TOKEN && location.protocol.startsWith("http")) {
+  $("btnLive").hidden = false;
+  api("/api/status").then((s) => { if (s.live) startPolling(); }).catch(() => {});
 }
 </script>
 </body>
