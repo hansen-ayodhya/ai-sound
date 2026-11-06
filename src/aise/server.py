@@ -219,6 +219,21 @@ class App:
             count = len(fnd)
         return {"ok": True, "findings": count, "profile": clean}
 
+    def own_ips(self) -> set[str]:
+        """Alamat milik komputer ini (localhost + IP jaringannya). Disimpan sebentar."""
+        now = time.monotonic()
+        if now - getattr(self, "_own_ips_t", -1e9) > 30:
+            ips = {"127.0.0.1", "::1"}
+            try:
+                ips.update(socket.gethostbyname_ex(socket.gethostname())[2])
+            except OSError:
+                pass
+            ip = lan_ip()
+            if ip:
+                ips.add(ip)
+            self._own_ips, self._own_ips_t = ips, now
+        return self._own_ips
+
     # ---------- Gemini ----------
     @property
     def ai_cfg_path(self) -> Path:
@@ -410,7 +425,8 @@ def make_handler(app: App, http_port: int):
                 return False
 
         def _is_local(self) -> bool:
-            return app.trust_loopback and self.client_address[0] in ("127.0.0.1", "::1")
+            # Komputer yang menjalankan aplikasi = lokal, termasuk bila dibuka lewat IP jaringannya sendiri.
+            return app.trust_loopback and self.client_address[0] in app.own_ips()
 
         def _session(self) -> str | None:
             for part in self.headers.get("Cookie", "").split(";"):

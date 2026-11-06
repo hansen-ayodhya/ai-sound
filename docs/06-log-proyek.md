@@ -137,6 +137,11 @@
 - Operator mengizinkan semua jenis klip (lagu, khotbah, soundcheck) dikirim, dengan izin per klip.
 - 84 tes lulus; diuji di browser dengan rekaman sintetis + Gemini tiruan.
 
+## Update: perbaikan kolom API key + zoom & jumlah channel
+
+- Kolom API key tersembunyi bila Beranda dibuka lewat IP jaringan komputer itu sendiri (dianggap perangkat lain). Kini semua alamat milik komputer yang menjalankan aplikasi dianggap lokal; bila tetap dari perangkat lain, ada pesan jelas berisi alamat localhost. Kolom password kini diberi gaya yang sama.
+- Tampilan Mixer: Zoom −/+, "Pas layar", 100%; jumlah channel 4/6/8/12/Semua dengan halaman ◀ ▶; "Hanya yang ada di Daftar Channel"; tampilkan/sembunyikan Bus & Main. Pilihan disimpan per perangkat (browser). HP: bawaan 4 channel, zoom 80%.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

@@ -30,7 +30,7 @@
   h2 { margin: 0 0 4px; font-size: 16px; }
   .sub { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
   label.f { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  input[type=text], input[type=number], select { width: 100%; padding: 8px 10px; border-radius: 7px;
+  input[type=text], input[type=number], input[type=password], select { width: 100%; padding: 8px 10px; border-radius: 7px;
     border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
   .row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
   .row > * { flex: 1; min-width: 120px; }
@@ -368,7 +368,8 @@ async function loadAI(isLocal) {
     const v = await api("/api/ai");
     showAIStatus(v.status);
     $("aiForm").hidden = !isLocal;
-    if (!isLocal) say("aiOut", "Pengaturan kunci hanya bisa dari laptop/komputer yang menjalankan aplikasi.");
+    if (!isLocal) say("aiOut", "Kolom API key hanya muncul di komputer yang menjalankan aplikasi (yang ada jendela hitamnya). " +
+      "Di komputer itu, buka alamat  http://localhost:" + location.port + "/viewer/home.html  lalu isi kuncinya di sini.", "warn");
   } catch (e) { say("aiStatus", e.message, "bad"); }
 }
 $("btnAiSave").addEventListener("click", async () => {

@@ -170,6 +170,13 @@
   .aibox p { margin: 4px 0; white-space: pre-wrap; }
   .toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; margin: 8px 0; }
   .actions .aiBtn { border-color: #b48cff; color: #d6c4ff; }
+  .viewbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 6px 16px; font-size: 13px; color: var(--muted); }
+  .viewbar .grp { display: flex; gap: 4px; align-items: center; }
+  .viewbar button, .viewbar select { font: inherit; font-size: 13px; padding: 4px 9px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--strip); color: var(--text); cursor: pointer; }
+  .viewbar button:disabled { opacity: .4; cursor: default; }
+  .viewbar .zv { min-width: 46px; text-align: center; color: var(--text); font-variant-numeric: tabular-nums; }
+  .viewbar label { display: flex; gap: 5px; align-items: center; cursor: pointer; }
   .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
@@ -203,6 +210,28 @@
   <h2>Peringatan live <span id="alertCount"></span></h2>
   <ul id="alertList"><li class="empty">Belum ada peringatan.</li></ul>
 </section>
+<div class="viewbar" id="viewbar">
+  <div class="grp" role="group" aria-label="Zoom">
+    <span>Zoom</span>
+    <button type="button" id="zOut" aria-label="Perkecil">−</button>
+    <span class="zv" id="zVal">100%</span>
+    <button type="button" id="zIn" aria-label="Perbesar">+</button>
+    <button type="button" id="zFit">Pas layar</button>
+    <button type="button" id="zReset">100%</button>
+  </div>
+  <div class="grp" role="group" aria-label="Channel yang ditampilkan">
+    <span>Tampilkan</span>
+    <select id="chCount" aria-label="Jumlah channel">
+      <option value="4">4 channel</option><option value="6">6 channel</option><option value="8">8 channel</option>
+      <option value="12">12 channel</option><option value="all">Semua</option>
+    </select>
+    <button type="button" id="pgPrev" aria-label="Channel sebelumnya">◀</button>
+    <span id="pgLbl"></span>
+    <button type="button" id="pgNext" aria-label="Channel berikutnya">▶</button>
+  </div>
+  <label><input type="checkbox" id="onlyListed"> Hanya yang ada di Daftar Channel</label>
+  <label><input type="checkbox" id="showMasters"> Bus &amp; Main</label>
+</div>
 <main class="desk" id="desk"><div class="empty">Memuat…</div></main>
 <p class="foot">Angka bertanda ≈ dihitung dengan rumus perkiraan keluarga X Air dan belum dicocokkan dengan MR18 Anda.
   <span id="meterNote">Meter yang bergerak adalah SIMULASI dan belum tersambung ke mixer.</span> Tidak ada tombol di halaman ini yang mengubah mixer.</p>
@@ -671,13 +700,80 @@ function render() {
   if (!d) { desk.replaceChildren(el("div", { class: "empty", text: "Belum ada data. Klik “Data contoh” atau “Buka dump…”." })); return; }
   const answered = Object.values(d.values).filter((v) => v !== null).length;
   $("source").textContent = `Sumber: ${d._name} · dibuat ${d.created || "?"} · ${answered}/${Object.keys(d.values).length} alamat dijawab · ${state.findings.length} temuan`;
-  const ins = el("div", { class: "group" }, el("h2", { text: "Input" }), el("div", { class: "strips" }, ...channels().map(channelStrip)));
-  const bs = buses();
-  const busGroup = bs.length ? el("div", { class: "group" }, el("h2", { text: "Bus (monitor/FX)" }),
-    el("div", { class: "strips" }, ...bs.map((b) => masterStrip("BUS " + b, "/bus/" + b, "bus" + b)))) : null;
-  const main = el("div", { class: "group" }, el("h2", { text: "Main" }), el("div", { class: "strips" }, masterStrip("MAIN L/R", "/lr", "lr")));
-  desk.replaceChildren(ins, busGroup || "", main);
+  const shown = visibleChannels();
+  const ins = el("div", { class: "group" }, el("h2", { text: "Input" }),
+    shown.length ? el("div", { class: "strips" }, ...shown.map(channelStrip))
+      : el("div", { class: "empty", text: "Tidak ada channel yang cocok dengan pilihan tampilan." }));
+  const parts = [ins];
+  if (state.view.showMasters) {
+    const bs = buses();
+    if (bs.length) parts.push(el("div", { class: "group" }, el("h2", { text: "Bus (monitor/FX)" }),
+      el("div", { class: "strips" }, ...bs.map((b) => masterStrip("BUS " + b, "/bus/" + b, "bus" + b)))));
+    parts.push(el("div", { class: "group" }, el("h2", { text: "Main" }), el("div", { class: "strips" }, masterStrip("MAIN L/R", "/lr", "lr"))));
+  }
+  desk.replaceChildren(...parts);
+  applyZoom();
 }
+
+// ---------- tampilan: zoom & jumlah channel (disimpan per perangkat) ----------
+const VIEW_KEY = "aise.mixer.view";
+state.view = (() => {
+  const narrow = window.innerWidth < 700;
+  const def = { zoom: narrow ? 0.8 : 1, count: narrow ? "4" : "all", page: 0, onlyListed: false, showMasters: !narrow };
+  try { return { ...def, ...(JSON.parse(localStorage.getItem(VIEW_KEY)) || {}) }; } catch (e) { return def; }
+})();
+function saveView() { try { localStorage.setItem(VIEW_KEY, JSON.stringify(state.view)); } catch (e) { /* abaikan */ } }
+function filteredChannels() {
+  let list = state.dump ? channels() : [];
+  if (state.view.onlyListed && state.profile) {
+    const used = new Set(state.profile.sources.flatMap((x) => x.ch));
+    list = list.filter((n) => used.has(n));
+  }
+  return list;
+}
+function visibleChannels() {
+  const list = filteredChannels(), v = state.view;
+  if (v.count === "all") { v.page = 0; updateViewbar(list.length, list); return list; }
+  const n = parseInt(v.count, 10), pages = Math.max(1, Math.ceil(list.length / n));
+  v.page = Math.max(0, Math.min(v.page, pages - 1));
+  const shown = list.slice(v.page * n, v.page * n + n);
+  updateViewbar(list.length, shown);
+  return shown;
+}
+function updateViewbar(total, shown) {
+  const v = state.view;
+  $("chCount").value = v.count;
+  $("onlyListed").checked = v.onlyListed;
+  $("onlyListed").disabled = !state.profile;
+  $("onlyListed").parentElement.title = state.profile ? "" : "Isi Daftar Channel dulu";
+  $("showMasters").checked = v.showMasters;
+  const paged = v.count !== "all";
+  $("pgPrev").hidden = $("pgNext").hidden = !paged;
+  $("pgPrev").disabled = v.page <= 0;
+  $("pgNext").disabled = !paged || (v.page + 1) * parseInt(v.count, 10) >= total;
+  $("pgLbl").textContent = shown.length ? `CH ${pad2(shown[0])}–${pad2(shown[shown.length - 1])} (${total} channel)` : "";
+}
+function applyZoom() {
+  const z = Math.round(state.view.zoom * 100) / 100;
+  $("desk").style.zoom = z;
+  $("zVal").textContent = Math.round(z * 100) + "%";
+  $("zOut").disabled = z <= 0.4; $("zIn").disabled = z >= 1.8;
+}
+function setZoom(z) { state.view.zoom = Math.max(0.4, Math.min(1.8, z)); saveView(); applyZoom(); }
+$("zIn").addEventListener("click", () => setZoom(state.view.zoom + 0.1));
+$("zOut").addEventListener("click", () => setZoom(state.view.zoom - 0.1));
+$("zReset").addEventListener("click", () => setZoom(1));
+$("zFit").addEventListener("click", () => {
+  const desk = $("desk");
+  desk.style.zoom = 1;
+  const need = desk.scrollWidth, have = desk.clientWidth;
+  setZoom(need > 0 ? Math.floor((have / need) * 100) / 100 : 1);
+});
+$("chCount").addEventListener("change", () => { state.view.count = $("chCount").value; state.view.page = 0; saveView(); render(); });
+$("pgPrev").addEventListener("click", () => { state.view.page--; saveView(); render(); });
+$("pgNext").addEventListener("click", () => { state.view.page++; saveView(); render(); });
+$("onlyListed").addEventListener("change", () => { state.view.onlyListed = $("onlyListed").checked; state.view.page = 0; saveView(); render(); });
+$("showMasters").addEventListener("change", () => { state.view.showMasters = $("showMasters").checked; saveView(); render(); });
 
 // ---------- meter simulasi ----------
 let lastT = 0;
