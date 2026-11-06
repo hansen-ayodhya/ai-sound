@@ -40,8 +40,12 @@ from .dump import run_dump
 from .guard import ReadOnlyViolation, check
 from .live import LiveMonitor, labels_from_dump
 from .menu import load_ip, save_ip, valid_ip
+from .paths import BUILD_VERSION_FILE, BUNDLE, FROZEN
+from .paths import DATA as DATA_DIR
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = BUNDLE
+CONTENT_TYPES = {".html": "text/html", ".json": "application/json", ".md": "text/plain",
+                 ".js": "application/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml"}
 DEFAULT_HTTP_PORT = 8765
 MAX_BODY = 10_000
 MAX_PIN_FAILS = 5
@@ -80,7 +84,8 @@ class App:
         self.lan_url: str | None = None
         self.root = root
         self.version = _version(root)
-        self.data = data or root / "data"
+        self.frozen = FROZEN
+        self.data = data or (DATA_DIR if root == ROOT else root / "data")
         self.addresses = addresses
         self.token = secrets.token_urlsafe(24)
         self._lock = threading.Lock()
@@ -215,6 +220,12 @@ def _parse_target(body: dict) -> tuple[str, int]:
 
 def _version(root: Path) -> str:
     try:
+        text = BUILD_VERSION_FILE.read_text(encoding="utf-8").strip()
+        if text:
+            return text
+    except OSError:
+        pass
+    try:
         r = subprocess.run(["git", "log", "-1", "--format=%h %cd", "--date=format:%d-%m-%Y %H:%M"],
                            cwd=root, capture_output=True, text=True, timeout=3)
         return r.stdout.strip() or "?"
@@ -344,7 +355,7 @@ def make_handler(app: App, http_port: int):
                     if prefix == "/data/" and target.suffix not in (".json", ".md"):
                         break
                     data = target.read_bytes()
-                    ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+                    ctype = CONTENT_TYPES.get(target.suffix) or mimetypes.guess_type(target.name)[0] or "application/octet-stream"
                     if target.suffix in (".md", ".jsonl", ".txt"):
                         ctype = "text/plain"
                     if target.suffix == ".html":
@@ -389,7 +400,7 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, {"ip": load_ip(app.data / "mixer-ip.txt"), "default_port": DEFAULT_PORT,
                                             "port": app.load_port(), "job": app.job, "latest": app.latest(),
                                             "live": bool(app.live and app.live.running),
-                                            "is_local": local, "lan": app.lan, "version": app.version,
+                                            "is_local": local, "lan": app.lan, "version": app.version, "frozen": app.frozen,
                                             "lan_url": app.lan_url if local else None,
                                             "pin": app.pin if (local and app.lan) else None})
                 if path == "/api/live":
@@ -451,6 +462,9 @@ def make_handler(app: App, http_port: int):
                 if path == "/api/live/stop":
                     app.stop_live()
                     return self._json(200, {"ok": True})
+                if path in ("/api/update", "/api/tests") and app.frozen:
+                    return self._json(200, {"ok": False, "output": "Ini versi .exe. Untuk update: unduh exe terbaru dari GitHub "
+                                            "(tab Actions, build terakhir, bagian Artifacts), lalu ganti file exe saat tidak ibadah."})
                 if path == "/api/update":
                     return self._json(200, app.run_cmd(["git", "pull"], 90))
                 if path == "/api/tests":

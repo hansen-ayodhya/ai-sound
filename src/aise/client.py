@@ -14,6 +14,15 @@ DEFAULT_PORT = 10024  # BELUM diverifikasi pada MR18; konfirmasi saat audit.
 MIN_INTERVAL_S = 0.02  # maksimal ~50 pesan/detik
 
 
+def disable_udp_connreset(sock: socket.socket) -> None:
+    """Windows: matikan laporan 'connection reset' pada UDP (bila tersedia)."""
+    if hasattr(socket, "SIO_UDP_CONNRESET"):
+        try:
+            sock.ioctl(socket.SIO_UDP_CONNRESET, False)  # type: ignore[attr-defined]
+        except OSError:
+            pass
+
+
 class ReadOnlyClient:
     def __init__(
         self,
@@ -29,6 +38,7 @@ class ReadOnlyClient:
         self.log_path = Path(log_path) if log_path else None
         self._last_send = 0.0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        disable_udp_connreset(self._sock)
         self._sock.settimeout(timeout)
 
     def close(self) -> None:
@@ -73,6 +83,9 @@ class ReadOnlyClient:
                     data, _ = self._sock.recvfrom(4096)
                 except socket.timeout:
                     break
+                except ConnectionResetError:
+                    # Windows: balasan "port tidak terjangkau" muncul sebagai error; anggap tidak dijawab.
+                    break
                 try:
                     reply_addr, args = decode(data)
                 except OscError:
@@ -102,7 +115,7 @@ class ReadOnlyClient:
                     next_renew = time.monotonic() + renew_every
                 try:
                     data, _ = self._sock.recvfrom(65535)
-                except socket.timeout:
+                except (socket.timeout, ConnectionResetError):
                     continue
                 try:
                     addr, args = decode(data)

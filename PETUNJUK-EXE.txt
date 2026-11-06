@@ -1,0 +1,32 @@
+AI SOUND ENGINEER - VERSI EXE
+================================
+Semua fungsi hanya MEMBACA mixer. Tidak ada yang mengubah setting.
+
+PEMASANGAN (sekali saja, di komputer EasyWorship)
+1. Buat folder, misalnya  C:\AI-Sound-Engineer
+2. Salin file AI-Sound-Engineer.exe ke folder itu.
+   (Jangan jalankan langsung dari folder Downloads atau dari dalam file zip.)
+3. Klik dua kali AI-Sound-Engineer.exe
+   - Bila muncul layar biru "Windows protected your PC":
+     klik "More info" lalu "Run anyway". Ini karena exe belum ditandatangani resmi.
+   - Bila Windows bertanya soal firewall: centang "Private networks" saja, lalu Allow.
+4. Jendela hitam menampilkan alamat dan PIN. Browser terbuka ke halaman Beranda.
+
+MEMBUKA DARI HP / TABLET
+- Sambungkan ke Wi-Fi gereja yang sama (yang berpassword).
+- Buka browser, ketik alamat yang tampil di jendela hitam (contoh http://192.168.1.23:8765).
+- Masukkan PIN 6 angka.
+
+PENTING
+- JANGAN tutup jendela hitam selama aplikasi dipakai. Menutupnya = mematikan aplikasi.
+- Folder "data" di samping exe berisi hasil audit, IP mixer, dan PIN. Jangan dihapus.
+  (Untuk membuat PIN baru: hapus data\pin.txt lalu jalankan exe lagi.)
+- Bila hanya ingin dibuka dari komputer ini saja (tanpa HP/tablet):
+  buat shortcut exe, lalu di Properties > Target tambahkan  --lokal  di akhir.
+
+UPDATE KE VERSI BARU (di luar jam ibadah)
+1. Tutup jendela hitam aplikasi.
+2. Unduh exe terbaru dari GitHub: repo wtc > tab Actions > "AI Sound Engineer EXE"
+   > build teratas yang centang hijau > bagian Artifacts > AI-Sound-Engineer-exe (file zip).
+3. Buka zip, timpa AI-Sound-Engineer.exe yang lama. Folder data tetap aman.
+4. Klik dua kali exe yang baru. Cek "Versi program" di bagian bawah Beranda.

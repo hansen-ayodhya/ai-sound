@@ -346,6 +346,10 @@ function showLan(s) {
     const s = await api("/api/status");
     $("ip").value = s.ip || "";
     showLan(s);
+    if (s.frozen) {
+      $("btnUpdate").hidden = true; $("btnTests").hidden = true;
+      say("maintOut", "Ini versi .exe. Untuk update: unduh exe terbaru dari GitHub (tab Actions → build terakhir → Artifacts), lalu ganti file exe saat tidak ibadah. Folder data di samping exe tetap aman.");
+    }
     $("versionLine").textContent = "Versi program: " + (s.version || "?") +
       " · Mode: " + (s.lan ? "JARINGAN (HP/tablet bisa masuk dengan PIN)" : "hanya laptop ini");
     $("port").value = s.port || s.default_port;

@@ -81,11 +81,13 @@ class Monitor(unittest.TestCase):
 
     def test_stale_when_no_data(self):
         with FakeMixer({}) as mixer, tempfile.TemporaryDirectory() as tmp:
-            mon = LiveMonitor("127.0.0.1", mixer.port, "/meters/1", {}, Path(tmp) / "live.jsonl")
+            done = threading.Event()
+            mon = LiveMonitor("127.0.0.1", mixer.port, "/meters/1", {}, Path(tmp) / "live.jsonl", on_stop=done.set)
             mon.start()
             mon.started -= live.STALE_S + 1  # pura-pura sudah lama berjalan
             snap = mon.snapshot()
             mon.stop()
+            self.assertTrue(done.wait(3))  # tunggu benar-benar berhenti sebelum folder dihapus
             self.assertIn("stale", [a["kind"] for a in snap["alerts"]])
 
 

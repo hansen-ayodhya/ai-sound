@@ -9,6 +9,10 @@ Keamanan: server hanya di 127.0.0.1, Host dicek, setiap panggilan API butuh toke
 tertanam di halaman server ini, dan semua akses mixer tetap lewat klien READ-ONLY.
 Cadangan tanpa browser: `Menu-Teks.bat` (menu teks lama).
 
+## Versi .exe (tanpa Python/Git)
+Unduh dari GitHub: tab Actions → "AI Sound Engineer EXE" → build terakhir yang hijau → Artifacts.
+Petunjuk lengkap ada di `PETUNJUK-EXE.txt` (ikut di dalam zip).
+
 ## Membuka dari HP, tablet, atau komputer EasyWorship
 Klik dua kali `AI-Sound-Engineer-Jaringan.bat` (bukan yang biasa). Jendela hitam dan Beranda di laptop
 menampilkan alamat (mis. `http://192.168.1.23:8765`) dan PIN 6 angka. Di perangkat lain yang tersambung

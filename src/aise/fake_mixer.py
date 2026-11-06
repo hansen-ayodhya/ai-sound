@@ -10,6 +10,7 @@ import socket
 import threading
 import time
 
+from .client import disable_udp_connreset
 from .osc import OscError, decode, encode
 
 
@@ -27,6 +28,7 @@ class FakeMixer:
         self._stream_until: dict[str, float] = {}
         self._streams: dict[str, threading.Thread] = {}
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        disable_udp_connreset(self._sock)
         self._sock.bind(("127.0.0.1", 0))
         self._sock.settimeout(0.1)
         self.port = self._sock.getsockname()[1]
@@ -52,7 +54,7 @@ class FakeMixer:
         while not self._stop.is_set():
             try:
                 data, peer = self._sock.recvfrom(4096)
-            except socket.timeout:
+            except (socket.timeout, ConnectionResetError):
                 continue
             except OSError:
                 return

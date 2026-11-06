@@ -10,3 +10,7 @@ data/
 __pycache__/
 *.pyc
 .venv/
+src/aise/_build_version.txt
+build/
+dist/
+*.spec
