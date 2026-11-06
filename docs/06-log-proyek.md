@@ -148,6 +148,12 @@
 - Tampilan Mixer: pilihan 4/6/8/12 + halaman diganti "☰ Pilih channel": centang bebas tiap CH 01–16, Bus 1–6, Main; tombol cepat Semua / Kosongkan / Sesuai Daftar Channel / Hanya yang ON. Disimpan per perangkat.
 - HP: tombol "↻ Landscape" (layar penuh + kunci mendatar bila HP mengizinkan; bila tidak, petunjuk putar otomatis). Saat mendatar, header diringkas dan "Pas layar" menyesuaikan lebar dan tinggi.
 
+## Update: kunci Gemini format baru "AQ."
+
+- Google AI Studio kini membuat kunci "Auth key" berawalan `AQ.` (bukan `AIza`). Pengecekan lama menolak karena ada titik → sudah dilonggarkan (versi 0a7b353+); petunjuk di Beranda kini mengenali kedua format.
+- Kunci dikirim lewat header `x-goog-api-key`; bila ditolak (401/403), dicoba sekali lewat parameter `?key=`. Pesan khusus untuk `ACCESS_TOKEN_TYPE_UNSUPPORTED` (dilaporkan sebagian pengguna kunci AQ.) dan izin proyek.
+- Belum diuji dengan kunci AQ. asli dari sesi ini.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

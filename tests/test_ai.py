@@ -14,6 +14,7 @@ from aise import ai, convert
 from aise.server import ROOT, App, serve
 
 KEY = "AIzaFAKEKEY_1234567890abcdef"
+AQ_KEY = "AQ.Ab8RN6FAKE" + "x" * 41
 REPLY = {
     "ringkasan": "Prioritas: khotbah dulu.",
     "jawaban": "Vokal tenggelam karena ...",
@@ -49,6 +50,14 @@ class FakeGemini(BaseHTTPRequestHandler):
 
     def do_GET(self):
         FakeGemini.calls.append(("GET", self.path, self.headers.get("x-goog-api-key"), b""))
+        if FakeGemini.mode == "query-only":
+            if f"key={AQ_KEY}" not in self.path:
+                return self._send(401, {"error": {"code": 401, "message": "Request had invalid authentication credentials.",
+                                                  "status": "UNAUTHENTICATED"}})
+            return self._send(200, {"models": [{"name": "models/gemini-3.8-flash", "supportedGenerationMethods": ["generateContent"]}]})
+        if FakeGemini.mode == "unsupported":
+            return self._send(401, {"error": {"code": 401, "message": "Request had invalid authentication credentials.",
+                                              "status": "UNAUTHENTICATED", "details": [{"reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED"}]}})
         if self.headers.get("x-goog-api-key") != KEY:
             return self._send(400, {"error": {"message": "API key not valid. Please pass a valid API key."}})
         self._send(200, {"models": [
@@ -132,6 +141,20 @@ class Calls(Base):
         self.assertEqual(path, "/models/gemini-3.8-flash:generateContent")
         self.assertEqual(hdr, KEY)
         self.assertNotIn(KEY.encode(), body)  # kunci hanya di header, tidak di isi pesan
+
+    def test_aq_key_falls_back_to_query_param(self):
+        FakeGemini.mode = "query-only"
+        self.assertEqual(ai.list_models(AQ_KEY, base=self.base), ["gemini-3.8-flash"])
+        self.assertEqual(FakeGemini.calls[0][2], AQ_KEY)          # percobaan pertama: header
+        self.assertIn("key=", FakeGemini.calls[1][1])            # cadangan: ?key=
+        self.assertIsNone(FakeGemini.calls[1][2])                # cadangan tidak mengirim header
+
+    def test_access_token_type_unsupported_message(self):
+        FakeGemini.mode = "unsupported"
+        with self.assertRaises(ai.AIError) as e:
+            ai.list_models(AQ_KEY, base=self.base)
+        self.assertIn("ACCESS_TOKEN_TYPE_UNSUPPORTED", str(e.exception))
+        self.assertIn("AQ.", str(e.exception))
 
     def test_errors(self):
         with self.assertRaises(ai.AIError) as e:

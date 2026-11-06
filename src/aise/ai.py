@@ -16,6 +16,7 @@ import math
 import re
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -77,21 +78,40 @@ def valid_key_format(key: str) -> bool:
 
 
 # ---------- HTTP ----------
-def _request(url: str, key: str, body: dict | None = None, base: str = API_BASE) -> dict:
+class AuthError(AIError):
+    """Kunci ditolak (401/403) — dipakai untuk mencoba cara kirim cadangan."""
+
+
+def _request_once(url: str, key: str, body: dict | None, base: str, key_in_query: bool) -> dict:
     data = None if body is None else json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(base + url, data=data, method="GET" if body is None else "POST")
-    req.add_header("x-goog-api-key", key)
+    full = base + url
+    if key_in_query:
+        full += ("&" if "?" in full else "?") + "key=" + urllib.parse.quote(key, safe="")
+    req = urllib.request.Request(full, data=data, method="GET" if body is None else "POST")
+    if not key_in_query:
+        req.add_header("x-goog-api-key", key)
     req.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
             return json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         try:
-            detail = json.loads(e.read().decode("utf-8")).get("error", {}).get("message", "")
+            err = json.loads(e.read().decode("utf-8")).get("error", {})
         except (ValueError, AttributeError):
-            detail = ""
-        if e.code in (400, 401, 403) and "API key" in detail:
-            raise AIError("API key ditolak Google. Periksa lagi kuncinya di Google AI Studio.") from None
+            err = {}
+        detail = str(err.get("message", ""))
+        status = str(err.get("status", ""))
+        reasons = json.dumps(err.get("details", ""))
+        if e.code in (401, 403) or (e.code == 400 and "API key" in detail):
+            if "ACCESS_TOKEN_TYPE_UNSUPPORTED" in reasons or "ACCESS_TOKEN_TYPE_UNSUPPORTED" in detail:
+                raise AuthError("Google menolak jenis kunci ini (ACCESS_TOKEN_TYPE_UNSUPPORTED). Ini masalah yang "
+                                "dilaporkan sebagian pengguna kunci berawalan 'AQ.'. Coba buat kunci baru di Google AI Studio, "
+                                "atau coba lagi nanti.") from None
+            if e.code == 403 and "PERMISSION_DENIED" in status and "API key" not in detail:
+                raise AuthError(f"Kunci diterima tapi tidak punya izin untuk Gemini API ({detail[:200]}). Pastikan kunci "
+                                "dibuat di Google AI Studio untuk proyek yang mengaktifkan Gemini API.") from None
+            raise AuthError(f"API key ditolak Google ({e.code}). Periksa lagi kuncinya di Google AI Studio. "
+                            f"Keterangan Google: {detail[:200]}") from None
         if e.code == 429:
             raise AIError("Batas pemakaian Gemini tercapai (kuota/tier gratis). Coba lagi nanti.") from None
         raise AIError(f"Gemini menolak permintaan ({e.code}): {detail[:300]}") from None
@@ -99,6 +119,18 @@ def _request(url: str, key: str, body: dict | None = None, base: str = API_BASE)
         raise AIError(f"Tidak bisa menghubungi Gemini. Cek koneksi internet komputer ini. ({e.reason})") from None
     except TimeoutError:
         raise AIError("Gemini terlalu lama menjawab. Coba lagi.") from None
+
+
+def _request(url: str, key: str, body: dict | None = None, base: str = API_BASE) -> dict:
+    """Kirim kunci lewat header x-goog-api-key; bila ditolak, coba sekali lewat parameter ?key=
+    (cadangan untuk kunci format baru 'AQ.' yang di sebagian akun hanya diterima dengan cara itu)."""
+    try:
+        return _request_once(url, key, body, base, key_in_query=False)
+    except AuthError as first:
+        try:
+            return _request_once(url, key, body, base, key_in_query=True)
+        except AuthError:
+            raise first from None
 
 
 def list_models(key: str, base: str = API_BASE) -> list[str]:

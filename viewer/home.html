@@ -384,8 +384,9 @@ function cleanKey(v) { return v.replace(/[\s\u200b-\u200f\u2060\ufeff]+/g, "").r
 $("aiKey").addEventListener("input", () => {
   const k = cleanKey($("aiKey").value);
   $("aiDiag").textContent = k ? `Terbaca ${k.length} karakter, awalan "${k.slice(0, 4)}…"` +
-    (k.length >= 30 && k.length <= 60 && k.startsWith("AIza") ? " — bentuknya cocok dengan kunci Gemini." :
-      " — kunci Gemini dari AI Studio biasanya ±39 karakter dan diawali \"AIza\".") : "";
+    ((k.startsWith("AQ.") && k.length >= 40) ? " — format kunci Gemini baru (Auth key). Bentuknya cocok." :
+     (k.startsWith("AIza") && k.length >= 30 && k.length <= 60) ? " — format kunci Gemini lama. Bentuknya cocok." :
+      " — kunci Gemini biasanya diawali \"AQ.\" (format baru) atau \"AIza\" (format lama).") : "";
 });
 $("btnAiSave").addEventListener("click", async () => {
   const key = cleanKey($("aiKey").value);
