@@ -23,6 +23,9 @@ class LanMode(unittest.TestCase):
         self.data.mkdir(parents=True)
         (self.data / "pin.txt").write_text("123456")
         (self.data / "x.json").write_text("{}")
+        (self.data / "gemini.json").write_text('{"key": "rahasia"}')
+        (self.data / "audit-1").mkdir()
+        (self.data / "audit-1" / "dump1.json").write_text("{}")
         probe = serve(App(root=ROOT, data=self.data), 0)
         self.port = probe.server_address[1]
         probe.server_close()
@@ -99,7 +102,10 @@ class LanMode(unittest.TestCase):
         ck = self.cookie()
         code, _, _ = self.req("GET", "/data/pin.txt", headers={"Cookie": ck})
         self.assertEqual(code, 404)
-        code, _, _ = self.req("GET", "/data/x.json", headers={"Cookie": ck})
+        for secret in ("/data/x.json", "/data/gemini.json", "/data/channels.json", "/data/mixer-ip.txt"):
+            code, _, _ = self.req("GET", secret, headers={"Cookie": ck})
+            self.assertEqual(code, 404, secret)
+        code, _, _ = self.req("GET", "/data/audit-1/dump1.json", headers={"Cookie": ck})
         self.assertEqual(code, 200)
 
     def test_hostname_rejected_ip_accepted(self):

@@ -33,7 +33,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlparse
 
-from . import channels, meters
+from . import ai, channels, meters
 from .audit import PROBE_ADDRESSES, MixerNotAnswering, run_audit
 from .client import DEFAULT_PORT, ReadOnlyClient
 from .dump import run_dump
@@ -51,7 +51,7 @@ DEFAULT_HTTP_PORT = 8765
 MAX_BODY = 60_000
 MAX_PIN_FAILS = 5
 PIN_LOCK_S = 300
-LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown"}
+LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown", "/api/ai/config"}
 
 LOGIN_PAGE = """<!doctype html><html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Masuk</title>
@@ -76,7 +76,10 @@ class Busy(RuntimeError):
 
 class App:
     def __init__(self, root: Path = ROOT, data: Path | None = None, addresses: list[str] | None = None,
-                 lan: bool = False, pin: str | None = None, trust_loopback: bool = True):
+                 lan: bool = False, pin: str | None = None, trust_loopback: bool = True,
+                 ai_base: str = ai.API_BASE):
+        self.ai_base = ai_base
+        self._ai_lock = threading.Lock()
         self.lan = lan
         self.pin = pin
         self.trust_loopback = trust_loopback  # False hanya untuk tes (meniru perangkat lain)
@@ -213,6 +216,58 @@ class App:
             (self.data.parent / latest["report"]).write_text(render(dump, latest["dump"], clean), encoding="utf-8")
             count = len(fnd)
         return {"ok": True, "findings": count, "profile": clean}
+
+    # ---------- Gemini ----------
+    @property
+    def ai_cfg_path(self) -> Path:
+        return self.data / "gemini.json"
+
+    def ai_view(self) -> dict:
+        try:
+            last = json.loads((self.data / "ai-last.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            last = None
+        return {"status": ai.public_status(ai.load_config(self.ai_cfg_path)), "last": last}
+
+    def ai_config(self, body: dict) -> dict:
+        cfg = ai.load_config(self.ai_cfg_path)
+        if body.get("hapus") is True:
+            self.ai_cfg_path.unlink(missing_ok=True)
+            return ai.public_status({})
+        key = str(body.get("key") or "").strip()
+        if key:
+            if not ai.valid_key_format(key):
+                raise ValueError("Format API key tidak dikenali. Salin ulang dari Google AI Studio.")
+            models = ai.list_models(key, base=self.ai_base)
+            model = ai.pick_model(models)
+            if not model:
+                raise ValueError("Kunci diterima, tapi tidak ada model Gemini yang bisa dipakai untuk kunci ini.")
+            cfg = {"key": key, "model": model, "models": models}
+        elif body.get("model"):
+            if not cfg.get("key"):
+                raise ValueError("Isi API key dulu.")
+            if body["model"] not in (cfg.get("models") or []):
+                raise ValueError("Model tidak ada di daftar untuk kunci ini.")
+            cfg["model"] = body["model"]
+        else:
+            raise ValueError("Tidak ada yang disimpan.")
+        ai.save_config(self.ai_cfg_path, cfg)
+        return ai.public_status(cfg)
+
+    def ai_analyze(self, situasi: str, pertanyaan: str) -> dict:
+        if not self._ai_lock.acquire(blocking=False):
+            raise Busy("Gemini masih memproses permintaan sebelumnya. Tunggu sebentar.")
+        try:
+            _, dump = self.latest_dump()
+            profile = self.profile()
+            findings = findings_json(dump, profile) if dump else []
+            live = self.live.snapshot() if self.live else None
+            res = ai.analyze(ai.load_config(self.ai_cfg_path), dump, profile, findings, live,
+                             situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base)
+            (self.data / "ai-last.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
+            return res
+        finally:
+            self._ai_lock.release()
 
     def stop_live(self) -> None:
         if self.live:
@@ -392,9 +447,15 @@ def make_handler(app: App, http_port: int):
                     target = (base / path[len(prefix):]).resolve()
                     if not target.is_relative_to(base.resolve()) or not target.is_file():
                         break
-                    # Dari folder data hanya hasil audit yang boleh dibuka (bukan PIN/IP/log).
-                    if prefix == "/data/" and target.suffix not in (".json", ".md"):
-                        break
+                    # Dari folder data hanya hasil audit/meter/AI yang boleh dibuka.
+                    # TIDAK PERNAH: gemini.json (API key), pin.txt, mixer-ip.txt, channels.json, log.
+                    if prefix == "/data/":
+                        rel = target.relative_to(base.resolve())
+                        ok_file = (rel.parts[0].startswith("audit-") and target.suffix in (".json", ".md")) or \
+                            rel.as_posix() in ("latest.json", "ai-last.json") or \
+                            (len(rel.parts) == 1 and rel.name.startswith("meters-") and target.suffix == ".json")
+                        if not ok_file:
+                            break
                     data = target.read_bytes()
                     ctype = CONTENT_TYPES.get(target.suffix) or mimetypes.guess_type(target.name)[0] or "application/octet-stream"
                     if target.suffix in (".md", ".jsonl", ".txt"):
@@ -453,6 +514,8 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, app.job)
                 if path == "/api/channels":
                     return self._json(200, app.channels_view())
+                if path == "/api/ai":
+                    return self._json(200, {**app.ai_view(), "is_local": self._is_local()})
                 return self._json(404, {"error": "Tidak dikenal."})
             return self._static(path)
 
@@ -504,6 +567,13 @@ def make_handler(app: App, http_port: int):
                     return self._json(202, {"ok": True})
                 if path == "/api/channels":
                     return self._json(200, app.save_channels(body.get("profile")))
+                if path == "/api/ai/config":
+                    return self._json(200, app.ai_config(body))
+                if path == "/api/ai/analyze":
+                    situasi = str(body.get("situasi", "umum"))
+                    if situasi not in ai.SITUASI:
+                        raise ValueError("Situasi tidak dikenal.")
+                    return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", ""))))
                 if path == "/api/live/stop":
                     app.stop_live()
                     return self._json(200, {"ok": True})
@@ -522,6 +592,8 @@ def make_handler(app: App, http_port: int):
                 return self._json(404, {"error": "Tidak dikenal."})
             except Busy as exc:
                 return self._json(409, {"error": str(exc)})
+            except ai.AIError as exc:
+                return self._json(502, {"error": str(exc)})
             except (ValueError, ReadOnlyViolation, channels.ProfileError) as exc:
                 return self._json(400, {"error": str(exc)})
 

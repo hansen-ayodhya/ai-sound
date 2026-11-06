@@ -120,6 +120,14 @@
 - Alamat baru (DUGAAN, belum diverifikasi): gate/range, dyn/attack, dyn/release, kiriman FX mix/07..10. Jenis efek FX belum dibaca/dipetakan.
 - 73 tes lulus; diuji di browser (desktop dan HP).
 
+## Update: konsultan AI (Google Gemini)
+
+- `aise/ai.py`: dipanggil hanya saat tombol "✦ Analisis AI" ditekan. Mengirim ringkasan angka (peran channel dari Daftar Channel, setting dB/Hz perkiraan, temuan aturan, peringatan live terakhir) + situasi (umum/lagu/khotbah/soundcheck) + pertanyaan operator. Tidak mengirim audio, IP, PIN, atau API key.
+- Jawaban wajib JSON terstruktur (enam unsur + keyakinan + usulan parameter dari daftar tertutup). Diperiksa lokal: parameter tak dikenal / di luar rentang dibuang; hasil ditandai "✦ Gemini" dan bisa ditampilkan sebagai bayangan ungu. Tidak pernah diterapkan ke mixer.
+- Model tidak ditulis tetap: daftar model diambil dari Google untuk kunci itu, dipilih Flash stabil terbaru; bisa diganti di Beranda.
+- API key di `data/gemini.json`, hanya bisa diatur dari komputer yang menjalankan aplikasi, tidak pernah dikirim ke browser. Folder data kini hanya membuka hasil audit/meter/AI; gemini.json, pin, ip, channels tertutup.
+- Diuji dengan server Gemini tiruan (belum dengan kunci asli dari sesi ini).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

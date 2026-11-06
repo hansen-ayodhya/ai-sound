@@ -157,6 +157,19 @@
   .sendbar .now { position: absolute; left: 0; top: 0; bottom: 0; background: #5aa2ff; border-radius: 3px; }
   .sendbar .ghost { position: absolute; left: 0; top: -3px; bottom: -3px; border: 2px dashed #b48cff; border-radius: 4px; background: rgba(180,140,255,.15); }
   .sendbar .ghost.zero { width: 4px !important; }
+  .aitag { display: inline-block; font-size: 11px; font-weight: 700; color: #0f1216; background: #b48cff; border-radius: 999px; padding: 1px 8px; margin-bottom: 6px; }
+  .ai textarea, .ai select { width: 100%; font: inherit; font-size: 13px; padding: 7px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  .ai textarea { min-height: 70px; resize: vertical; }
+  .ai label.f { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chips button { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--strip); color: var(--text); cursor: pointer; }
+  .ai .go { width: 100%; margin-top: 10px; padding: 9px; font: inherit; font-weight: 700; border-radius: 7px; border: 0; background: #b48cff; color: #0f1216; cursor: pointer; }
+  .ai .go:disabled { opacity: .5; cursor: wait; }
+  .aibox { border: 1px solid #b48cff; border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: #1c1729; }
+  .aibox h4 { margin: 0 0 4px; font-size: 13px; color: #d6c4ff; }
+  .aibox p { margin: 4px 0; white-space: pre-wrap; }
+  .toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; margin: 8px 0; }
+  .actions .aiBtn { border-color: #b48cff; color: #d6c4ff; }
   .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
@@ -173,6 +186,7 @@
   <div class="actions">
     <button id="btnLive" class="liveBtn" hidden>▶ Mulai pantau live</button>
     <button id="btnChannels" hidden>Daftar Channel</button>
+    <button id="btnAI" class="aiBtn" hidden>✦ Analisis AI</button>
     <button id="btnLatest" hidden>Audit terakhir</button>
     <button id="btnSample" hidden>Data contoh</button>
     <label>Buka dump…<input type="file" id="fileDump" accept=".json,application/json"></label>
@@ -558,6 +572,7 @@ function masterStrip(label, prefix, key) {
 function row(label, value, est) { return el("tr", null, el("td", { text: label }), el("td", { class: est ? "est" : "", text: value })); }
 function findingCard(f) {
   return el("div", { class: "card " + f.severity },
+    f.sumber === "gemini" ? el("span", { class: "aitag", text: "✦ Gemini · keyakinan " + (f.keyakinan || "rendah") }) : null,
     el("h4", { text: (f.severity === "perhatian" ? "⚠ " : "💡 ") + f.masalah }),
     el("ol", null,
       el("li", null, el("b", { text: "Masalah: " }), f.masalah),
@@ -602,13 +617,14 @@ function openChannel(n, strip) {
     row("Status", raw(c + "/mix/on") === 0 ? "MUTE" : onoff(raw(c + "/mix/on"))),
     ...[1, 2, 3, 4, 5, 6].map((b) => row("Kirim ke Bus " + b, fmtDb(EST.faderDb(raw(`${c}/mix/${pad2(b)}/level`))), true)));
   const list = state.findings.filter((f) => f.ch === n);
-  const changes = list.flatMap((f) => f.usulan || []);
+  const changes = list.flatMap((f) => (f.usulan || []).map((u) => ({ ...u, gem: f.sumber === "gemini" })));
   const eqChanges = changes.filter((u) => /\/(eq\/|preamp\/hp)/.test(u.alamat));
   showDrawer(strip,
     el("h3", { text: "CH " + pad2(n) + " · " + (raw(c + "/config/name") || "(tanpa nama)") }),
     el("p", { class: "note", text: "Nilai bertanda ≈ adalah perkiraan. Cocokkan dengan aplikasi mixer sebelum dipercaya." }),
     changes.length ? el("h3", { text: "Usulan perubahan (" + changes.length + ")" }) : null,
-    changes.length ? el("ul", { class: "changes" }, ...changes.map((u) => el("li", { text: u.teks }))) : null,
+    changes.length ? el("ul", { class: "changes" }, ...changes.map((u) => el("li", { text: (u.gem ? "✦ Gemini: " : "") + u.teks }))) : null,
+    changes.some((u) => u.gem) ? el("p", { class: "note", text: "Bila aturan lokal dan Gemini mengusulkan parameter yang sama, bayangan di grafik memakai usulan Gemini. Pilih yang paling masuk akal saat soundcheck." }) : null,
     changes.length ? el("p", { class: "note", text: "Usulan belum diterapkan. Bila setuju, ubah sendiri di aplikasi mixer (M-AIR), satu per satu, saat soundcheck." }) : null,
     el("h3", { text: "EQ" }),
     legendEl(eqChanges.length > 0),
@@ -701,7 +717,7 @@ async function loadUrls(dumpUrl, findingsUrl) {
   let f = [];
   if (findingsUrl) { try { f = await getJson(findingsUrl); } catch (e) { f = []; } }
   state.dump = d;
-  state.findings = Array.isArray(f) ? f : [];
+  setBaseFindings(Array.isArray(f) ? f : []);
   render();
 }
 async function loadLatest() {
@@ -719,7 +735,7 @@ $("fileDump").addEventListener("change", (e) => {
       const d = JSON.parse(reader.result);
       if (!validDump(d)) throw new Error("bukan file dump yang valid");
       d._name = file.name;
-      state.dump = d; state.findings = [];
+      state.dump = d; setBaseFindings([]);
       render();
       $("source").textContent += " · temuan AI tidak dimuat (buka lewat menu untuk melihat saran)";
     } catch (err) { alert("Gagal membaca " + file.name + ": " + err.message); }
@@ -735,6 +751,71 @@ if (location.protocol.startsWith("http")) {
 } else {
   render();
 }
+
+// ---------- TEMUAN: aturan lokal + (opsional) Gemini ----------
+state.baseFindings = []; state.aiFindings = []; state.showAI = true;
+function setBaseFindings(list) { state.baseFindings = list; mergeFindings(); }
+function mergeFindings() {
+  state.findings = state.baseFindings.concat(state.showAI ? state.aiFindings : []);
+}
+
+// ---------- ANALISIS AI (Gemini; dipanggil hanya saat diminta) ----------
+function aiResultView(res) {
+  const nodes = [];
+  if (res.pertanyaan) nodes.push(el("p", { class: "note", text: "Pertanyaan: " + res.pertanyaan }));
+  nodes.push(el("div", { class: "aibox" }, el("h4", { text: "Ringkasan" }), el("p", { text: res.ringkasan || "—" })));
+  if (res.jawaban) nodes.push(el("div", { class: "aibox" }, el("h4", { text: "Jawaban" }), el("p", { text: res.jawaban })));
+  if (res.butuh_data && res.butuh_data.length) nodes.push(el("div", { class: "aibox" }, el("h4", { text: "Data yang dibutuhkan agar saran lebih tepat" }),
+    el("ul", { class: "usulan" }, ...res.butuh_data.map((t) => el("li", { text: t })))));
+  nodes.push(el("p", { class: "note", text: `Model: ${res.model} · ${res.dibuat} · situasi: ${res.situasi}` +
+    (res.usulan_dibuang ? ` · ${res.usulan_dibuang} usulan angka dari Gemini dibuang karena di luar batas aman/tidak dikenal.` : "") }));
+  const tg = el("input", { type: "checkbox" }); tg.checked = state.showAI;
+  tg.addEventListener("change", () => { state.showAI = tg.checked; mergeFindings(); state.keepDrawer = true; render(); state.keepDrawer = false; });
+  nodes.push(el("label", { class: "toggle" }, tg, "Tampilkan usulan Gemini di strip dan grafik (bayangan ungu)"));
+  nodes.push(el("h3", { text: "Prioritas (" + res.prioritas.length + ")" }));
+  for (const f of res.prioritas) nodes.push(findingCard(f));
+  return nodes;
+}
+function useAIResult(res) {
+  state.aiFindings = (res && res.prioritas) || [];
+  mergeFindings();
+}
+async function openAI() {
+  let view;
+  try { view = await api("/api/ai"); } catch (e) { alert(e.message); return; }
+  if (view.last) useAIResult(view.last);
+  const out = el("div");
+  const sit = el("select", { "aria-label": "Situasi" });
+  for (const [v, t] of [["umum", "Ibadah umum"], ["lagu", "Sesi pujian / lagu"], ["khotbah", "Khotbah"], ["soundcheck", "Soundcheck"]])
+    sit.append(el("option", { value: v, text: t }));
+  const q = el("textarea", { placeholder: "Opsional. Contoh: Vokal WL tenggelam saat lagu cepat, apa yang perlu dicek dulu?", maxlength: "600" });
+  const chips = el("div", { class: "chips" }, ...["Khotbah kurang jelas", "Vokal tenggelam", "Sering feedback", "Bass boomy", "Vokal tajam", "Musik terlalu keras"].map((t) =>
+    el("button", { type: "button", text: t, onclick: () => { q.value = t + ". Apa akar masalah dan langkah pertama yang perlu dicek?"; } })));
+  const go = el("button", { class: "go", type: "button", text: "Kirim ke Gemini" });
+  go.disabled = !view.status.configured;
+  go.addEventListener("click", async () => {
+    go.disabled = true; go.textContent = "Menunggu Gemini… (bisa 10–60 detik)";
+    try {
+      const res = await api("/api/ai/analyze", { situasi: sit.value, pertanyaan: q.value });
+      useAIResult(res);
+      state.keepDrawer = true; render(); state.keepDrawer = false;
+      out.replaceChildren(...aiResultView(res));
+    } catch (e) { out.replaceChildren(el("p", { class: "msg bad", text: e.message })); }
+    go.disabled = false; go.textContent = "Kirim ke Gemini";
+  });
+  if (view.last) out.replaceChildren(el("p", { class: "note", text: "Hasil terakhir:" }), ...aiResultView(view.last));
+  showDrawer(null,
+    el("h3", { text: "✦ Analisis AI (Gemini)" }),
+    el("p", { class: "note", text: "Gemini menerima RINGKASAN angka (peran channel, setting perkiraan, temuan aturan, peringatan live) — bukan audio, IP, PIN, atau API key. " +
+      "Saran AI hanya sebagus datanya: tanpa pengukuran audio, Gemini juga tidak bisa mendengar ruangan. Usulan tidak pernah diterapkan otomatis." }),
+    view.status.configured ? el("p", { class: "note", text: "Model: " + view.status.model }) :
+      el("p", { class: "msg bad", text: "Gemini belum diatur. Isi API key di Beranda (dari laptop/komputer utama)." }),
+    el("div", { class: "ai" },
+      el("label", { class: "f", text: "Situasi sekarang" }), sit,
+      el("label", { class: "f", text: "Pertanyaan / keluhan (opsional)" }), chips, q, go),
+    out);
+}
+$("btnAI").addEventListener("click", openAI);
 
 // ---------- DAFTAR CHANNEL (diisi operator; dipakai aturan AI) ----------
 state.profile = null;
@@ -919,6 +1000,8 @@ $("btnLive").addEventListener("click", async () => {
 if (TOKEN && location.protocol.startsWith("http")) {
   $("btnLive").hidden = false;
   $("btnChannels").hidden = false;
+  $("btnAI").hidden = false;
+  api("/api/ai").then((v) => { if (v.last) { useAIResult(v.last); if (state.dump) render(); } }).catch(() => {});
   loadProfile().then(() => { if (state.dump) render(); });
   api("/api/status").then((s) => { if (s.live) startPolling(); }).catch(() => {});
 }
