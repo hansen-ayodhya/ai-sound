@@ -9,6 +9,14 @@ Keamanan: server hanya di 127.0.0.1, Host dicek, setiap panggilan API butuh toke
 tertanam di halaman server ini, dan semua akses mixer tetap lewat klien READ-ONLY.
 Cadangan tanpa browser: `Menu-Teks.bat` (menu teks lama).
 
+## Membuka dari HP, tablet, atau komputer EasyWorship
+Klik dua kali `AI-Sound-Engineer-Jaringan.bat` (bukan yang biasa). Jendela hitam dan Beranda di laptop
+menampilkan alamat (mis. `http://192.168.1.23:8765`) dan PIN 6 angka. Di perangkat lain yang tersambung
+ke jaringan gereja yang sama, buka alamat itu dan masukkan PIN. PIN disimpan di `data/pin.txt`
+(hapus file itu untuk membuat PIN baru). Laptop tetap menjadi "mesin"; harus menyala.
+Bila Windows menanyakan firewall, izinkan untuk jaringan Private saja.
+
+
 Perintah di bawah ini hanya untuk yang ingin memakai terminal.
 
 Hanya pustaka standar Python (3.10+), tanpa instalasi paket.

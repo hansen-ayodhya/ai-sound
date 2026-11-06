@@ -81,6 +81,14 @@
 
 - USB MR18 dipakai komputer multimedia untuk playback; tidak dipindah ke laptop. Fitur LAN tetap jalan. Rincian dan opsi di docs/03.
 
+## Update: akses dari perangkat lain di jaringan gereja
+
+- Komputer multimedia = komputer EasyWorship (dikonfirmasi).
+- `AI-Sound-Engineer-Jaringan.bat` (`--lan`): HP/tablet/komputer EasyWorship membuka aplikasi lewat alamat IP laptop + PIN 6 angka. Tidak perlu memasang apa pun di komputer EasyWorship.
+- Keamanan: PIN wajib untuk perangkat lain (5x salah = kunci 5 menit), sesi cookie HttpOnly/SameSite, token API tetap wajib, Host harus IP pribadi, PIN tidak pernah dikirim ke perangkat lain, folder data hanya membuka .json/.md, update/cek/matikan hanya dari laptop. HTTP tidak terenkripsi: pakai hanya di Wi-Fi gereja berpassword.
+- BUKAN akses internet. Akses dari luar gereja (mis. dari rumah) belum dibuat; bila nanti perlu, pilihan aman adalah VPN pribadi (mis. Tailscale), bukan membuka port ke internet.
+- 50 tes lulus; diuji di browser ukuran HP lewat IP + PIN.
+
 ## Catatan
 
 Repositori ini awalnya berisi proyek lain (aplikasi POS); proyek ini ditempatkan di folder `ai-sound-engineer/` agar terpisah dan tidak menyentuh file yang sudah ada. Bila ingin repositori sendiri, folder ini bisa dipindahkan utuh.

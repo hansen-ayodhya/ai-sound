@@ -11,6 +11,7 @@
     --ok: #3fcf7f; --warn: #f5b041; --bad: #ff6b6b;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--text);
     font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 16px;
@@ -120,7 +121,12 @@
     <div id="meterTable"></div>
   </section>
 
-  <section class="card">
+  <section class="card" id="lanCard" hidden>
+    <h2>Akses dari HP, tablet, atau komputer EasyWorship</h2>
+    <div id="lanBody"></div>
+  </section>
+
+  <section class="card" id="maintCard">
     <h2>4. Perawatan</h2>
     <p class="sub">Ambil versi terbaru program, atau cek apakah program masih sehat.</p>
     <div class="btns">
@@ -138,7 +144,7 @@
   </section>
 </main>
 <p class="foot">Semua tombol hanya membaca mixer atau mengurus program di laptop ini. Perubahan setting tetap dilakukan operator lewat aplikasi mixer.
-  Halaman ini hanya bisa dibuka dari laptop ini sendiri.</p>
+  Halaman ini hanya bisa dibuka dari laptop ini, atau dari perangkat lain di jaringan gereja bila mode jaringan dinyalakan (dengan PIN).</p>
 
 <script>
 "use strict";
@@ -302,6 +308,32 @@ async function loadReport() {
 }
 $("btnShowReport").addEventListener("click", () => $("reportCard").scrollIntoView({ behavior: "smooth" }));
 
+// ---------- akses jaringan ----------
+function showLan(s) {
+  const card = $("lanCard"), body = $("lanBody");
+  const p = (html) => { const e = document.createElement("p"); e.className = "sub"; e.innerHTML = html; return e; };
+  if (!s.is_local) {
+    // dibuka dari perangkat lain: tombol perawatan hanya untuk laptop
+    $("maintCard").hidden = true;
+    card.hidden = false;
+    body.replaceChildren(p("Anda membuka aplikasi dari perangkat lain. Update program, cek program, dan mematikan aplikasi hanya bisa dilakukan dari laptop."));
+    return;
+  }
+  card.hidden = false;
+  if (!s.lan) {
+    body.replaceChildren(p("Saat ini hanya bisa dibuka dari laptop ini. Untuk membuka dari HP, tablet, atau komputer EasyWorship: tutup jendela hitam aplikasi, lalu klik dua kali <b>AI-Sound-Engineer-Jaringan.bat</b>."));
+    return;
+  }
+  const url = s.lan_url || "(IP laptop tidak terdeteksi)";
+  const box = document.createElement("div");
+  box.className = "out ok";
+  box.textContent = "Alamat: " + url + "\nPIN: " + s.pin;
+  body.replaceChildren(
+    p("Di perangkat lain yang tersambung ke jaringan/Wi-Fi gereja yang sama, buka browser lalu ketik alamat ini, dan masukkan PIN:"),
+    box,
+    p("Laptop harus tetap menyala dan jendela hitam aplikasi tetap terbuka. Pakai hanya di Wi-Fi gereja yang berpassword."));
+}
+
 // ---------- mulai ----------
 (async function init() {
   if (!TOKEN || !location.protocol.startsWith("http")) {
@@ -312,6 +344,7 @@ $("btnShowReport").addEventListener("click", () => $("reportCard").scrollIntoVie
   try {
     const s = await api("/api/status");
     $("ip").value = s.ip || "";
+    showLan(s);
     $("port").value = s.port || s.default_port;
     if (s.job && s.job.state === "running") watchJob();
   } catch (e) { $("noServer").hidden = false; }

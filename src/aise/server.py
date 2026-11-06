@@ -3,7 +3,11 @@
     python -m aise.server            (dijalankan oleh AI-Sound-Engineer.bat)
 
 Keamanan:
-- Hanya mendengarkan di 127.0.0.1 (tidak bisa dibuka dari perangkat lain).
+- Bawaan: hanya mendengarkan di 127.0.0.1 (tidak bisa dibuka dari perangkat lain).
+- Mode jaringan (`--lan`, lewat AI-Sound-Engineer-Jaringan.bat): perangkat lain di jaringan
+  gereja bisa membuka aplikasi setelah memasukkan PIN. Percobaan PIN salah dibatasi.
+  Update/cek program/matikan hanya boleh dari laptop itu sendiri. Lalu lintas tidak
+  terenkripsi (HTTP), jadi pakai hanya di jaringan gereja yang berpassword.
 - Header Host harus localhost/127.0.0.1 (mencegah DNS rebinding).
 - Setiap panggilan API wajib membawa token acak yang hanya tertanam di halaman
   yang disajikan server ini (website lain tidak bisa membacanya).
@@ -14,6 +18,8 @@ Keamanan:
 from __future__ import annotations
 
 import argparse
+import html
+import ipaddress
 import json
 import mimetypes
 import secrets
@@ -25,7 +31,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote_plus, urlparse
 
 from . import meters
 from .audit import PROBE_ADDRESSES, MixerNotAnswering, run_audit
@@ -38,6 +44,25 @@ from .menu import load_ip, save_ip, valid_ip
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_HTTP_PORT = 8765
 MAX_BODY = 10_000
+MAX_PIN_FAILS = 5
+PIN_LOCK_S = 300
+LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown"}
+
+LOGIN_PAGE = """<!doctype html><html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Masuk</title>
+<style>:root{{--bg:#0f1216;--panel:#171c22;--line:#2c3540;--text:#e6eaf0;--muted:#8c97a6;--accent:#5aa2ff;--bad:#ff6b6b}}
+*{{box-sizing:border-box}}body{{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--text);
+font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:16px}}
+form{{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;width:min(360px,100%)}}
+h1{{font-size:18px;margin:0 0 4px}}p{{color:var(--muted);margin:0 0 14px;font-size:13px}}
+input{{width:100%;font:inherit;font-size:22px;letter-spacing:.3em;text-align:center;padding:10px;border-radius:8px;
+border:1px solid var(--line);background:var(--bg);color:var(--text)}}
+button{{width:100%;margin-top:12px;padding:10px;font:inherit;font-weight:700;border-radius:8px;border:0;background:var(--accent);color:#0b1a2e}}
+.err{{color:var(--bad);margin-top:10px;font-size:13px}}</style></head><body>
+<form method="post" action="/login"><h1>AI Sound Engineer</h1>
+<p>Masukkan PIN yang tampil di laptop (jendela hitam aplikasi, atau Beranda di laptop).</p>
+<input name="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="12" autofocus aria-label="PIN">
+<button type="submit">Masuk</button>{err}</form></body></html>"""
 
 
 class Busy(RuntimeError):
@@ -45,7 +70,14 @@ class Busy(RuntimeError):
 
 
 class App:
-    def __init__(self, root: Path = ROOT, data: Path | None = None, addresses: list[str] | None = None):
+    def __init__(self, root: Path = ROOT, data: Path | None = None, addresses: list[str] | None = None,
+                 lan: bool = False, pin: str | None = None, trust_loopback: bool = True):
+        self.lan = lan
+        self.pin = pin
+        self.trust_loopback = trust_loopback  # False hanya untuk tes (meniru perangkat lain)
+        self.sessions: set[str] = set()
+        self.pin_fails: dict[str, tuple[int, float]] = {}
+        self.lan_url: str | None = None
         self.root = root
         self.data = data or root / "data"
         self.addresses = addresses
@@ -180,6 +212,30 @@ def _parse_target(body: dict) -> tuple[str, int]:
     return ip, port
 
 
+def load_or_create_pin(path: Path) -> str:
+    try:
+        pin = path.read_text(encoding="utf-8").strip()
+        if pin.isdigit() and len(pin) >= 6:
+            return pin
+    except OSError:
+        pass
+    pin = f"{secrets.randbelow(10**6):06d}"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(pin, encoding="utf-8")
+    return pin
+
+
+def lan_ip() -> str | None:
+    """IP laptop di jaringan lokal (tidak mengirim paket; hanya memilih antarmuka)."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))
+            ip = s.getsockname()[0]
+        return ip if ipaddress.IPv4Address(ip).is_private and not ip.startswith("127.") else None
+    except OSError:
+        return None
+
+
 def make_handler(app: App, http_port: int):
     allowed_hosts = {f"localhost:{http_port}", f"127.0.0.1:{http_port}"}
     static_roots = {"/viewer/": app.root / "viewer", "/data/": app.data}
@@ -204,7 +260,66 @@ def make_handler(app: App, http_port: int):
             self._send(code, json.dumps(obj, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
         def _host_ok(self) -> bool:
-            return self.headers.get("Host") in allowed_hosts
+            host = self.headers.get("Host", "")
+            if host in allowed_hosts:
+                return True
+            if not app.lan:
+                return False
+            # Mode jaringan: hanya alamat IP pribadi (bukan nama domain) dengan port kita.
+            name, _, port = host.rpartition(":")
+            try:
+                return port == str(http_port) and ipaddress.IPv4Address(name).is_private
+            except ValueError:
+                return False
+
+        def _is_local(self) -> bool:
+            return app.trust_loopback and self.client_address[0] in ("127.0.0.1", "::1")
+
+        def _session(self) -> str | None:
+            for part in self.headers.get("Cookie", "").split(";"):
+                k, _, v = part.strip().partition("=")
+                if k == "aise_session" and v in app.sessions:
+                    return v
+            return None
+
+        def _authed(self) -> bool:
+            return self._is_local() or self._session() is not None
+
+        def _login_page(self, code: int = 200, err: str = "") -> None:
+            e = f'<div class="err">{html.escape(err)}</div>' if err else ""
+            self._send(code, LOGIN_PAGE.format(err=e).encode("utf-8"), "text/html; charset=utf-8")
+
+        def _redirect(self, where: str, cookie: str | None = None) -> None:
+            self.send_response(302)
+            self.send_header("Location", where)
+            if cookie:
+                self.send_header("Set-Cookie", cookie)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def _do_login(self) -> None:
+            who = self.client_address[0]
+            n, until = app.pin_fails.get(who, (0, 0.0))
+            if until > time.time():
+                return self._login_page(429, f"Terlalu banyak PIN salah. Coba lagi dalam {int(until - time.time()) // 60 + 1} menit.")
+            length = int(self.headers.get("Content-Length") or 0)
+            if length > 1000:
+                return self._login_page(400, "Permintaan tidak valid.")
+            raw = self.rfile.read(length).decode("utf-8", errors="replace")
+            pin = ""
+            for part in raw.split("&"):
+                k, _, v = part.partition("=")
+                if k == "pin":
+                    pin = unquote_plus(v).strip()
+            if app.pin and secrets.compare_digest(pin, app.pin):
+                app.pin_fails.pop(who, None)
+                sid = secrets.token_urlsafe(24)
+                app.sessions.add(sid)
+                return self._redirect("/viewer/home.html",
+                                      f"aise_session={sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200")
+            n += 1
+            app.pin_fails[who] = (n, time.time() + PIN_LOCK_S if n >= MAX_PIN_FAILS else 0.0)
+            return self._login_page(401, "PIN salah.")
 
         def _token_ok(self) -> bool:
             return secrets.compare_digest(self.headers.get("X-AISE-Token", ""), app.token)
@@ -214,6 +329,9 @@ def make_handler(app: App, http_port: int):
                 if path.startswith(prefix):
                     target = (base / path[len(prefix):]).resolve()
                     if not target.is_relative_to(base.resolve()) or not target.is_file():
+                        break
+                    # Dari folder data hanya hasil audit yang boleh dibuka (bukan PIN/IP/log).
+                    if prefix == "/data/" and target.suffix not in (".json", ".md"):
                         break
                     data = target.read_bytes()
                     ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
@@ -242,6 +360,12 @@ def make_handler(app: App, http_port: int):
             if not self._host_ok():
                 return self._json(403, {"error": "Host tidak diizinkan."})
             path = urlparse(self.path).path
+            if path == "/login":
+                return self._redirect("/viewer/home.html") if self._authed() else self._login_page()
+            if not self._authed():
+                if path.startswith("/api/"):
+                    return self._json(401, {"error": "Perlu masuk dengan PIN."})
+                return self._redirect("/login")
             if path in ("/", "/viewer", "/viewer/"):
                 self.send_response(302)
                 self.send_header("Location", "/viewer/home.html")
@@ -251,9 +375,13 @@ def make_handler(app: App, http_port: int):
                 if not self._token_ok():
                     return self._json(403, {"error": "Token tidak valid. Buka lewat AI-Sound-Engineer.bat."})
                 if path == "/api/status":
+                    local = self._is_local()
                     return self._json(200, {"ip": load_ip(app.data / "mixer-ip.txt"), "default_port": DEFAULT_PORT,
                                             "port": app.load_port(), "job": app.job, "latest": app.latest(),
-                                            "live": bool(app.live and app.live.running)})
+                                            "live": bool(app.live and app.live.running),
+                                            "is_local": local, "lan": app.lan,
+                                            "lan_url": app.lan_url if local else None,
+                                            "pin": app.pin if (local and app.lan) else None})
                 if path == "/api/live":
                     if not app.live:
                         return self._json(200, {"running": False, "frames": 0, "alerts": []})
@@ -268,9 +396,15 @@ def make_handler(app: App, http_port: int):
         def do_POST(self):
             if not self._host_ok():
                 return self._json(403, {"error": "Host tidak diizinkan."})
+            path = urlparse(self.path).path
+            if path == "/login":
+                return self._do_login()
+            if not self._authed():
+                return self._json(401, {"error": "Perlu masuk dengan PIN."})
             if not self._token_ok():
                 return self._json(403, {"error": "Token tidak valid. Buka lewat AI-Sound-Engineer.bat."})
-            path = urlparse(self.path).path
+            if path in LOCAL_ONLY and not self._is_local():
+                return self._json(403, {"error": "Tombol ini hanya bisa dipakai dari laptop yang menjalankan aplikasi."})
             try:
                 body = self._body()
                 if path == "/api/ip":
@@ -326,7 +460,8 @@ def make_handler(app: App, http_port: int):
 
 
 def serve(app: App, http_port: int = DEFAULT_HTTP_PORT) -> ThreadingHTTPServer:
-    httpd = ThreadingHTTPServer(("127.0.0.1", http_port), make_handler(app, http_port))
+    bind = "0.0.0.0" if app.lan else "127.0.0.1"
+    httpd = ThreadingHTTPServer((bind, http_port), make_handler(app, http_port))
     app.shutdown_cb = httpd.shutdown
     return httpd
 
@@ -341,16 +476,28 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Aplikasi web lokal AI Sound Engineer")
     p.add_argument("--port", type=int, default=DEFAULT_HTTP_PORT)
     p.add_argument("--no-browser", action="store_true")
+    p.add_argument("--lan", action="store_true", help="izinkan perangkat lain di jaringan gereja (dengan PIN)")
     args = p.parse_args(argv)
     url = f"http://localhost:{args.port}/viewer/home.html"
     if _in_use(args.port):
         print("Aplikasi sudah berjalan. Membuka browser...")
         webbrowser.open(url)
         return 0
-    httpd = serve(App(), args.port)
+    app = App(lan=args.lan)
+    if args.lan:
+        app.pin = load_or_create_pin(app.data / "pin.txt")
+        ip = lan_ip()
+        app.lan_url = f"http://{ip}:{args.port}" if ip else None
+    httpd = serve(app, args.port)
     print("=" * 56)
     print("  AI SOUND ENGINEER berjalan  (hanya MEMBACA mixer)")
     print(f"  Buka di browser: {url}")
+    if args.lan:
+        print("  MODE JARINGAN AKTIF")
+        print(f"  Dari HP/tablet/komputer lain: {app.lan_url or '(IP laptop tidak terdeteksi)'}")
+        print(f"  PIN: {app.pin}")
+        print("  Bila Windows bertanya soal firewall, izinkan untuk")
+        print("  jaringan PRIVATE saja.")
     print("  JANGAN tutup jendela ini selama aplikasi dipakai.")
     print("  Untuk mematikan: tutup jendela ini, atau tombol")
     print("  'Matikan aplikasi' di halaman Beranda.")
