@@ -1,5 +1,13 @@
 # Alat audit READ-ONLY (Tahap 1)
 
+## Cara paling mudah (tanpa mengetik)
+Klik dua kali `AI-Sound-Engineer.bat` di folder `ai-sound-engineer`. Muncul menu bernomor; ketik
+angka lalu Enter. Semua pilihan hanya MEMBACA mixer. IP mixer diingat di `data/mixer-ip.txt`.
+Audit lengkap (pilihan 3) disimpan di `data/audit-<tanggal>/` (dump1, dump2, report.md) dan
+penampil memuatnya otomatis.
+
+Perintah di bawah ini hanya untuk yang ingin memakai terminal.
+
 Hanya pustaka standar Python (3.10+), tanpa instalasi paket.
 
 ## Tes (tanpa mixer, memakai mixer tiruan)

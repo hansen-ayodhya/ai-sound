@@ -45,6 +45,13 @@
 - 22 tes lulus (mixer tiruan). Belum ada yang diuji pada MR18/DSP nyata.
 - Berikutnya: uji kecil `--only /info` di dekat MR18, dump penuh x2, lalu koreksi alamat/format berdasarkan balasan.
 
+## Update: menu tanpa mengetik
+
+- `AI-Sound-Engineer.bat` + `aise.menu`: menu bernomor (penampil, uji kecil, audit lengkap, meter, laporan, update, cek program).
+- `aise.audit`: cek koneksi cepat, dump 2x, bandingkan, laporan; disimpan per tanggal, baseline lama tidak tertimpa.
+- Penampil memuat audit terakhir otomatis saat dibuka dari menu (localhost:8765, hanya dari laptop itu).
+- 26 tes lulus. Diuji ujung-ke-ujung dengan mixer tiruan; belum dengan MR18 nyata.
+
 ## Catatan
 
 Repositori ini awalnya berisi proyek lain (aplikasi POS); proyek ini ditempatkan di folder `ai-sound-engineer/` agar terpisah dan tidak menyentuh file yang sudah ada. Bila ingin repositori sendiri, folder ini bisa dipindahkan utuh.

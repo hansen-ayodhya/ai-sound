@@ -59,6 +59,9 @@
     border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; margin-bottom: 10px; }
   .note { color: var(--muted); font-size: 12px; margin: 8px 0; }
   .empty { color: var(--muted); padding: 24px; text-align: center; }
+  .quick { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .quick button { border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+    padding: 7px 12px; border-radius: 8px; cursor: pointer; font: inherit; font-weight: 600; }
   code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
   @media (max-width: 600px) { .wrap { padding: 12px; } }
 </style>
@@ -75,7 +78,12 @@
     <label>Dump B (pembanding, opsional)
       <input type="file" id="fileB" accept=".json,application/json">
     </label>
+    <div class="quick" id="quick" hidden>
+      <button type="button" id="btnLatest">Muat audit terakhir</button>
+      <button type="button" id="btnSample">Coba data contoh</button>
+    </div>
   </div>
+  <p class="note" id="autoNote"></p>
 
   <div id="banner"></div>
   <div id="summary"></div>
@@ -316,6 +324,46 @@ function render() {
   else if (state.tab === "bus") view.append(busView(state.a));
   else if (state.tab === "all") view.append(allView(state.a));
   else if (state.tab === "compare" && state.b) view.append(compareView(state.a, state.b));
+}
+
+// ---------- muat otomatis (hanya saat dibuka lewat localhost dari menu) ----------
+async function fetchDump(url, name) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(url + " (" + r.status + ")");
+  const d = await r.json();
+  if (!validate(d)) throw new Error("Bukan file dump yang valid: " + url);
+  d._name = name;
+  return d;
+}
+async function loadPair(urlA, urlB, label) {
+  const note = $("autoNote");
+  try {
+    state.a = await fetchDump(urlA, urlA.split("/").slice(-2).join("/"));
+    state.b = urlB ? await fetchDump(urlB, urlB.split("/").slice(-2).join("/")) : null;
+    state.tab = "channel";
+    note.textContent = label;
+  } catch (e) {
+    note.textContent = "Gagal memuat: " + e.message;
+  }
+  render();
+}
+async function loadLatest(silent) {
+  try {
+    const r = await fetch("../data/latest.json", { cache: "no-store" });
+    if (!r.ok) throw new Error("belum ada audit");
+    const l = await r.json();
+    await loadPair("../" + l.dump, l.compare ? "../" + l.compare : null,
+      "Dimuat otomatis: audit terakhir (" + (l.created || "?") + ").");
+  } catch (e) {
+    if (!silent) $("autoNote").textContent = "Belum ada audit. Jalankan pilihan 3 di menu dulu.";
+  }
+}
+if (location.protocol.startsWith("http")) {
+  $("quick").hidden = false;
+  $("btnLatest").addEventListener("click", () => loadLatest(false));
+  $("btnSample").addEventListener("click", () =>
+    loadPair("sample-dump-a.json", "sample-dump-b.json", "Data contoh dimuat (bukan dari mixer)."));
+  loadLatest(true);
 }
 render();
 </script>

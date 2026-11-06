@@ -25,11 +25,13 @@ def _hash(values: dict) -> str:
     return hashlib.sha256(blob).hexdigest()
 
 
-def run_dump(client: ReadOnlyClient, addresses: list[str]) -> dict:
+def run_dump(client: ReadOnlyClient, addresses: list[str], progress=None) -> dict:
     values: dict[str, list | None] = {}
-    for addr in addresses:
+    for i, addr in enumerate(addresses, 1):
         reply = client.query(addr)
         values[addr] = list(reply) if reply is not None else None
+        if progress and (i % 25 == 0 or i == len(addresses)):
+            progress(i, len(addresses))
     answered = sum(v is not None for v in values.values())
     return {
         "created": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
