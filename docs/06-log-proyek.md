@@ -97,6 +97,14 @@
 - Perbaikan khusus Windows: UDP "connection reset" dianggap "tidak dijawab" (bukan error).
 - Batasan: exe belum ditandatangani → SmartScreen/antivirus bisa memperingatkan.
 
+## Update: rekomendasi visual (EQ dengan bayangan usulan)
+
+- Temuan kini membawa `usulan` nilai konkret (alamat, nilai sekarang, nilai usulan, teks). Tidak pernah dikirim otomatis.
+- Aturan baru: boost EQ > +6 dB pada channel suara → usul turun ke +3 dB (risiko feedback/tajam). Low cut usulan 100 Hz (vokal) / 120 Hz (khotbah).
+- Tampilan Mixer: grafik EQ besar di panel detail (kurva sekarang hijau, bayangan usulan ungu putus-putus, titik band + panah, garis low cut), daftar "Usulan perubahan"; strip kecil juga menampilkan bayangan.
+- Konversi dipindah ke `aise/convert.py` (masih PERKIRAAN; sama dengan objek EST di mixer.html).
+- Usulan EQ berbasis suara (mis. potong frekuensi yang menumpuk) menunggu pengukuran audio (Tahap 2).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

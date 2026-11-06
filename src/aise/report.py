@@ -15,8 +15,14 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
+
+from . import convert
+
+SPEECH_RE = re.compile(r"\b(khotbah|pastor|pdt|speech|mc)", re.I)
+BOOST_MAX_DB = 6.0      # boost di atas ini pada channel suara dianggap berlebihan
+BOOST_TARGET_DB = 3.0   # usulan pengganti
 
 VOICE_RE = re.compile(r"\b(vok|vocal|vox|khotbah|pastor|pdt|speech|choir|paduan|singer|mc)", re.I)
 NONMIC_RE = re.compile(r"\b(laptop|pc|playback|track|keys|synth|piano|easyworship|ew)", re.I)
@@ -34,6 +40,9 @@ class Finding:
     rekomendasi: str
     risiko: str
     ch: int | None = None  # nomor channel bila temuan terkait satu channel
+    # Usulan nilai konkret: [{"alamat", "sekarang", "usulan", "teks"}]; nilai mentah 0..1.
+    # Hanya untuk ditampilkan dan disetujui operator; TIDAK pernah dikirim otomatis.
+    usulan: list = field(default_factory=list)
 
 
 def _first(values: dict, addr: str):
@@ -70,6 +79,13 @@ def analyze(dump: dict) -> list[Finding]:
         c = f"/ch/{n:02d}"
         is_voice = bool(name and VOICE_RE.search(name))
         if is_voice and _first(values, f"{c}/preamp/hpon") == 0:
+            target_hz = 120.0 if SPEECH_RE.search(name) else 100.0
+            cur_raw = _first(values, f"{c}/preamp/hpf")
+            usulan = [{"alamat": f"{c}/preamp/hpon", "sekarang": 0, "usulan": 1, "teks": "Low cut: OFF → ON"}]
+            usulan.append({"alamat": f"{c}/preamp/hpf", "sekarang": cur_raw,
+                           "usulan": round(convert.hpf_raw(target_hz), 4),
+                           "teks": (f"Frekuensi low cut: ≈{convert.hpf_hz(cur_raw):.0f} Hz → ≈{target_hz:.0f} Hz"
+                                    if cur_raw is not None else f"Frekuensi low cut: ≈{target_hz:.0f} Hz")})
             findings.append(Finding(
                 f"hpf-mati-ch{n:02d}", "perhatian", label,
                 f"Low cut (HPF) mati pada channel suara: {label}.",
@@ -77,7 +93,33 @@ def analyze(dump: dict) -> list[Finding]:
                 f"{c}/preamp/hpon = 0 (dump {dump.get('created', '?')}).",
                 "Dengarkan atau ukur RTA di bawah ±100 Hz saat orang berbicara/bernyanyi; bandingkan dengan HPF dinyalakan sementara oleh operator.",
                 "Nyalakan HPF pada channel suara; titik awal umum 80–120 Hz, disetel dengan telinga dan pengukuran.",
-                "Terlalu tinggi membuat suara tipis. Ubah hanya oleh operator, satu channel sekali, catat nilai lama."))
+                "Terlalu tinggi membuat suara tipis. Ubah hanya oleh operator, satu channel sekali, catat nilai lama.",
+                usulan=usulan))
+        if is_voice and _first(values, f"{c}/eq/on") == 1:
+            for b in range(1, 5):
+                g_raw = _first(values, f"{c}/eq/{b}/g")
+                f_raw = _first(values, f"{c}/eq/{b}/f")
+                if g_raw is None or f_raw is None:
+                    continue
+                g_db = convert.eq_gain_db(g_raw)
+                if g_db <= BOOST_MAX_DB:
+                    continue
+                f_hz = convert.eq_hz(f_raw)
+                where = f"{f_hz / 1000:.1f} kHz" if f_hz >= 1000 else f"{f_hz:.0f} Hz"
+                findings.append(Finding(
+                    f"boost-b{b}-ch{n:02d}", "perhatian", label,
+                    f"EQ band {b} di-boost besar (≈+{g_db:.1f} dB di ≈{where}) pada channel suara: {label}.",
+                    "Boost besar pada mic vokal menaikkan frekuensi itu di PA dan monitor sekaligus, sehingga lebih "
+                    "cepat feedback (mendenging) dan bisa terdengar tajam/menusuk bila di 2–5 kHz.",
+                    f"{c}/eq/{b}/g ≈ +{g_db:.1f} dB, {c}/eq/{b}/f ≈ {where} (konversi perkiraan).",
+                    "Bandingkan dengan aplikasi mixer apakah boost memang sebesar itu; dengarkan saat boost dikurangi "
+                    "bertahap. Setelah pengukuran audio tersedia, cek apakah frekuensi ini yang pertama mendenging.",
+                    f"Kurangi boost ke sekitar +{BOOST_TARGET_DB:.0f} dB. Bila suara jadi kurang jelas, cari penyebab lain "
+                    "(posisi mic, low cut, frekuensi yang menumpuk) daripada menambah boost.",
+                    "Suara bisa terasa kurang 'hadir'. Kurangi bertahap saat soundcheck, catat nilai lama.",
+                    usulan=[{"alamat": f"{c}/eq/{b}/g", "sekarang": g_raw,
+                             "usulan": round(convert.eq_gain_raw(BOOST_TARGET_DB), 4),
+                             "teks": f"EQ band {b} (≈{where}): ≈+{g_db:.1f} dB → ≈+{BOOST_TARGET_DB:.1f} dB"}]))
         if is_voice and _first(values, f"{c}/dyn/on") == 0:
             findings.append(Finding(
                 f"tanpa-komp-ch{n:02d}", "info", label,
@@ -147,8 +189,12 @@ def render(dump: dict, source: str = "") -> str:
             f"4. **Langkah uji:** {f.uji}",
             f"5. **Rekomendasi:** {f.rekomendasi}",
             f"6. **Risiko perubahan:** {f.risiko}",
-            "",
         ]
+        if f.usulan:
+            out.append("")
+            out.append("   **Usulan nilai (perkiraan, untuk diterapkan operator bila setuju):**")
+            out += [f"   - {u['teks']}" for u in f.usulan]
+        out.append("")
     out += ["## Belum bisa dinilai dari dump ini", "",
             "- Gain staging (butuh rekaman meter), respons ruangan dan speaker (butuh pengukuran),",
             "- konfigurasi DSP Ashly Protea 4.8SP (crossover, delay, limiter, system EQ),",

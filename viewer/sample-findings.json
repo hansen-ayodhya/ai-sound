@@ -9,7 +9,21 @@
   "uji": "Dengarkan atau ukur RTA di bawah ±100 Hz saat orang berbicara/bernyanyi; bandingkan dengan HPF dinyalakan sementara oleh operator.",
   "rekomendasi": "Nyalakan HPF pada channel suara; titik awal umum 80–120 Hz, disetel dengan telinga dan pengukuran.",
   "risiko": "Terlalu tinggi membuat suara tipis. Ubah hanya oleh operator, satu channel sekali, catat nilai lama.",
-  "ch": 1
+  "ch": 1,
+  "usulan": [
+   {
+    "alamat": "/ch/01/preamp/hpon",
+    "sekarang": 0,
+    "usulan": 1,
+    "teks": "Low cut: OFF → ON"
+   },
+   {
+    "alamat": "/ch/01/preamp/hpf",
+    "sekarang": 0.072,
+    "usulan": 0.5372,
+    "teks": "Frekuensi low cut: ≈25 Hz → ≈100 Hz"
+   }
+  ]
  },
  {
   "id": "tanpa-komp-ch01",
@@ -21,7 +35,8 @@
   "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
   "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
   "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
-  "ch": 1
+  "ch": 1,
+  "usulan": []
  },
  {
   "id": "tanpa-komp-ch02",
@@ -33,7 +48,68 @@
   "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
   "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
   "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
-  "ch": 2
+  "ch": 2,
+  "usulan": []
+ },
+ {
+  "id": "boost-b1-ch03",
+  "severity": "perhatian",
+  "channel": "Ch 03 'Vokal 3'",
+  "masalah": "EQ band 1 di-boost besar (≈+11.1 dB di ≈298 Hz) pada channel suara: Ch 03 'Vokal 3'.",
+  "penyebab": "Boost besar pada mic vokal menaikkan frekuensi itu di PA dan monitor sekaligus, sehingga lebih cepat feedback (mendenging) dan bisa terdengar tajam/menusuk bila di 2–5 kHz.",
+  "data": "/ch/03/eq/1/g ≈ +11.1 dB, /ch/03/eq/1/f ≈ 298 Hz (konversi perkiraan).",
+  "uji": "Bandingkan dengan aplikasi mixer apakah boost memang sebesar itu; dengarkan saat boost dikurangi bertahap. Setelah pengukuran audio tersedia, cek apakah frekuensi ini yang pertama mendenging.",
+  "rekomendasi": "Kurangi boost ke sekitar +3 dB. Bila suara jadi kurang jelas, cari penyebab lain (posisi mic, low cut, frekuensi yang menumpuk) daripada menambah boost.",
+  "risiko": "Suara bisa terasa kurang 'hadir'. Kurangi bertahap saat soundcheck, catat nilai lama.",
+  "ch": 3,
+  "usulan": [
+   {
+    "alamat": "/ch/03/eq/1/g",
+    "sekarang": 0.871,
+    "usulan": 0.6,
+    "teks": "EQ band 1 (≈298 Hz): ≈+11.1 dB → ≈+3.0 dB"
+   }
+  ]
+ },
+ {
+  "id": "boost-b1-ch04",
+  "severity": "perhatian",
+  "channel": "Ch 04 'Khotbah'",
+  "masalah": "EQ band 1 di-boost besar (≈+14.6 dB di ≈75 Hz) pada channel suara: Ch 04 'Khotbah'.",
+  "penyebab": "Boost besar pada mic vokal menaikkan frekuensi itu di PA dan monitor sekaligus, sehingga lebih cepat feedback (mendenging) dan bisa terdengar tajam/menusuk bila di 2–5 kHz.",
+  "data": "/ch/04/eq/1/g ≈ +14.6 dB, /ch/04/eq/1/f ≈ 75 Hz (konversi perkiraan).",
+  "uji": "Bandingkan dengan aplikasi mixer apakah boost memang sebesar itu; dengarkan saat boost dikurangi bertahap. Setelah pengukuran audio tersedia, cek apakah frekuensi ini yang pertama mendenging.",
+  "rekomendasi": "Kurangi boost ke sekitar +3 dB. Bila suara jadi kurang jelas, cari penyebab lain (posisi mic, low cut, frekuensi yang menumpuk) daripada menambah boost.",
+  "risiko": "Suara bisa terasa kurang 'hadir'. Kurangi bertahap saat soundcheck, catat nilai lama.",
+  "ch": 4,
+  "usulan": [
+   {
+    "alamat": "/ch/04/eq/1/g",
+    "sekarang": 0.985,
+    "usulan": 0.6,
+    "teks": "EQ band 1 (≈75 Hz): ≈+14.6 dB → ≈+3.0 dB"
+   }
+  ]
+ },
+ {
+  "id": "boost-b3-ch04",
+  "severity": "perhatian",
+  "channel": "Ch 04 'Khotbah'",
+  "masalah": "EQ band 3 di-boost besar (≈+13.5 dB di ≈817 Hz) pada channel suara: Ch 04 'Khotbah'.",
+  "penyebab": "Boost besar pada mic vokal menaikkan frekuensi itu di PA dan monitor sekaligus, sehingga lebih cepat feedback (mendenging) dan bisa terdengar tajam/menusuk bila di 2–5 kHz.",
+  "data": "/ch/04/eq/3/g ≈ +13.5 dB, /ch/04/eq/3/f ≈ 817 Hz (konversi perkiraan).",
+  "uji": "Bandingkan dengan aplikasi mixer apakah boost memang sebesar itu; dengarkan saat boost dikurangi bertahap. Setelah pengukuran audio tersedia, cek apakah frekuensi ini yang pertama mendenging.",
+  "rekomendasi": "Kurangi boost ke sekitar +3 dB. Bila suara jadi kurang jelas, cari penyebab lain (posisi mic, low cut, frekuensi yang menumpuk) daripada menambah boost.",
+  "risiko": "Suara bisa terasa kurang 'hadir'. Kurangi bertahap saat soundcheck, catat nilai lama.",
+  "ch": 4,
+  "usulan": [
+   {
+    "alamat": "/ch/04/eq/3/g",
+    "sekarang": 0.949,
+    "usulan": 0.6,
+    "teks": "EQ band 3 (≈817 Hz): ≈+13.5 dB → ≈+3.0 dB"
+   }
+  ]
  },
  {
   "id": "tanpa-komp-ch04",
@@ -45,7 +121,8 @@
   "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
   "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
   "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
-  "ch": 4
+  "ch": 4,
+  "usulan": []
  },
  {
   "id": "phantom-ch13",
@@ -57,7 +134,8 @@
   "uji": "Cek apa yang fisik terpasang ke input itu.",
   "rekomendasi": "Matikan 48V jika sumbernya bukan mikrofon kondenser/DI aktif yang membutuhkannya.",
   "risiko": "Mematikan 48V pada kondenser membuatnya diam; ubah hanya oleh operator dengan fader turun.",
-  "ch": 13
+  "ch": 13,
+  "usulan": []
  },
  {
   "id": "hpf-mati-ch15",
@@ -69,7 +147,61 @@
   "uji": "Dengarkan atau ukur RTA di bawah ±100 Hz saat orang berbicara/bernyanyi; bandingkan dengan HPF dinyalakan sementara oleh operator.",
   "rekomendasi": "Nyalakan HPF pada channel suara; titik awal umum 80–120 Hz, disetel dengan telinga dan pengukuran.",
   "risiko": "Terlalu tinggi membuat suara tipis. Ubah hanya oleh operator, satu channel sekali, catat nilai lama.",
-  "ch": 15
+  "ch": 15,
+  "usulan": [
+   {
+    "alamat": "/ch/15/preamp/hpon",
+    "sekarang": 0,
+    "usulan": 1,
+    "teks": "Low cut: OFF → ON"
+   },
+   {
+    "alamat": "/ch/15/preamp/hpf",
+    "sekarang": 0.747,
+    "usulan": 0.5372,
+    "teks": "Frekuensi low cut: ≈187 Hz → ≈100 Hz"
+   }
+  ]
+ },
+ {
+  "id": "boost-b2-ch15",
+  "severity": "perhatian",
+  "channel": "Ch 15 'Choir'",
+  "masalah": "EQ band 2 di-boost besar (≈+6.8 dB di ≈328 Hz) pada channel suara: Ch 15 'Choir'.",
+  "penyebab": "Boost besar pada mic vokal menaikkan frekuensi itu di PA dan monitor sekaligus, sehingga lebih cepat feedback (mendenging) dan bisa terdengar tajam/menusuk bila di 2–5 kHz.",
+  "data": "/ch/15/eq/2/g ≈ +6.8 dB, /ch/15/eq/2/f ≈ 328 Hz (konversi perkiraan).",
+  "uji": "Bandingkan dengan aplikasi mixer apakah boost memang sebesar itu; dengarkan saat boost dikurangi bertahap. Setelah pengukuran audio tersedia, cek apakah frekuensi ini yang pertama mendenging.",
+  "rekomendasi": "Kurangi boost ke sekitar +3 dB. Bila suara jadi kurang jelas, cari penyebab lain (posisi mic, low cut, frekuensi yang menumpuk) daripada menambah boost.",
+  "risiko": "Suara bisa terasa kurang 'hadir'. Kurangi bertahap saat soundcheck, catat nilai lama.",
+  "ch": 15,
+  "usulan": [
+   {
+    "alamat": "/ch/15/eq/2/g",
+    "sekarang": 0.727,
+    "usulan": 0.6,
+    "teks": "EQ band 2 (≈328 Hz): ≈+6.8 dB → ≈+3.0 dB"
+   }
+  ]
+ },
+ {
+  "id": "boost-b3-ch15",
+  "severity": "perhatian",
+  "channel": "Ch 15 'Choir'",
+  "masalah": "EQ band 3 di-boost besar (≈+10.2 dB di ≈177 Hz) pada channel suara: Ch 15 'Choir'.",
+  "penyebab": "Boost besar pada mic vokal menaikkan frekuensi itu di PA dan monitor sekaligus, sehingga lebih cepat feedback (mendenging) dan bisa terdengar tajam/menusuk bila di 2–5 kHz.",
+  "data": "/ch/15/eq/3/g ≈ +10.2 dB, /ch/15/eq/3/f ≈ 177 Hz (konversi perkiraan).",
+  "uji": "Bandingkan dengan aplikasi mixer apakah boost memang sebesar itu; dengarkan saat boost dikurangi bertahap. Setelah pengukuran audio tersedia, cek apakah frekuensi ini yang pertama mendenging.",
+  "rekomendasi": "Kurangi boost ke sekitar +3 dB. Bila suara jadi kurang jelas, cari penyebab lain (posisi mic, low cut, frekuensi yang menumpuk) daripada menambah boost.",
+  "risiko": "Suara bisa terasa kurang 'hadir'. Kurangi bertahap saat soundcheck, catat nilai lama.",
+  "ch": 15,
+  "usulan": [
+   {
+    "alamat": "/ch/15/eq/3/g",
+    "sekarang": 0.84,
+    "usulan": 0.6,
+    "teks": "EQ band 3 (≈177 Hz): ≈+10.2 dB → ≈+3.0 dB"
+   }
+  ]
  },
  {
   "id": "tanpa-komp-ch15",
@@ -81,6 +213,7 @@
   "uji": "Rekam meter channel ini selama satu lagu/khotbah dan lihat rentang level (monitor meter).",
   "rekomendasi": "Pertimbangkan kompresi ringan setelah rentang level terbukti lebar.",
   "risiko": "Kompresi berlebihan memperbesar risiko feedback; setel gain staging dulu.",
-  "ch": 15
+  "ch": 15,
+  "usulan": []
  }
 ]
