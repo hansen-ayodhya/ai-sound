@@ -106,6 +106,14 @@ class Pure(unittest.TestCase):
         self.assertEqual(out["usulan_dibuang"], 3)  # eq2_db 40, master_limiter, fader tanpa channel
         self.assertEqual(p1["sumber"], "gemini")
 
+    def test_clean_key_and_problems(self):
+        self.assertEqual(ai.clean_key(" AIza abc\u200b123\n"), "AIzaabc123")
+        self.assertEqual(ai.clean_key('"' + KEY + '"'), KEY)
+        self.assertIn("terlalu pendek", ai.key_problem("AIza123"))
+        self.assertIn("karakter aneh", ai.key_problem("AIza" + "é" * 30))
+        self.assertIsNone(ai.key_problem(KEY))
+        self.assertIsNone(ai.key_problem("AQ.Ab8RN6" + "x" * 40))  # format lain tetap dicoba ke Google
+
     def test_prompt_has_no_secrets(self):
         dump = {"created": "t", "values": {"/ch/01/config/name": ["WL"], "/ch/01/mix/fader": [0.75]}}
         text = ai.build_prompt(dump, None, [], None, "khotbah", "kenapa?")
@@ -172,7 +180,7 @@ class ServerAI(Base):
         self.assertEqual(code, 502)  # belum diatur
         code, raw = self.call("/api/ai/config", {"key": "pendek"})
         self.assertEqual(code, 400)
-        code, raw = self.call("/api/ai/config", {"key": KEY})
+        code, raw = self.call("/api/ai/config", {"key": "  " + KEY[:10] + "\n" + KEY[10:] + " "})  # spasi/baris baru ikut tersalin
         self.assertEqual(code, 200, raw)
         st = json.loads(raw)
         self.assertEqual(st["model"], "gemini-3.8-flash")

@@ -380,8 +380,15 @@ $("btnAiShow").addEventListener("click", () => {
   k.type = show ? "text" : "password";
   $("btnAiShow").textContent = show ? "Sembunyikan" : "Tampilkan";
 });
+function cleanKey(v) { return v.replace(/[\s\u200b-\u200f\u2060\ufeff]+/g, "").replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, ""); }
+$("aiKey").addEventListener("input", () => {
+  const k = cleanKey($("aiKey").value);
+  $("aiDiag").textContent = k ? `Terbaca ${k.length} karakter, awalan "${k.slice(0, 4)}…"` +
+    (k.length >= 30 && k.length <= 60 && k.startsWith("AIza") ? " — bentuknya cocok dengan kunci Gemini." :
+      " — kunci Gemini dari AI Studio biasanya ±39 karakter dan diawali \"AIza\".") : "";
+});
 $("btnAiSave").addEventListener("click", async () => {
-  const key = $("aiKey").value.trim();
+  const key = cleanKey($("aiKey").value);
   if (!key) { say("aiOut", "Tempel API key dulu.", "warn"); return; }
   $("btnAiSave").disabled = true; say("aiOut", "Mengecek kunci ke Google…");
   try {

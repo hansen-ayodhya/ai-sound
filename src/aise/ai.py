@@ -52,9 +52,28 @@ def public_status(cfg: dict) -> dict:
             "key_hint": ("…" + key[-4:]) if len(key) >= 8 else None, "models": cfg.get("models") or []}
 
 
+def clean_key(key: str) -> str:
+    """Buang yang sering ikut tersalin: spasi, baris baru, karakter tak terlihat, tanda kutip."""
+    k = re.sub(r"[\s\u200b-\u200f\u2060\ufeff]+", "", str(key or ""))
+    return k.strip("\"'`“”‘’")
+
+
+def key_problem(key: str) -> str | None:
+    """Penjelasan masalah format (tanpa menampilkan isi kunci), atau None bila layak dicoba ke Google."""
+    if not key:
+        return "Kolom kunci kosong."
+    if any(ord(c) < 0x21 or ord(c) > 0x7e for c in key):
+        return "Ada karakter aneh di dalam kunci (mungkin ikut tersalin). Salin ulang dengan tombol Copy di Google AI Studio."
+    if len(key) < 20:
+        return (f"Yang ditempel hanya {len(key)} karakter, terlalu pendek untuk API key. Kunci Gemini biasanya "
+                "±39 karakter dan diawali 'AIza'. Pastikan yang disalin adalah API key, bukan nama atau ID proyek.")
+    if len(key) > 300:
+        return "Yang ditempel terlalu panjang untuk sebuah API key. Pastikan hanya kuncinya yang disalin."
+    return None
+
+
 def valid_key_format(key: str) -> bool:
-    """Longgar: karakter cetak tanpa spasi, 20–300 karakter (format kunci Google bisa berubah)."""
-    return bool(re.fullmatch(r"[\x21-\x7e]{20,300}", key or ""))
+    return key_problem(key) is None
 
 
 # ---------- HTTP ----------

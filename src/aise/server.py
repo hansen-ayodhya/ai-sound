@@ -252,10 +252,11 @@ class App:
         if body.get("hapus") is True:
             self.ai_cfg_path.unlink(missing_ok=True)
             return ai.public_status({})
-        key = str(body.get("key") or "").strip()
-        if key:
-            if not ai.valid_key_format(key):
-                raise ValueError("Format API key tidak dikenali. Salin ulang dari Google AI Studio.")
+        key = ai.clean_key(body.get("key") or "")
+        if key or body.get("key"):
+            problem = ai.key_problem(key)
+            if problem:
+                raise ValueError(problem)
             models = ai.list_models(key, base=self.ai_base)
             model = ai.pick_model(models)
             if not model:
