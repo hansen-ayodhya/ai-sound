@@ -66,8 +66,20 @@ def labels_from_dump(dump: dict | None, profile: dict | None = None) -> dict[int
     return labels
 
 
+def inactive_from_dump(dump: dict | None) -> set[int]:
+    """Indeks meter channel yang sedang di-mute di mixer (tidak perlu peringatan 'sinyal kecil')."""
+    values = (dump or {}).get("values", {})
+    out = set()
+    for i in range(N_MAPPED_CHANNELS):
+        v = values.get(f"/ch/{channel_for_index(i):02d}/mix/on")
+        if v and v[0] == 0:
+            out.add(i)
+    return out
+
+
 class LiveRules:
-    def __init__(self, labels: dict[int, str] | None = None):
+    def __init__(self, labels: dict[int, str] | None = None, inactive: set[int] | None = None):
+        self.inactive = inactive or set()
         self.labels = labels or {}
         self._hot: dict[int, deque] = {}
         self._hist: dict[int, deque] = {}
@@ -90,11 +102,11 @@ class LiveRules:
         if check_weak:
             self._last_weak_check = t
         for i, lvl in enumerate(levels):
-            name = self.label(i)
+            if i >= N_MAPPED_CHANNELS:
+                break                     # meter selain channel input (bus/main/FX) belum dipetakan: tidak dinilai
             if lvl >= CLIP_DB:
                 self._emit(out, "clip", "bad", i, lvl, t,
-                           f"{name} menyentuh {lvl:.1f} dB (clipping). Kemungkinan gain preamp terlalu tinggi; "
-                           "turunkan gain di aplikasi mixer. Menurunkan fader saja tidak menghilangkan distorsi di input.")
+                           f"Clipping ({lvl:.1f} dB). Turunkan GAIN (bukan fader) di M-AIR.")
             elif lvl >= HOT_DB:
                 q = self._hot.setdefault(i, deque())
                 q.append(t)
@@ -102,33 +114,32 @@ class LiveRules:
                     q.popleft()
                 if len(q) >= HOT_FRAMES:
                     self._emit(out, "hot", "warn", i, lvl, t,
-                               f"{name} berulang kali di atas {HOT_DB:.0f} dB dalam {HOT_WINDOW:.0f} detik. "
-                               "Ruang sebelum clipping tinggal sedikit; pertimbangkan menurunkan gain 2–3 dB.")
+                               f"Mendekati clipping berulang kali (di atas {HOT_DB:.0f} dB). Turunkan gain 2–3 dB.")
             h = self._hist.setdefault(i, deque())
             h.append((t, lvl))
             while h and t - h[0][0] > WEAK_WINDOW:
                 h.popleft()
-            if check_weak and h and t - h[0][0] >= WEAK_WINDOW * 0.9:
+            if check_weak and i not in self.inactive and h and t - h[0][0] >= WEAK_WINDOW * 0.9:
                 peak = max(v for _, v in h)
                 if WEAK_FLOOR < peak < WEAK_MAX:
                     self._emit(out, "weak", "info", i, peak, t,
-                               f"{name} ada sinyal, tapi puncaknya hanya {peak:.0f} dB selama {WEAK_WINDOW:.0f} detik. "
-                               "Gain mungkin terlalu rendah sehingga noise ikut naik saat fader didorong. "
-                               "Abaikan bila channel ini memang sedang tidak dipakai.")
+                               f"Sinyal sangat kecil (puncak {peak:.0f} dB selama {WEAK_WINDOW:.0f} dtk). "
+                               "Naikkan gain jika mic ini dipakai; abaikan jika tidak.")
         return out
 
     def stale(self, t: float, since: float) -> list[Alert]:
         out: list[Alert] = []
         self._emit(out, "stale", "warn", -1, 0.0, t,
-                   f"Data meter berhenti diterima sejak {since:.0f} detik lalu. Cek kabel LAN dan koneksi ke mixer.")
+                   f"Data meter berhenti {since:.0f} dtk. Cek kabel LAN/Wi-Fi ke mixer.")
         return out
 
 
 class LiveMonitor:
     def __init__(self, ip: str, port: int, path: str, labels: dict[int, str],
-                 log_path: Path, on_stop=None):
+                 log_path: Path, on_stop=None, on_param=None, inactive: set[int] | None = None):
         self.ip, self.port, self.path = ip, port, path
-        self.rules = LiveRules(labels)
+        self.on_param = on_param          # dipanggil (alamat, argumen) untuk perubahan dari M-AIR
+        self.rules = LiveRules(labels, inactive)
         self.labels = labels
         self.log_path = log_path
         self.on_stop = on_stop
@@ -158,7 +169,7 @@ class LiveMonitor:
     def _run(self) -> None:
         try:
             with ReadOnlyClient(self.ip, self.port, log_path=self.log_path.with_name("osc_log.jsonl")) as c:
-                c.stream_meters(self.path, self._on_blob, self._should_stop)
+                c.stream_meters(self.path, self._on_blob, self._should_stop, on_param=self.on_param)
         except Exception as exc:  # tampilkan ke pengguna
             self.error = f"{type(exc).__name__}: {exc}"
         finally:

@@ -95,7 +95,7 @@ class ReadOnlyClient:
         self._log(event="no_reply", address=address)
         return None
 
-    def stream_meters(self, path: str, on_blob, should_stop, renew_every: float = 8.0) -> int:
+    def stream_meters(self, path: str, on_blob, should_stop, renew_every: float = 8.0, on_param=None) -> int:
         """Alirkan meter terus-menerus sampai `should_stop()` bernilai True.
 
         `on_blob(bytes)` dipanggil untuk setiap frame. Permintaan /meters tetap
@@ -103,6 +103,7 @@ class ReadOnlyClient:
         karena langganan di mixer kedaluwarsa sendiri. Mengembalikan jumlah frame.
         """
         packet = encode("/meters", (path,))
+        xremote = encode("/xremote") if on_param else None   # langganan kabar perubahan (hanya menerima)
         frames = 0
         next_renew = time.monotonic()
         self._log(event="meters_start", path=path)
@@ -112,6 +113,8 @@ class ReadOnlyClient:
             while not should_stop():
                 if time.monotonic() >= next_renew:
                     self._send(packet)
+                    if xremote:
+                        self._send(xremote)            # kedaluwarsa ±10 dtk di mixer; diperbarui tiap 8 dtk
                     next_renew = time.monotonic() + renew_every
                 try:
                     data, _ = self._sock.recvfrom(65535)
@@ -124,6 +127,11 @@ class ReadOnlyClient:
                 if addr == path and args and isinstance(args[0], (bytes, bytearray)):
                     frames += 1
                     on_blob(bytes(args[0]))
+                elif on_param and args and not isinstance(args[0], (bytes, bytearray)):
+                    try:
+                        on_param(addr, args)
+                    except Exception:                  # kabar yang tak terproses tidak boleh mematikan meter
+                        pass
         finally:
             self._sock.settimeout(old_timeout)
             self._log(event="meters_end", path=path, frames=frames)

@@ -198,6 +198,13 @@
 - Tampilan: yang selesai hilang dari saran aktif (lencana ⚠/💡, bayangan grafik) dan diganti lencana ✓ hijau di strip + bagian "✓ Sudah dilakukan" di panel channel (jam verifikasi, nilai awal, nilai sekarang); yang sebagian diberi status kuning; yang sempat selesai lalu dibatalkan ditandai "↺". Baris sumber menampilkan jumlah ✓.
 - 108 tes lulus; diuji di browser dengan mixer tiruan yang diubah operator.
 
+## Update 2026-11-07: peringatan live lebih jelas + perubahan dari M-AIR tampil realtime
+
+- Peringatan live: hanya meter channel input (indeks 0–15) yang dinilai; meter lain (bus/main/FX, dulu berlabel "Meter 25") diabaikan karena belum dipetakan. Channel yang di-mute tidak diberi peringatan "sinyal kecil". Pesan dipersingkat (satu kalimat + tindakan); nama channel ada di kolom label.
+- Realtime: selama live, aplikasi berlangganan kabar perubahan mixer (`/xremote`, diperbarui tiap 8 dtk). Ini satu-satunya tambahan di penjaga read-only: tanpa argumen, hanya MENERIMA; dengan argumen tetap ditolak. Kabar perubahan (EQ, fader, HPF, dll. dari M-AIR) langsung diterapkan ke strip dan panel channel yang terbuka (posisi gulir terjaga), strip disorot biru 2,5 dtk, lalu ±2,5 dtk setelah reda aturan/saran/status ✓ dihitung ulang. Server menggabungkan perubahan ke `live-setting/dump1.json` (jeda 1,5 dtk). Baca ulang penuh tiap 60 dtk tetap berjalan sebagai cadangan.
+- BELUM terbukti di MR18 asli: bahwa mixer benar-benar mengirim kabar setelah /xremote. Bila tidak ada kabar, tampilan tetap diperbarui oleh pembacaan 60 dtk/tombol Baca setting.
+- 112 tes lulus; diuji di browser dengan mixer tiruan yang mendorong perubahan.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

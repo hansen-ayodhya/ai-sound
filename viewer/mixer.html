@@ -226,6 +226,7 @@
   .donebox { border: 1px solid var(--ok); border-radius: 8px; padding: 8px 12px; margin: 8px 0; background: #0d1f15; }
   .donebox b { color: var(--ok); }
   .donebox ul.doneitems { margin: 4px 0 0; padding-left: 18px; color: #bff0d3; }
+  .strip.changed { box-shadow: 0 0 0 2px var(--accent) inset; transition: box-shadow .3s; }
   .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
@@ -646,7 +647,8 @@ function channelStrip(n) {
   const name = raw(c + "/config/name");
   const fader = raw(c + "/mix/fader"), on = raw(c + "/mix/on");
   const sends = [1, 2, 3, 4, 5, 6].map((b) => raw(`${c}/mix/${pad2(b)}/level`));
-  const strip = el("div", { class: "strip", tabindex: "0", role: "button", "aria-label": "Detail channel " + n },
+  const changedRecently = state.changedAt && Date.now() - (state.changedAt["ch" + n] || 0) < 2500;
+  const strip = el("div", { class: "strip" + (changedRecently ? " changed" : ""), tabindex: "0", role: "button", "aria-label": "Detail channel " + n },
     el("div", { class: "head" }, el("div", { class: "num", text: "CH " + pad2(n) }),
       el("div", { class: "name" + (name ? "" : " empty"), text: name || "(tanpa nama)" }),
       el("div", { class: "role", text: roleFor(n), title: roleFor(n) ? "Daftar Channel: " + roleFor(n) : "" })),
@@ -715,6 +717,7 @@ function findingCard(f) {
     (f.usulan && f.usulan.length) ? el("p", { class: "note", text: "Untuk sekarang, ubah lewat aplikasi mixer bila Anda setuju." }) : null);
 }
 function showDrawer(strip, ...content) {
+  state.openCh = null;      // openChannel mengisinya lagi setelah memanggil showDrawer
   document.querySelectorAll(".strip.sel").forEach((s) => s.classList.remove("sel"));
   if (strip) strip.classList.add("sel");
   const d = $("drawer");
@@ -722,11 +725,20 @@ function showDrawer(strip, ...content) {
   d.hidden = false;
 }
 function closeDrawer() {
+  state.openCh = null;
   $("drawer").hidden = true;
   document.querySelectorAll(".strip.sel").forEach((s) => s.classList.remove("sel"));
 }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
 
+// Segarkan panel channel yang sedang terbuka (mis. grafik EQ) tanpa menggeser posisi gulir.
+function refreshOpenChannel() {
+  const n = state.openCh, d = $("drawer");
+  if (n == null || d.hidden) return;
+  const top = d.scrollTop;
+  openChannel(n, state.stripEls["ch" + n]);
+  d.scrollTop = top;
+}
 function doneSection(n) {
   const list = state.recsDone.filter((r) => r.ch === n);
   if (!list.length) return [];
@@ -779,6 +791,7 @@ function openChannel(n, strip) {
     el("h3", { text: "Saran AI (" + list.length + ")" }),
     list.length ? null : el("p", { class: "note", text: "Belum ada temuan untuk channel ini dari aturan yang ada. Ini bukan berarti sudah ideal: belum ada pengukuran audio." }),
     ...list.map(findingCard));
+  state.openCh = n;
 }
 function openGeneric(label, prefix, strip) {
   const keys = Object.keys(state.dump.values).filter((k) => k.startsWith(prefix + "/")).sort();
@@ -1227,6 +1240,37 @@ $("btnChannels").addEventListener("click", () => openChannels(false));
 
 // ---------- MODE LIVE (meter asli dari mixer, hanya membaca) ----------
 const pctDb = (db) => Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+// ---------- perubahan setting dari M-AIR tampil langsung ----------
+let paramRenderTimer = null, paramReloadTimer = null;
+function applyParams(list) {
+  if (!state.dump) return;
+  state.changedAt = state.changedAt || {};
+  const now = Date.now();
+  for (const { a, v } of list) {
+    state.dump.values[a] = v;
+    let m = a.match(/^\/(?:ch|headamp)\/(\d\d)\//);
+    if (m) state.changedAt["ch" + parseInt(m[1], 10)] = now;
+    else if ((m = a.match(/^\/bus\/(\d+)\//))) state.changedAt["bus" + m[1]] = now;
+    else if (a.startsWith("/lr/")) state.changedAt["lr"] = now;
+  }
+  state.paramCount = (state.paramCount || 0) + list.length;
+  state.lastParamAt = now;
+  if (!paramRenderTimer) paramRenderTimer = setTimeout(() => {      // gabungkan perubahan beruntun (mis. saat menggeser EQ)
+    paramRenderTimer = null;
+    state.keepDrawer = true;
+    try { render(); refreshOpenChannel(); } finally { state.keepDrawer = false; }
+    for (const [k, t] of Object.entries(state.changedAt)) {
+      const el2 = state.stripEls[k];
+      if (el2) setTimeout(() => el2.classList.remove("changed"), Math.max(0, 2500 - (Date.now() - t)));
+    }
+  }, 250);
+  // Setelah perubahan reda: hitung ulang aturan, saran, dan status "sudah dilakukan" dari data server.
+  clearTimeout(paramReloadTimer);
+  paramReloadTimer = setTimeout(async () => {
+    state.keepDrawer = true;
+    try { await loadLatest(); refreshOpenChannel(); } catch (e) { /* abaikan */ } finally { state.keepDrawer = false; }
+  }, 2500);
+}
 function applyLive(snap) {
   for (const m of state.meters) {
     const ch = m.key.startsWith("ch") ? parseInt(m.key.slice(2), 10) : null;
@@ -1244,7 +1288,7 @@ function applyLive(snap) {
     bar.replaceChildren(el("b", { text: "● LIVE" }),
       ` sejak ${snap.started} · ${snap.fps} frame/detik · ` +
       (snap.age == null ? "menunggu data meter…" : `data terakhir ${snap.age} detik lalu`) +
-      (snap.settings_at ? ` · setting diperbarui ${String(snap.settings_at).slice(11, 19)}` : " · setting dibaca ulang tiap 60 detik") +
+      (state.paramCount ? ` · ${state.paramCount} perubahan dari M-AIR diterima langsung` : " · perubahan di M-AIR tampil langsung (cadangan: baca ulang tiap 60 dtk)") +
       (snap.bad_frames ? ` · ${snap.bad_frames} frame tidak terbaca` : ""));
   } else bar.textContent = `Pemantauan berhenti. ${snap.frames} frame diterima. Peringatan tersimpan di data/live-*.jsonl.`;
 }
@@ -1294,7 +1338,9 @@ async function poll() {
   pollN++;
   const withAlerts = pollN % 7 === 1;
   try {
-    const snap = await api("/api/live?alerts=" + (withAlerts ? "1" : "0"));
+    const snap = await api("/api/live?alerts=" + (withAlerts ? "1" : "0") + (state.paramSeq != null ? "&since=" + state.paramSeq : ""));
+    if (state.paramSeq == null) state.paramSeq = snap.param_seq || 0;
+    else if (snap.params && snap.params.length) { state.paramSeq = snap.param_seq; applyParams(snap.params); }
     if (snap.levels) applyLive(snap);
     if (withAlerts && snap.alerts) showAlerts(snap.alerts);
     if (snap.settings_at && snap.settings_at !== state.settingsAt) {
@@ -1313,7 +1359,7 @@ async function poll() {
   } catch (e) { $("liveBar").hidden = false; $("liveBar").textContent = "Tidak bisa menghubungi aplikasi: " + e.message; }
   pollTimer = setTimeout(poll, 150);
 }
-function startPolling() { if (!pollTimer) { pollN = 0; state.seenAlerts = 0; setLiveUi(true); poll(); } }
+function startPolling() { if (!pollTimer) { pollN = 0; state.seenAlerts = 0; state.paramSeq = null; state.paramCount = 0; setLiveUi(true); poll(); } }
 $("btnLive").addEventListener("click", async () => {
   try {
     if (state.live) { await api("/api/live/stop", {}); return; }

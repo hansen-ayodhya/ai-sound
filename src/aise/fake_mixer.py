@@ -20,6 +20,8 @@ class FakeMixer:
         self.write_attempts: list[tuple[str, tuple]] = []
         self.queries: list[str] = []
         self.meter_requests: list[tuple] = []
+        self.subscribers: set = set()        # pelanggan /xremote
+        self.xremote_requests = 0
         self.meter_frames: dict[str, list[bytes]] = {}
         # Bila diisi: fungsi tanpa argumen yang mengembalikan blob meter; mixer tiruan
         # lalu mengalirkan frame ~20x/detik selama `stream_seconds` setelah tiap permintaan.
@@ -62,6 +64,10 @@ class FakeMixer:
                 address, args = decode(data)
             except OscError:
                 continue
+            if address == "/xremote" and not args:
+                self.xremote_requests += 1
+                self.subscribers.add(peer)
+                continue
             if address == "/meters" and args and isinstance(args[0], str):
                 self.meter_requests.append(args)
                 for blob in self.meter_frames.get(args[0], []):
@@ -76,6 +82,15 @@ class FakeMixer:
             self.queries.append(address)
             if address in self.state:
                 self._sock.sendto(encode(address, self.state[address]), peer)
+
+    def push(self, address: str, args: tuple) -> None:
+        """Meniru operator mengubah setting di M-AIR: simpan lalu kabarkan ke pelanggan /xremote."""
+        self.state[address] = args
+        for peer in list(self.subscribers):
+            try:
+                self._sock.sendto(encode(address, args), peer)
+            except OSError:
+                pass
 
     def _start_stream(self, path: str, peer) -> None:
         self._stream_until[path] = time.monotonic() + self.stream_seconds

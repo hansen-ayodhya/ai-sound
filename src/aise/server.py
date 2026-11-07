@@ -28,6 +28,7 @@ import socket
 import subprocess
 import sys
 import threading
+from collections import deque
 import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -42,7 +43,8 @@ from .audit import PROBE_ADDRESSES, MixerNotAnswering, run_audit
 from .client import DEFAULT_PORT, ReadOnlyClient
 from .dump import run_dump
 from .guard import ReadOnlyViolation, check
-from .live import LiveMonitor, labels_from_dump
+from .guard import ALLOWED_PREFIXES
+from .live import LiveMonitor, inactive_from_dump, labels_from_dump
 from .report import findings_json, render
 from .menu import load_ip, save_ip, valid_ip
 from .paths import BUILD_VERSION_FILE, BUNDLE, FROZEN
@@ -58,6 +60,7 @@ MAX_DSP_BODY = 10_000_000  # preset ≤5 MB atau tangkapan layar, dalam base64
 BIG_BODY = {"/api/clips": MAX_CLIP_BODY, "/api/dsp/preset": MAX_DSP_BODY, "/api/dsp/ai-read": MAX_DSP_BODY}
 IMAGE_MIME = ("image/png", "image/jpeg", "image/webp")
 LIVE_REFRESH_S = 60  # baca ulang setting mixer selama live
+PARAM_FLUSH_S = 1.5  # jeda sebelum kabar perubahan digabung ke setting terbaru
 MAX_PIN_FAILS = 5
 PIN_LOCK_S = 300
 # Kunci Gemini boleh DITULIS dari perangkat yang sudah masuk (PIN); kunci tidak pernah dikirim balik.
@@ -109,6 +112,12 @@ class App:
         self.live_settings_at: str | None = None
         self._refresh_now = threading.Event()
         self._recs_lock = threading.Lock()
+        # Perubahan dari M-AIR yang diterima lewat /xremote (hanya menerima)
+        self.param_seq = 0
+        self.param_log: deque = deque(maxlen=800)
+        self._overlay: dict[str, list] = {}
+        self._param_lock = threading.Lock()
+        self._flush_pending = False
 
     # ---------- pekerjaan ----------
     def _acquire(self) -> None:
@@ -183,7 +192,8 @@ class App:
             self._lock.release()
 
         log = self.data / f"live-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
-        self.live = LiveMonitor(ip, port, path, labels_from_dump(dump, self.profile()), log, on_stop=on_stop)
+        self.live = LiveMonitor(ip, port, path, labels_from_dump(dump, self.profile()), log, on_stop=on_stop,
+                                on_param=self._on_param, inactive=inactive_from_dump(dump))
         try:
             self.live.start()
         except Exception:
@@ -199,6 +209,12 @@ class App:
             d = run_dump(c, addresses or self.addresses or all_addresses())
         if not d["answered"]:
             raise MixerNotAnswering(f"Mixer di {ip}:{port} tidak menjawab saat membaca setting.")
+        self._save_dump(d)
+        with self._param_lock:
+            self._overlay.clear()          # pembacaan penuh lebih baru daripada kabar perubahan sebelumnya
+        return d
+
+    def _save_dump(self, d: dict, mark: bool = True) -> None:
         folder = self.data / "live-setting"
         folder.mkdir(parents=True, exist_ok=True)
         profile = self.profile()
@@ -208,8 +224,52 @@ class App:
         latest = {"dump": "data/live-setting/dump1.json", "findings": "data/live-setting/findings.json",
                   "report": "data/live-setting/report.md", "created": d["created"], "live": True}
         (self.data / "latest.json").write_text(json.dumps(latest, indent=2), encoding="utf-8")
-        self.live_settings_at = d["created"]
-        return d
+        if mark:
+            self.live_settings_at = d["created"]
+
+    # ---------- kabar perubahan dari mixer (realtime) ----------
+    def _on_param(self, addr: str, args) -> None:
+        if not addr.startswith(ALLOWED_PREFIXES) or addr.startswith("/meters"):
+            return
+        val = [a for a in args if isinstance(a, (int, float, str)) and not isinstance(a, bool)]
+        if not val:
+            return
+        with self._param_lock:
+            self.param_seq += 1
+            self.param_log.append((self.param_seq, addr, val))
+            self._overlay[addr] = val
+            if not self._flush_pending:
+                self._flush_pending = True
+                threading.Timer(PARAM_FLUSH_S, self._flush_params).start()
+
+    def _flush_params(self) -> None:
+        """Gabungkan kabar perubahan ke 'setting terbaru' (agar aturan, saran, dan verifikasi ikut terbarui)."""
+        with self._param_lock:
+            self._flush_pending = False
+            overlay = dict(self._overlay)
+        if not overlay:
+            return
+        try:
+            _, d = self.latest_dump()
+            if not d:
+                return
+            d = json.loads(json.dumps(d))
+            d["values"].update(overlay)
+            d["created"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+            self._save_dump(d, mark=False)
+        except Exception:
+            pass
+
+    def params_since(self, since: int | None) -> dict:
+        with self._param_lock:
+            seq = self.param_seq
+            if since is None:
+                return {"param_seq": seq, "params": []}
+            last: dict[str, tuple] = {}
+            for n, a, v in self.param_log:
+                if n > since:
+                    last[a] = (n, v)
+            return {"param_seq": seq, "params": [{"a": a, "v": v} for a, (n, v) in sorted(last.items(), key=lambda kv: kv[1][0])][-400:]}
 
     def _refresh_settings_loop(self, ip: str, port: int, mon, addresses: list[str] | None) -> None:
         wait = 5.0
@@ -705,8 +765,14 @@ def make_handler(app: App, http_port: int):
                 if path == "/api/live":
                     if not app.live:
                         return self._json(200, {"running": False, "frames": 0, "alerts": []})
-                    want = parse_qs(urlparse(self.path).query).get("alerts", ["1"])[0] == "1"
-                    return self._json(200, {**app.live.snapshot(include_alerts=want), "settings_at": app.live_settings_at})
+                    q = parse_qs(urlparse(self.path).query)
+                    want = q.get("alerts", ["1"])[0] == "1"
+                    try:
+                        since = int(q["since"][0]) if "since" in q else None
+                    except ValueError:
+                        since = None
+                    return self._json(200, {**app.live.snapshot(include_alerts=want), "settings_at": app.live_settings_at,
+                                            **app.params_since(since)})
                 if path == "/api/job":
                     return self._json(200, app.job)
                 if path == "/api/channels":

@@ -45,7 +45,7 @@ class Guard(unittest.TestCase):
             ("/ch/01/mix/on", (0,)),
             ("/-snap/load", ()),
             ("/-action/setscene", ()),
-            ("/xremote", ()),
+            ("/xremote", (1,)),                  # dengan argumen tetap ditolak
             ("/meters/1", ()),
             ("ch/01", ()),
             ("/ch/01/*", ()),

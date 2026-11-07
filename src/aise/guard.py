@@ -23,7 +23,8 @@ class ReadOnlyViolation(Exception):
 
 # Prefix alamat yang boleh di-query. Sengaja TIDAK termasuk:
 #   /-action, /-snap, /-prefs  (aksi/snapshot/preferensi)
-#   /xremote, /renew           (langganan perubahan; belum dibutuhkan)
+#   /renew                     (belum dibutuhkan)
+# DIIZINKAN khusus: /xremote tanpa argumen = berlangganan kabar perubahan dari mixer (hanya MENERIMA).
 ALLOWED_PREFIXES = (
     "/info",
     "/xinfo",
@@ -61,6 +62,10 @@ def _check_meter_request(args: tuple) -> None:
 def check(address: str, args: tuple) -> None:
     if address == "/meters":
         _check_meter_request(args)
+        return
+    if address == "/xremote":
+        if args:
+            raise ReadOnlyViolation(f"/xremote tidak boleh membawa argumen: {args!r}")
         return
     if args:
         raise ReadOnlyViolation(

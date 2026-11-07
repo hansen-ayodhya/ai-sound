@@ -21,7 +21,8 @@ class Rules(unittest.TestCase):
         r = LiveRules({0: "CH 01 Vokal 1"})
         a = r.feed([-0.5], 100.0)
         self.assertEqual([x.kind for x in a], ["clip"])
-        self.assertIn("Vokal 1", a[0].message)
+        self.assertIn("Vokal 1", a[0].label)
+        self.assertLess(len(a[0].message), 80)          # pesan ringkas
         self.assertEqual(r.feed([-0.5], 101.0), [])          # masih cooldown
         self.assertEqual(len(r.feed([-0.5], 100.0 + live.COOLDOWN["clip"] + 0.1)), 1)
 
@@ -232,6 +233,82 @@ class ManualRefresh(unittest.TestCase):
                 srv.LIVE_REFRESH_S = old
             self.assertEqual(mixer.write_attempts, [])
         finally:
+            app.stop_live()
+            time.sleep(0.6)
+            mixer.stop()
+            tmp.cleanup()
+
+
+class RulesScope(unittest.TestCase):
+    def test_unmapped_meters_ignored(self):
+        r = LiveRules({0: "CH 01"})
+        levels = [-30.0] * 25 + [-0.2] + [-50.0] * 5          # indeks 25 clipping tetapi bukan channel input
+        self.assertEqual(r.feed(levels, 100.0), [])
+
+    def test_muted_channel_no_weak_alert(self):
+        r = LiveRules({0: "CH 01", 1: "CH 02"}, inactive={0})
+        got = []
+        for i in range(0, 32):
+            got += r.feed([-50.0, -50.0], float(i))
+        self.assertEqual({a.index for a in got if a.kind == "weak"}, {1})   # CH 01 di-mute: tidak ada peringatan
+        r2 = LiveRules({0: "CH 01"}, inactive={0})
+        self.assertEqual([a.kind for a in r2.feed([-0.5], 200.0)], ["clip"])  # clipping tetap diperingatkan
+
+    def test_inactive_from_dump(self):
+        d = {"values": {"/ch/01/mix/on": [0], "/ch/02/mix/on": [1]}}
+        self.assertEqual(live.inactive_from_dump(d), {0})
+
+
+class RealtimeParams(unittest.TestCase):
+    def test_changes_from_mixer_reach_app_and_settings(self):
+        from aise import guard, server as srv
+        from aise.audit import run_audit
+        guard.check("/xremote", ())                      # langganan kabar perubahan diizinkan
+        with self.assertRaises(guard.ReadOnlyViolation):
+            guard.check("/xremote", (1,))
+        tmp = tempfile.TemporaryDirectory()
+        names = ["/info", "/ch/01/config/name", "/ch/01/eq/1/g", "/ch/01/preamp/hpon"]
+        mixer = FakeMixer({"/info": ("x",), "/ch/01/config/name": ("Vokal 1",), "/ch/01/eq/1/g": (0.5,),
+                           "/ch/01/preamp/hpon": (0,)}).start()
+        mixer.meter_generator = lambda: meters.make_blob([-20.0])
+        data = Path(tmp.name) / "data"
+        run_audit("127.0.0.1", mixer.port, base=data, addresses=names, timeout=0.1)
+        app = App(root=ROOT, data=data, addresses=names)
+        old = srv.PARAM_FLUSH_S
+        srv.PARAM_FLUSH_S = 0.2
+        try:
+            app.start_live("127.0.0.1", mixer.port, "/meters/1")
+            for _ in range(100):
+                if mixer.xremote_requests:
+                    break
+                time.sleep(0.05)
+            self.assertGreaterEqual(mixer.xremote_requests, 1)
+            self.assertEqual(app.params_since(None), {"param_seq": 0, "params": []})
+            mixer.push("/ch/01/eq/1/g", (0.9,))             # operator mengubah EQ di M-AIR
+            mixer.push("/ch/01/eq/1/g", (0.95,))            # digeser lagi: hanya nilai terakhir yang dikirim ke tampilan
+            mixer.push("/-prefs/x", (1,))                   # di luar daftar: diabaikan
+            mixer.push("/ch/01/preamp/hpon", (1,))
+            for _ in range(100):
+                if app.param_seq >= 3:
+                    break
+                time.sleep(0.05)
+            r = app.params_since(0)
+            self.assertEqual(r["param_seq"], 3)
+            got = {p["a"]: p["v"] for p in r["params"]}
+            self.assertEqual(set(got), {"/ch/01/eq/1/g", "/ch/01/preamp/hpon"})
+            self.assertAlmostEqual(got["/ch/01/eq/1/g"][0], 0.95, places=5)   # OSC memakai float 32-bit
+            self.assertEqual(got["/ch/01/preamp/hpon"], [1])
+            self.assertEqual(app.params_since(r["param_seq"])["params"], [])
+            for _ in range(100):                            # digabung ke setting terbaru setelah jeda
+                d = json.loads((app.data / "live-setting" / "dump1.json").read_text()) if (app.data / "live-setting" / "dump1.json").exists() else {"values": {}}
+                if abs((d["values"].get("/ch/01/eq/1/g") or [0])[0] - 0.95) < 1e-5:
+                    break
+                time.sleep(0.1)
+            self.assertAlmostEqual(d["values"]["/ch/01/eq/1/g"][0], 0.95, places=5)
+            self.assertEqual(d["values"]["/ch/01/preamp/hpon"], [1])
+            self.assertEqual(mixer.write_attempts, [])
+        finally:
+            srv.PARAM_FLUSH_S = old
             app.stop_live()
             time.sleep(0.6)
             mixer.stop()
