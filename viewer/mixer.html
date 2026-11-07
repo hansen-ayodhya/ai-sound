@@ -217,6 +217,15 @@
   details.notes[open] { max-height: 45vh; overflow: auto; }
   .alerts.min ul { max-height: 34px; overflow: hidden; }
   .alerts h2 { cursor: pointer; user-select: none; }
+  .badge.done { background: #0f2a1a; color: var(--ok); }
+  .fstatus { border-radius: 6px; padding: 6px 10px; margin: 6px 0; font-size: 13px; }
+  .fstatus ul { margin: 4px 0 0; padding-left: 18px; }
+  .fstatus.done { background: #0f2a1a; border-left: 3px solid var(--ok); color: #bff0d3; }
+  .fstatus.part { background: #2a2210; border-left: 3px solid var(--warn); color: #f3d9a4; }
+  .card.donecard { opacity: .8; border-color: var(--ok); }
+  .donebox { border: 1px solid var(--ok); border-radius: 8px; padding: 8px 12px; margin: 8px 0; background: #0d1f15; }
+  .donebox b { color: var(--ok); }
+  .donebox ul.doneitems { margin: 4px 0 0; padding-left: 18px; color: #bff0d3; }
   .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
@@ -620,9 +629,11 @@ function badgesFor(ch) {
   const list = state.findings.filter((f) => f.ch === ch);
   const warn = list.filter((f) => f.severity === "perhatian").length;
   const info = list.length - warn;
+  const done = state.recsDone.filter((r) => r.ch === ch).length;
   return el("div", { class: "badges" },
     warn ? el("span", { class: "badge warn", text: "⚠ " + warn, title: warn + " temuan perhatian" }) : null,
-    info ? el("span", { class: "badge info", text: "💡 " + info, title: info + " saran" }) : null);
+    info ? el("span", { class: "badge info", text: "💡 " + info, title: info + " saran" }) : null,
+    done ? el("span", { class: "badge done", text: "✓ " + done, title: done + " rekomendasi sudah dilakukan (terverifikasi dari mixer)" }) : null);
 }
 function roleFor(n) {
   if (!state.profile) return "";
@@ -674,10 +685,22 @@ function masterStrip(label, prefix, key) {
 
 // ---------- panel detail ----------
 function row(label, value, est) { return el("tr", null, el("td", { text: label }), el("td", { class: est ? "est" : "", text: value })); }
+function recStatusEl(f) {
+  const r = state.recs && state.recs[f.id];
+  if (!r) return null;
+  const lines = (r.items || []).map((i) => el("li", { text: `${i.teks} — awal ${i.awal_teks} → sekarang ${i.sekarang_teks} (usulan ${i.target_teks})` + (i.status === "selesai" ? "  ✓" : "") }));
+  if (r.status === "selesai") return el("div", { class: "fstatus done" }, el("b", { text: "✓ Sudah dilakukan" }),
+    ` — terverifikasi dari pembacaan mixer pukul ${hhmm(r.done_at)}.`, el("ul", null, ...lines));
+  if (r.status === "sebagian") return el("div", { class: "fstatus part" }, el("b", { text: "◐ Sebagian dilakukan" }),
+    " — sudah bergerak ke arah usulan tetapi belum sesuai.", el("ul", null, ...lines));
+  return r.kembali ? el("div", { class: "fstatus part" }, el("b", { text: "↺ Sempat dilakukan, lalu dibatalkan" }), " — nilai kembali ke semula.") : null;
+}
 function findingCard(f) {
-  return el("div", { class: "card " + f.severity + (f.sumber === "gemini" ? " gemcard" : "") },
+  const rs = state.recs && state.recs[f.id];
+  return el("div", { class: "card " + f.severity + (f.sumber === "gemini" ? " gemcard" : "") + (rs && rs.status === "selesai" ? " donecard" : "") },
     f.sumber === "gemini" ? el("span", { class: "aitag", text: "✦ Gemini · keyakinan " + (f.keyakinan || "rendah") }) : null,
-    el("h4", { text: (f.severity === "perhatian" ? "⚠ " : "💡 ") + f.masalah }),
+    el("h4", { text: (rs && rs.status === "selesai" ? "✓ " : f.severity === "perhatian" ? "⚠ " : "💡 ") + f.masalah }),
+    recStatusEl(f),
     el("ol", null,
       el("li", null, el("b", { text: "Masalah: " }), f.masalah),
       el("li", null, el("b", { text: "Kemungkinan penyebab: " }), f.penyebab),
@@ -704,6 +727,16 @@ function closeDrawer() {
 }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
 
+function doneSection(n) {
+  const list = state.recsDone.filter((r) => r.ch === n);
+  if (!list.length) return [];
+  return [el("h3", { text: "✓ Sudah dilakukan (" + list.length + ")" }),
+    ...list.map((r) => el("div", { class: "donebox" },
+      el("b", { text: "✓ " + (r.sumber === "gemini" ? "✦ Gemini: " : "") + r.masalah }),
+      el("div", { class: "note", text: "Terverifikasi dari pembacaan mixer pukul " + hhmm(r.done_at) +
+        (r.kembali ? " (sempat dibatalkan lalu dilakukan lagi)" : "") }),
+      el("ul", { class: "doneitems" }, ...r.items.map((i) => el("li", { text: `${i.teks} — sekarang ${i.sekarang_teks} ✓` })))))];
+}
 function openChannel(n, strip) {
   const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
   const onoff = (v) => (v == null ? "—" : v === 1 ? "ON" : "OFF");
@@ -726,6 +759,7 @@ function openChannel(n, strip) {
   showDrawer(strip,
     el("h3", { text: "CH " + pad2(n) + " · " + (raw(c + "/config/name") || "(tanpa nama)") }),
     el("p", { class: "note", text: "Nilai bertanda ≈ adalah perkiraan. Cocokkan dengan aplikasi mixer sebelum dipercaya." }),
+    ...doneSection(n),
     changes.length ? el("h3", { text: "Usulan perubahan (" + changes.length + ")" }) : null,
     changes.length ? el("ul", { class: "changes" }, ...changes.map((u) => el("li", { class: u.src, text: (u.src === "gem" ? "✦ Gemini: " : "Program: ") + u.teks }))) : null,
     changes.some((u) => u.src === "gem") && changes.some((u) => u.src === "rule") ? el("p", { class: "note", text: "Ungu = usulan program (aturan), biru muda = usulan Gemini. Bila keduanya menyentuh bagian yang sama, kedua bayangan digambar; pilih yang paling masuk akal saat soundcheck." }) : null,
@@ -789,7 +823,8 @@ function render() {
   renderNotes(state.findings.filter((f) => f.ch == null));
   if (!d) { desk.replaceChildren(el("div", { class: "empty", text: "Belum ada data dari mixer. Klik “↻ Baca setting” (IP mixer harus sudah diisi di Beranda → Uji kecil), atau jalankan Audit lengkap di Beranda." })); return; }
   const answered = Object.values(d.values).filter((v) => v !== null).length;
-  $("source").textContent = `Sumber: ${d._name} · dibuat ${d.created || "?"} · ${answered}/${Object.keys(d.values).length} alamat dijawab · ${state.findings.length} temuan`;
+  $("source").textContent = `Sumber: ${d._name} · dibuat ${d.created || "?"} · ${answered}/${Object.keys(d.values).length} alamat dijawab · ${state.findings.length} temuan` +
+    (state.recsDone.length ? ` · ✓ ${state.recsDone.length} rekomendasi sudah dilakukan` : "");
   const shown = visibleChannels();
   const ins = el("div", { class: "group" }, el("h2", { text: "Input" }),
     shown.length ? el("div", { class: "strips" }, ...shown.map(channelStrip))
@@ -945,6 +980,7 @@ async function loadUrls(dumpUrl, findingsUrl) {
   let f = [];
   if (findingsUrl) { try { f = await getJson(findingsUrl); } catch (e) { f = []; } }
   state.dump = d;
+  await refreshRecs();
   setBaseFindings(Array.isArray(f) ? f : []);
   render();
 }
@@ -980,9 +1016,17 @@ if (location.protocol.startsWith("http")) {
 
 // ---------- TEMUAN: aturan lokal + (opsional) Gemini ----------
 state.baseFindings = []; state.aiFindings = []; state.showAI = true;
+state.recs = {}; state.recsDone = [];   // status pelaksanaan rekomendasi (diverifikasi server dari setting mixer)
+async function refreshRecs() {
+  if (!TOKEN) return;
+  try { const v = await api("/api/recs"); state.recs = v.recs || {}; state.recsDone = v.selesai || []; } catch (e) { /* abaikan */ }
+}
+const hhmm = (iso) => String(iso || "").slice(11, 16);
 function setBaseFindings(list) { state.baseFindings = list; mergeFindings(); }
 function mergeFindings() {
-  state.findings = state.baseFindings.concat(state.showAI ? state.aiFindings : []);
+  // Rekomendasi yang sudah terverifikasi dilakukan tidak lagi dihitung sebagai saran aktif (tidak jadi bayangan/lencana).
+  const all = state.baseFindings.concat(state.showAI ? state.aiFindings : []);
+  state.findings = all.filter((f) => !(state.recs[f.id] && state.recs[f.id].status === "selesai"));
 }
 
 // ---------- ANALISIS AI (Gemini; dipanggil hanya saat diminta) ----------
@@ -1049,6 +1093,7 @@ async function openAI() {
     go.disabled = true; go.textContent = "Menunggu Gemini… (bisa 10–60 detik)";
     try {
       const res = await api("/api/ai/analyze", { situasi: sit.value, pertanyaan: q.value });
+      await refreshRecs();
       useAIResult(res);
       state.keepDrawer = true; render(); state.keepDrawer = false;
       out.replaceChildren(...aiResultView(res));

@@ -34,7 +34,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlparse
 
-from . import ai, channels, meters
+from . import ai, channels, meters, recs
 from . import dsp as dspmod
 from .clips import ClipError, ClipStore
 from .addresses import all_addresses
@@ -108,6 +108,7 @@ class App:
         self.live: LiveMonitor | None = None
         self.live_settings_at: str | None = None
         self._refresh_now = threading.Event()
+        self._recs_lock = threading.Lock()
 
     # ---------- pekerjaan ----------
     def _acquire(self) -> None:
@@ -362,12 +363,47 @@ class App:
             findings = findings_json(dump, profile) if dump else []
             res = ai.analyze_clip(ai.load_config(self.ai_cfg_path), rec, wav, dump, profile, findings, base=self.ai_base,
                                   dsp=self.dsp_data())
+            self._track_gemini(res, dump)
             self.clips.set_ai(cid, res)
             # Hasil klip juga menjadi "analisis AI terakhir" supaya bayangannya tampil di Tampilan Mixer.
             (self.data / "ai-last.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
             return res
         finally:
             self._ai_lock.release()
+
+    # ---------- pelacakan rekomendasi ----------
+    @property
+    def recs_path(self) -> Path:
+        return self.data / "recs.json"
+
+    def _track_gemini(self, res: dict, dump: dict | None) -> None:
+        stamp = time.strftime("%H%M%S")
+        for p in res.get("prioritas", []):
+            p["id"] = f"{p['id']}-{stamp}"   # unik per analisis, supaya tiap analisis dilacak sendiri
+        if not dump:
+            return
+        with self._recs_lock:
+            state = recs.load(self.recs_path)
+            now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+            recs.register(state, res.get("prioritas", []), dump, now)
+            recs.evaluate(state, dump, now)
+            recs.save(self.recs_path, state)
+
+    def recs_view(self) -> dict:
+        """Daftarkan rekomendasi aturan terbaru, bandingkan dengan setting mixer sekarang, kembalikan statusnya."""
+        with self._recs_lock:
+            state = recs.load(self.recs_path)
+            latest, dump = self.latest_dump()
+            if dump:
+                try:
+                    fnd = json.loads((self.data.parent / latest["findings"]).read_text(encoding="utf-8"))
+                except (OSError, ValueError, KeyError):
+                    fnd = []
+                now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+                recs.register(state, fnd, dump, now)
+                recs.evaluate(state, dump, now, {f["id"] for f in fnd})
+                recs.save(self.recs_path, state)
+            return recs.view(state)
 
     # ---------- DSP ----------
     @property
@@ -419,6 +455,7 @@ class App:
             live = self.live.snapshot() if self.live else None
             res = ai.analyze(ai.load_config(self.ai_cfg_path), dump, profile, findings, live,
                              situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base, dsp=self.dsp_data())
+            self._track_gemini(res, dump)
             (self.data / "ai-last.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
             return res
         finally:
@@ -678,6 +715,8 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, {**app.ai_view(), "is_local": self._is_local()})
                 if path == "/api/clips":
                     return self._json(200, {"clips": app.clips.list()})
+                if path == "/api/recs":
+                    return self._json(200, app.recs_view())
                 if path == "/api/dsp":
                     return self._json(200, app.dsp_view())
                 if path == "/api/dsp/preset":

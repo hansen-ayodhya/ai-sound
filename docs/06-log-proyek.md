@@ -191,6 +191,13 @@
 
 - File `viewer/sample-*.json`, tombol "Data contoh", banner DATA CONTOH, dan opsi `pakai_contoh` di Analisis AI dihapus (sudah tersambung ke MR18 asli). Tampilan kosong kini memberi petunjuk: ↻ Baca setting / Audit di Beranda.
 
+## Update 2026-11-07: verifikasi pelaksanaan rekomendasi
+
+- `aise/recs.py` + `data/recs.json` + `GET /api/recs`: tiap rekomendasi yang punya usulan angka dicatat bersama nilai awalnya, lalu dibandingkan dengan setting mixer setiap kali terbaca (live 60 dtk, ↻ Baca setting, Audit, atau saat halaman dimuat).
+- Status: belum / sebagian / selesai. Toggle: harus sama persis. Rasio kompresor: ±1 langkah. Angka lain: selesai bila mencapai ≥70% jarak ke usulan atau selisih ≤0,03. Rekomendasi aturan lokal yang aturannya MASIH memicu tidak pernah dianggap selesai. Usulan DSP tidak dilacak (DSP tidak terbaca). Id Gemini diberi cap waktu supaya tiap analisis dilacak sendiri.
+- Tampilan: yang selesai hilang dari saran aktif (lencana ⚠/💡, bayangan grafik) dan diganti lencana ✓ hijau di strip + bagian "✓ Sudah dilakukan" di panel channel (jam verifikasi, nilai awal, nilai sekarang); yang sebagian diberi status kuning; yang sempat selesai lalu dibatalkan ditandai "↺". Baris sumber menampilkan jumlah ✓.
+- 108 tes lulus; diuji di browser dengan mixer tiruan yang diubah operator.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
