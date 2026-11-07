@@ -76,7 +76,7 @@
     <p class="sub">Tujuan: melihat apakah ruangan membuat suara terlalu menonjol atau kurang di frekuensi tertentu, lalu mendapat usulan EQ (master atau DSP). Aplikasi ini hanya mendengar dan menghitung; semua perubahan Anda lakukan sendiri.</p>
     <div class="box bad"><b>Keamanan:</b> pink noise terdengar seperti desis keras. Mulai dari volume kecil, pastikan tidak ada orang berdiri dekat speaker, dan naikkan pelan-pelan dari fader master. Jangan dibiarkan lama.</div>
     <ol class="steps">
-      <li>Sambungkan keluaran laptop ke satu channel mixer yang kosong (mic dan musik lain di-mute). Atau unduh file pink noise di langkah 2 lalu putar dari komputer playback.</li>
+      <li>Sambungkan keluaran laptop ke satu channel mixer yang kosong (mic dan musik lain di-mute). Di channel itu matikan EQ, low cut, kompresor, dan gate, supaya pink noise tidak terbentuk lebih dulu. EQ master dan DSP biarkan menyala apa adanya: yang diukur adalah sistem seperti yang didengar jemaat. Atau unduh file pink noise di langkah 2 lalu putar dari komputer playback.</li>
       <li>Pilih jenis mic dan input di langkah 3. Letakkan mic di titik duduk jemaat, setinggi telinga.</li>
       <li>Ukur beberapa titik (depan, tengah, belakang, pinggir kiri dan kanan) di langkah 4. Makin banyak titik, makin bisa dipercaya.</li>
       <li>Lihat usulan EQ di langkah 5, terapkan satu per satu di mixer/DSP, lalu ukur ulang.</li>
@@ -130,7 +130,9 @@
     <div class="btns">
       <button type="button" id="btnMeasure" class="primary" disabled>● Ukur titik ini</button>
       <label class="filebtn">Pilih file rekaman<input type="file" id="fileIn" accept="audio/*,.wav"></label>
+      <label class="filebtn">📱 Rekam dengan HP<input type="file" id="fileRec" accept="audio/*" capture></label>
     </div>
+    <p class="note" style="margin-top:8px">Mic HP: buka halaman ini di HP, tekan “Rekam dengan HP”, rekam sekitar 15 detik di titik itu sambil pink noise menyala, lalu simpan. Di sebagian HP, tombol ini membuka aplikasi perekam bawaan. Perekam HP kadang menyalakan peredam bising atau pengatur level otomatis; kalau bisa dimatikan, matikan, karena itu membuat hasil kurang akurat. Mic HP hanya cocok untuk melihat masalah besar dan membandingkan sebelum dan sesudah.</p>
     <div class="bar" id="measBar" hidden><i id="measFill"></i></div>
     <div class="box" id="measMsg" hidden></div>
     <h3>Titik yang sudah diukur</h3>
@@ -316,8 +318,8 @@ async function measureLive() {
   $("measBar").hidden = true; busy = false; $("btnMeasure").disabled = !analyser;
 }
 $("btnMeasure").addEventListener("click", measureLive);
-$("fileIn").addEventListener("change", async () => {
-  const f = $("fileIn").files[0]; $("fileIn").value = "";
+for (const id of ["fileIn", "fileRec"]) $(id).addEventListener("change", async () => {
+  const f = $(id).files[0]; $(id).value = "";
   if (!f || busy) return;
   busy = true; measMsg("Membaca rekaman…");
   try {

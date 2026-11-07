@@ -230,6 +230,45 @@ def analyze_eq_problems(dump: dict | None) -> list[dict]:
     return findings
 
 
+RECENT_S = 60.0         # temuan gain dari meter live berlaku selama ini setelah kejadian terakhir
+CLIP_STEP_DB = -4.0
+HOT_STEP_DB = -3.0
+
+
+def make_gain_findings(events: dict, dump: dict | None, labels: dict[int, str] | None = None) -> list[dict]:
+    """Usulan gain dari clipping/hampir clipping yang baru terjadi di meter live.
+
+    events: {indeks meter: (jenis 'clip'|'hot', level dB)}. Pemetaan meter ke channel masih PERKIRAAN.
+    """
+    values = (dump or {}).get("values", {})
+    out = []
+    for i, (kind, lvl) in sorted(events.items()):
+        ch = channel_for_index(i)
+        gv = values.get(f"/headamp/{ch:02d}/gain") if ch else None
+        if not ch or not gv or gv[0] is None:
+            continue
+        cur = convert.gain_db(gv[0])
+        tgt = max(-12.0, round(cur + (CLIP_STEP_DB if kind == "clip" else HOT_STEP_DB)))
+        if tgt >= cur:
+            continue
+        name = (labels or {}).get(i, f"CH {ch:02d}")
+        clip = kind == "clip"
+        out.append({
+            "id": f"live-gain-ch{ch}", "ch": ch, "sumber": "program", "severity": "perhatian" if clip else "info",
+            "channel": f"CH {ch:02d}",
+            "masalah": f"{name}: sinyal {'clipping' if clip else 'terlalu panas'} (puncak {lvl:.1f} dB)",
+            "penyebab": "Gain preamp terlalu tinggi, atau sumber suara terlalu dekat/keras ke mic. Clipping di preamp tidak bisa diperbaiki dengan fader.",
+            "data": f"Meter live: puncak {lvl:.1f} dB dalam {RECENT_S:.0f} detik terakhir; gain sekarang {cur:+.0f} dB. "
+                    "Pemetaan meter ke channel masih perkiraan: cocokkan dengan meter channel di M-AIR sebelum mengubah.",
+            "uji": "Minta sumber suara itu bicara/bermain sekeras biasanya, lalu lihat meter channel di M-AIR: puncak sebaiknya tidak menyentuh merah.",
+            "rekomendasi": f"Turunkan gain dari {cur:+.0f} ke sekitar {tgt:+.0f} dB, lalu atur volume ke speaker lewat fader.",
+            "risiko": "Rendah. Setelah gain turun, fader mungkin perlu dinaikkan sedikit.",
+            "usulan": [{"alamat": f"/headamp/{ch:02d}/gain", "sekarang": gv[0], "usulan": round(convert.gain_raw(tgt), 4),
+                        "teks": f"Gain preamp: {cur:+.0f} → {tgt:+.0f} dB"}],
+        })
+    return out
+
+
 class LiveRules:
     def __init__(self, labels: dict[int, str] | None = None, inactive: set[int] | None = None):
         self.inactive = inactive or set()
@@ -308,6 +347,12 @@ class LiveMonitor:
         self.running = False
         self.error: str | None = None
         self._lock = threading.Lock()
+        self._recent: dict[int, tuple[str, float, float]] = {}
+
+    def recent_events(self, within_s: float = RECENT_S) -> dict[int, tuple[str, float]]:
+        now = time.monotonic()
+        with self._lock:
+            return {i: (k, lv) for i, (k, lv, t) in self._recent.items() if now - t <= within_s}
 
     def start(self) -> None:
         self.running = True
@@ -334,6 +379,13 @@ class LiveMonitor:
         if not alerts:
             return
         self.alerts.extend(alerts)
+        now = time.monotonic()
+        for a in alerts:
+            if a.kind in ("clip", "hot") and a.index >= 0:
+                prev = self._recent.get(a.index)
+                fresh = prev is not None and now - prev[2] <= RECENT_S
+                kind = "clip" if a.kind == "clip" or (fresh and prev[0] == "clip") else "hot"
+                self._recent[a.index] = (kind, max(a.level_db, prev[1]) if fresh else a.level_db, now)
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         with self.log_path.open("a", encoding="utf-8") as fh:
             for a in alerts:

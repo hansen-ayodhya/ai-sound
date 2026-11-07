@@ -44,7 +44,7 @@ from .client import DEFAULT_PORT, ReadOnlyClient
 from .dump import run_dump
 from .guard import ReadOnlyViolation, check
 from .guard import ALLOWED_PREFIXES
-from .live import LiveMonitor, inactive_from_dump, labels_from_dump, analyze_eq_problems
+from .live import LiveMonitor, analyze_eq_problems, inactive_from_dump, labels_from_dump, make_gain_findings
 from .report import findings_json, render
 from .menu import load_ip, save_ip, valid_ip
 from .paths import BUILD_VERSION_FILE, BUNDLE, FROZEN
@@ -460,10 +460,21 @@ class App:
                 except (OSError, ValueError, KeyError):
                     fnd = []
                 now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-                recs.register(state, fnd, dump, now)
+                recs.register(state, fnd + self.live_findings(dump), dump, now)
                 recs.evaluate(state, dump, now, {f["id"] for f in fnd})
                 recs.save(self.recs_path, state)
             return recs.view(state)
+
+    def live_findings(self, dump: dict | None = None) -> list[dict]:
+        """Usulan gain dari clipping/hampir clipping yang baru terjadi di meter live (kosong bila tidak live)."""
+        if not self.live:
+            return []
+        events = self.live.recent_events()
+        if not events:
+            return []
+        if dump is None:
+            _, dump = self.latest_dump()
+        return make_gain_findings(events, dump, self.live.labels)
 
     def eq_problems(self) -> list[dict]:
         """Analisis setting EQ mixer dan deteksi masalah: boomy, harsh, dll."""
@@ -779,7 +790,7 @@ def make_handler(app: App, http_port: int):
                     except ValueError:
                         since = None
                     return self._json(200, {**app.live.snapshot(include_alerts=want), "settings_at": app.live_settings_at,
-                                            **app.params_since(since)})
+                                            **app.params_since(since), "findings": app.live_findings() if want else None})
                 if path == "/api/live/eq-problems":
                     return self._json(200, {"findings": app.eq_problems()})
                 if path == "/api/job":

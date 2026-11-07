@@ -16,6 +16,15 @@ def _clamp01(x: float) -> float:
     return max(0.0, min(1.0, x))
 
 
+def gain_db(raw: float) -> float:
+    """Gain preamp: terverifikasi dengan M-AIR (2026-11-07). Rentang -12..+60 dB."""
+    return -12.0 + raw * 72.0
+
+
+def gain_raw(db: float) -> float:
+    return _clamp01((db + 12.0) / 72.0)
+
+
 def hpf_hz(raw: float) -> float:
     return 20.0 * 20.0 ** raw
 

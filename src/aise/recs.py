@@ -55,6 +55,8 @@ def fmt_value(alamat: str, raw) -> str:
     try:
         if alamat.endswith(TOGGLE_SUFFIX):
             return "ON" if int(raw) == 1 else "OFF"
+        if alamat.startswith("/headamp/") and alamat.endswith("/gain"):
+            return f"{convert.gain_db(raw):+.0f} dB"
         if alamat.endswith("/preamp/hpf"):
             return f"≈{convert.hpf_hz(raw):.0f} Hz"
         if "/eq/" in alamat and alamat.endswith("/f"):

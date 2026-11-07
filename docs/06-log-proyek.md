@@ -211,6 +211,15 @@
 - Halaman baru `viewer/room.html` + `viewer/room-core.js` (semua dihitung di browser, tidak menyentuh mixer): pink noise dari laptop (atau unduh WAV), rekam lewat mic/input USB atau pilih file rekaman, beberapa titik ukur, spektrum 1/3 oktaf (FFT 16384, jendela Hann, rata-rata daya), target datar atau pedoman umum, usulan maks 5 band EQ (potong lebih disukai; boost maks +3 dB; cekungan sempit dianggap masalah penempatan, bukan EQ), keyakinan diturunkan bila hasil berbeda jauh antar titik. Rentang yang dinilai dibatasi menurut jenis mic (mic vokal tidak datar). Hanya BENTUK kurva dinilai karena mic tidak terkalibrasi.
 - BELUM terbukti di perangkat asli: mic Shure wireless lewat MR18/USB audio masuk ke browser, dan kecocokan usulan dengan telinga di ruangan. Diuji dengan rekaman sintetis (tonjolan 200 Hz, cekungan 3,15 kHz) di Chromium.
 
+## Update 2026-11-07: visual rekomendasi fader dan gain + tombol Strip: Fader/Gain
+
+- Tombol "Strip: Fader / Gain" (tersimpan per perangkat) mengganti isi fader di semua strip channel: posisi fader atau gain preamp (rentang -12..+60 dB, sudah cocok dengan M-AIR). Usulan digambar sebagai garis putus-putus di jalur fader (ungu = program, biru muda = Gemini) dengan angka usulan di bawahnya; usulan untuk mode lain tampil sebagai teks ("gain → +31 dB").
+- Panel channel punya bagian "Gain & Fader" (batang sekarang + bayangan usulan). Lampu 48V tidak lagi ikut menyala karena usulan gain.
+- Gemini boleh mengusulkan `gain_db` (-12..+60) selain `fader_db`; 48V tetap dilarang.
+- Aturan program baru dari meter live: clipping -> usulan gain turun 4 dB, hampir clipping berulang -> turun 3 dB (id `live-gain-chN`, berlaku 60 dtk setelah kejadian terakhir, dilacak oleh recs sehingga ditandai ✓ setelah operator menurunkan gain). Bergantung pada pemetaan meter -> channel yang BELUM terbukti.
+- Ukur Ruangan: tombol "Rekam dengan HP" (capture) dan catatan mematikan EQ/low cut/kompresor/gate di channel sumber pink noise.
+- Tes: tests/test_level_recs.py; uji browser dengan mixer tiruan (mode fader/gain, bayangan, panel).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

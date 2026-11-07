@@ -180,11 +180,13 @@ Aturan menjawab:
 4. Operator ingin melihat saran dalam bentuk grafik. Untuk setiap rekomendasi yang menyangkut satu channel, WAJIB isi 'ch'
    dan beri 'usulan' angka sebagai TITIK AWAL yang aman (langkah kecil: EQ maksimal ±6 dB per langkah, low cut 80–150 Hz
    untuk suara, rasio kompresor 2–4:1 untuk vokal), memakai parameter di skema saja, lalu sesuaikan 'keyakinan'.
+   Untuk level: pakai 'gain_db' (kekuatan sinyal masuk di preamp) bila masalahnya clipping atau sinyal terlalu kecil;
+   pakai 'fader_db' untuk keseimbangan volume antar sumber. Clipping tidak bisa diperbaiki dengan fader.
    Kosongkan usulan hanya bila benar-benar tidak ada dasar; jelaskan kekurangannya di 'butuh_data'.
 5. Ingat: perubahan dilakukan operator sendiri; jangan menyarankan perubahan routing, master, atau limiter tanpa data DSP.
 6. Bahasa Indonesia yang sederhana dan praktis untuk operator gereja."""
 
-PARAMS = (["hpf_on", "hpf_hz", "eq_on", "comp_on", "comp_thr_db", "comp_ratio", "gate_on", "gate_thr_db", "fader_db"]
+PARAMS = (["hpf_on", "hpf_hz", "eq_on", "comp_on", "comp_thr_db", "comp_ratio", "gate_on", "gate_thr_db", "fader_db", "gain_db"]
           + [f"eq{b}_{k}" for b in range(1, 5) for k in ("hz", "db", "q")]
           + [f"send_bus{b}_db" for b in range(1, 7)] + [f"send_fx{f}_db" for f in range(1, 5)])
 
@@ -237,6 +239,8 @@ def channel_summary(dump: dict, profile: dict | None) -> list[dict]:
             item["aktif"] = g(c + "/mix/on") == 1
         if g(c + "/mix/fader") is not None:
             item["fader_db"] = _r(convert.fader_db(g(c + "/mix/fader")))
+        if g(h + "/gain") is not None:
+            item["gain_db"] = _r(convert.gain_db(g(h + "/gain")))
         if g(h + "/phantom") is not None:
             item["phantom_48v"] = g(h + "/phantom") == 1
         if g(c + "/preamp/hpon") is not None:
@@ -348,6 +352,9 @@ def to_usulan(ch: int, parameter: str, nilai, dump: dict) -> dict | None:
     if p == "gate_thr_db" and _between(nilai, -80, 0):
         a = f"{c}/gate/thr"
         return {"alamat": a, "sekarang": now(a), "usulan": round(convert.gate_thr_raw(nilai), 4), "teks": f"Threshold gate: → ≈{nilai:.0f} dB"}
+    if p == "gain_db" and _between(nilai, -12, 60):
+        a = f"/headamp/{ch:02d}/gain"
+        return {"alamat": a, "sekarang": now(a), "usulan": round(convert.gain_raw(nilai), 4), "teks": f"Gain preamp: → {nilai:+.0f} dB"}
     m = re.fullmatch(r"(fader|send_bus([1-6])|send_fx([1-4]))_db", p)
     if m and _between(nilai, -90, 10):
         if p == "fader_db":

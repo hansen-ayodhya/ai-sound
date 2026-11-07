@@ -74,6 +74,13 @@
   .knob { position: absolute; left: 50%; width: 30px; height: 14px; transform: translate(-50%, 50%);
     background: linear-gradient(#cfd6df, #8792a0); border-radius: 3px; box-shadow: 0 1px 3px #000a; }
   .knob::after { content: ""; position: absolute; left: 3px; right: 3px; top: 6px; height: 2px; background: #222; }
+  .fader .gk { position: absolute; left: 50%; width: 40px; height: 0; border-top: 2px dashed; transform: translate(-50%, 50%); pointer-events: none; }
+  .gk.rule { border-color: #b48cff; } .gk.gem { border-color: #3cc9f0; }
+  .fmode { text-align: center; font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--dim); }
+  .fmode.gain { color: var(--accent); }
+  .db.gain { color: #9cc7ff; }
+  .gtxt { font-size: 10px; text-align: center; line-height: 1.25; font-variant-numeric: tabular-nums; }
+  .gtxt.rule { color: #d6c4ff; } .gtxt.gem { color: #9be6fa; }
   .db { text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; }
   .mute { text-align: center; font-weight: 700; padding: 4px 0; border-radius: 5px; font-size: 11px; }
   .mute.on { background: #133524; color: var(--ok); }
@@ -241,6 +248,7 @@
     <button class="flag sim" id="simToggle" aria-pressed="true" title="Klik untuk mematikan/menyalakan">METER SIMULASI</button>
   </div>
   <div class="actions">
+    <button id="btnMode" title="Pilih yang ditampilkan di strip channel: posisi fader atau gain preamp">Strip: Fader</button>
     <button id="btnLive" class="liveBtn" hidden>▶ Mulai pantau live</button>
     <button id="btnRefresh" hidden title="Baca ulang setting dari mixer sekarang (hanya membaca)">↻ Baca setting</button>
     <button id="btnChannels" hidden>Daftar Channel</button>
@@ -569,6 +577,36 @@ function dynSection(n) {
     el("p", { class: "note", text: "Sumbu datar = level masuk, tegak = level keluar. Garis tegak = threshold. Kompresor menekan di atas threshold; gate memotong di bawah threshold." }),
   ];
 }
+function levelSection(n) {
+  const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
+  const P = { rule: proposals(n, "rule"), gem: proposals(n, "gem") };
+  const defs = [
+    ["Gain", h + "/gain", (r) => EST.gainDb(r), (d) => (d == null ? 0 : ((Math.max(-12, Math.min(60, d)) + 12) / 72) * 100)],
+    ["Fader", c + "/mix/fader", (r) => EST.faderDb(r), (d) => (d == null || d === -Infinity ? 0 : ((Math.max(-60, Math.min(10, d)) + 60) / 70) * 100)],
+  ];
+  const rows = [];
+  for (const [label, addr, toDb, pct] of defs) {
+    const now = raw(addr);
+    if (now == null && !P.rule.has(addr) && !P.gem.has(addr)) continue;
+    const ghosts = [], vals = [];
+    for (const src of ["rule", "gem"]) if (P[src].has(addr)) {
+      const d = toDb(P[src].get(addr));
+      ghosts.push(el("div", { class: "ghost " + src + (pct(d) === 0 ? " zero" : ""), style: `width:${pct(d)}%` }));
+      vals.push(el("span", { class: "v " + src, text: " → " + fmtDb(d) }));
+    }
+    rows.push(el("div", { class: "sendrow" }, el("span", { class: "lbl", text: label }),
+      el("div", { class: "sendbar" }, el("div", { class: "now", style: `width:${pct(toDb(now))}%` }), ...ghosts),
+      el("span", { class: "val" }, fmtDb(toDb(now)), ...vals)));
+  }
+  if (!rows.length) return [];
+  const re = /\/headamp\/\d\d\/gain|\/mix\/fader/;
+  return [
+    el("h3", { text: "Gain & Fader" }),
+    legendEl(hasProposalRe(n, re, "rule"), hasProposalRe(n, re, "gem")),
+    ...rows,
+    el("p", { class: "note", text: "Gain = kekuatan sinyal masuk di preamp (atur supaya meter tidak merah). Fader = volume ke speaker. Kalau clipping, turunkan gain, bukan fader." }),
+  ];
+}
 function sendSection(n) {
   const c = "/ch/" + pad2(n);
   const P = { rule: proposals(n, "rule"), gem: proposals(n, "gem") };
@@ -616,10 +654,25 @@ function muteEl(v) {
   if (v == null) return el("div", { class: "mute unk", text: "?" });
   return v === 1 ? el("div", { class: "mute on", text: "ON" }) : el("div", { class: "mute muted", text: "MUTE" });
 }
-function faderEl(f) {
+function faderEl(f, ghosts) {
   const pos = f == null ? 0 : Math.max(0, Math.min(1, f));
   return el("div", { class: "fader" },
-    el("div", { class: "track" }, f == null ? null : el("div", { class: "knob", style: `bottom:${pos * 100}%` })));
+    el("div", { class: "track" }, f == null ? null : el("div", { class: "knob", style: `bottom:${pos * 100}%` }),
+      ...(ghosts || []).map((g) => el("div", { class: "gk " + g.src, style: `bottom:${Math.max(0, Math.min(1, g.pos)) * 100}%` }))));
+}
+// Isi fader strip menurut mode: "fader" (volume ke speaker) atau "gain" (kekuatan sinyal masuk di preamp).
+function levelView(n) {
+  const gain = state.view.mode === "gain";
+  const own = gain ? "/headamp/" + pad2(n) + "/gain" : "/ch/" + pad2(n) + "/mix/fader";
+  const other = gain ? "/ch/" + pad2(n) + "/mix/fader" : "/headamp/" + pad2(n) + "/gain";
+  const fmt = (a, r) => fmtDb(a.endsWith("/gain") ? EST.gainDb(r) : EST.faderDb(r));
+  const val = raw(own), ghosts = [], lines = [];
+  for (const src of ["rule", "gem"]) {
+    const m = proposals(n, src);
+    if (m.has(own)) { ghosts.push({ src, pos: m.get(own) }); lines.push(el("div", { class: "gtxt " + src, text: "→ " + fmt(own, m.get(own)) })); }
+    if (m.has(other)) lines.push(el("div", { class: "gtxt " + src, text: (gain ? "fader" : "gain") + " → " + fmt(other, m.get(other)) }));
+  }
+  return { gain, val, text: (gain ? "G " : "") + fmt(own, val), ghosts, lines };
 }
 function meterEl(key, muted) {
   const fill = el("div", { class: "fill" }), peak = el("div", { class: "peak" }), clip = el("div", { class: "clip" });
@@ -646,7 +699,7 @@ function roleFor(n) {
 function channelStrip(n) {
   const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
   const name = raw(c + "/config/name");
-  const fader = raw(c + "/mix/fader"), on = raw(c + "/mix/on");
+  const on = raw(c + "/mix/on"), lv = levelView(n);
   const sends = [1, 2, 3, 4, 5, 6].map((b) => raw(`${c}/mix/${pad2(b)}/level`));
   const changedRecently = state.changedAt && Date.now() - (state.changedAt["ch" + n] || 0) < 2500;
   const strip = el("div", { class: "strip" + (changedRecently ? " changed" : ""), tabindex: "0", role: "button", "aria-label": "Detail channel " + n },
@@ -655,14 +708,16 @@ function channelStrip(n) {
       el("div", { class: "role", text: roleFor(n), title: roleFor(n) ? "Daftar Channel: " + roleFor(n) : "" })),
     badgesFor(n),
     el("div", { class: "lamps" },
-      lamp("l48", "48V", raw(h + "/phantom"), sugOf(n, /\/headamp\//)),
+      lamp("l48", "48V", raw(h + "/phantom"), sugOf(n, /\/headamp\/\d\d\/phantom/)),
       lamp("lhpf", "HPF", raw(c + "/preamp/hpon"), sugOf(n, /\/preamp\/hp/)),
       lamp("lgate", "GATE", raw(c + "/gate/on"), sugOf(n, /\/gate\//)),
       lamp("lcomp", "COMP", raw(c + "/dyn/on"), sugOf(n, /\/dyn\//)),
       lamp("leq", "EQ", raw(c + "/eq/on"), sugOf(n, /\/eq\//)), el("div", { class: "lamp", text: "→LR " + (raw(c + "/mix/lr") === 1 ? "✓" : "✗") })),
     eqSvg(n),
-    el("div", { class: "body" }, meterEl("ch" + n, on === 0), faderEl(fader)),
-    el("div", { class: "db", text: fmtDb(EST.faderDb(fader)) }),
+    el("div", { class: "fmode" + (lv.gain ? " gain" : ""), text: lv.gain ? "GAIN" : "FADER" }),
+    el("div", { class: "body" }, meterEl("ch" + n, on === 0), faderEl(lv.val, lv.ghosts)),
+    el("div", { class: "db" + (lv.gain ? " gain" : ""), text: lv.text }),
+    ...lv.lines,
     muteEl(on),
     el("div", { class: "sends", title: "Kiriman ke Bus 1–6 (monitor/FX)" },
       ...sends.map((s) => el("div", { class: s == null ? "none" : "", style: `height:${Math.max(4, (s || 0) * 100)}%` }))));
@@ -797,6 +852,7 @@ async function openChannel(n, strip) {
       el("p", { style: "margin: 0; font-size: 12px;", text: f.penyebab }),
       el("p", { style: "margin: 4px 0 0; font-size: 12px; color: var(--ok);", text: "→ " + f.rekomendasi }))),
     ...dynSection(n),
+    ...levelSection(n),
     ...sendSection(n),
     el("h3", { text: "Setting" }),
     t,
@@ -873,13 +929,21 @@ function render() {
 // ---------- tampilan: zoom & pilih channel (disimpan per perangkat) ----------
 const VIEW_KEY = "aise.mixer.view2";
 state.view = (() => {
-  const def = { zoom: window.innerWidth < 700 ? 0.8 : 1, hidden: [] };  // hidden = strip yang disembunyikan
+  const def = { zoom: window.innerWidth < 700 ? 0.8 : 1, hidden: [], mode: "fader" };  // hidden = strip yang disembunyikan
   try {
     const v = { ...def, ...(JSON.parse(localStorage.getItem(VIEW_KEY)) || {}) };
     if (!Array.isArray(v.hidden)) v.hidden = [];
+    if (v.mode !== "gain") v.mode = "fader";
     return v;
   } catch (e) { return def; }
 })();
+function applyMode() { $("btnMode").textContent = "Strip: " + (state.view.mode === "gain" ? "Gain" : "Fader"); }
+$("btnMode").addEventListener("click", () => {
+  state.view.mode = state.view.mode === "gain" ? "fader" : "gain";
+  saveView(); applyMode();
+  state.keepDrawer = true;
+  try { render(); } finally { state.keepDrawer = false; }
+});
 function saveView() { try { localStorage.setItem(VIEW_KEY, JSON.stringify(state.view)); } catch (e) { /* abaikan */ } }
 const isHidden = (key) => state.view.hidden.includes(key);
 function visibleChannels() {
@@ -1047,10 +1111,20 @@ async function refreshRecs() {
   try { const v = await api("/api/recs"); state.recs = v.recs || {}; state.recsDone = v.selesai || []; } catch (e) { /* abaikan */ }
 }
 const hhmm = (iso) => String(iso || "").slice(11, 16);
+// Usulan gain dari clipping live: berlaku sebentar setelah kejadian, lalu hilang sendiri.
+async function setLiveFindings(list) {
+  const sig = JSON.stringify(list.map((f) => [f.id, f.usulan.map((u) => u.usulan)]));
+  if (sig === state.liveSig) return;
+  state.liveSig = sig; state.liveFindings = list;
+  await refreshRecs();
+  mergeFindings();
+  state.keepDrawer = true;
+  try { render(); refreshOpenChannel(); } finally { state.keepDrawer = false; }
+}
 function setBaseFindings(list) { state.baseFindings = list; mergeFindings(); }
 function mergeFindings() {
   // Rekomendasi yang sudah terverifikasi dilakukan tidak lagi dihitung sebagai saran aktif (tidak jadi bayangan/lencana).
-  const all = state.baseFindings.concat(state.showAI ? state.aiFindings : []);
+  const all = state.baseFindings.concat(state.liveFindings || [], state.showAI ? state.aiFindings : []);
   state.findings = all.filter((f) => !(state.recs[f.id] && state.recs[f.id].status === "selesai"));
 }
 
@@ -1091,7 +1165,8 @@ function aiVisual(f) {
     legendEl(hasProposalRe(f.ch, /./, "rule"), true)];
   if (has(/\/(eq\/|preamp\/hp)/)) parts.push(eqChart(f.ch));
   if (has(/\/(dyn|gate)\//)) parts.push(...dynSection(f.ch).slice(2, 3));
-  if (has(/\/mix\/(\d\d\/level|fader)/)) parts.push(...sendSection(f.ch).slice(2, -1));
+  if (has(/\/(headamp\/\d\d\/gain|mix\/fader)/)) parts.push(...levelSection(f.ch).slice(2, -1));
+  if (has(/\/mix\/\d\d\/level/)) parts.push(...sendSection(f.ch).slice(2, -1));
   if (parts.length === 2) parts.push(el("ul", { class: "usulan" }, ...f.usulan.map((u) => el("li", { text: u.teks }))));
   parts.push(el("button", { class: "open", type: "button", text: "Buka detail CH " + pad2(f.ch),
     onclick: () => { openChannel(f.ch, state.stripEls["ch" + f.ch]).catch((e) => console.error("Error opening channel:", e)); } }));
@@ -1355,6 +1430,7 @@ async function poll() {
     else if (snap.params && snap.params.length) { state.paramSeq = snap.param_seq; applyParams(snap.params); }
     if (snap.levels) applyLive(snap);
     if (withAlerts && snap.alerts) showAlerts(snap.alerts);
+    if (withAlerts && Array.isArray(snap.findings)) setLiveFindings(snap.findings);
     if (snap.settings_at && snap.settings_at !== state.settingsAt) {
       state.settingsAt = snap.settings_at;
       state.keepDrawer = true;
@@ -1363,6 +1439,7 @@ async function poll() {
     if (!snap.running) {
       const fin = await api("/api/live?alerts=1");
       if (fin.alerts) showAlerts(fin.alerts);
+      if (Array.isArray(fin.findings)) setLiveFindings(fin.findings);
       if (fin.levels) applyLive(fin);
       setLiveUi(false);
       pollTimer = null;
@@ -1381,6 +1458,7 @@ $("btnLive").addEventListener("click", async () => {
     startPolling();
   } catch (e) { alert(e.message); }
 });
+applyMode();
 if (TOKEN && location.protocol.startsWith("http")) {
   $("btnLive").hidden = false;
   $("btnChannels").hidden = false;
