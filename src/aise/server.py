@@ -337,7 +337,7 @@ class App:
             for n in range(1, 17):
                 v = dump["values"].get(f"/ch/{n:02d}/config/name")
                 if v and v[0] not in (None, ""):
-                    names[n] = str(v[0])
+                    names[n] = channels.clean_name(v[0])
         return {"profile": base, "saved": saved is not None, "mixer_names": names,
                 "suggested": channels.suggest(base, dump) if dump else None,
                 "types": {k: v["label"] for k, v in channels.TYPES.items()},

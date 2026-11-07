@@ -7,11 +7,18 @@ berisi sumber yang disebutkan operator, dengan channel kosong.
 
 from __future__ import annotations
 
+
 import json
 import re
 import time
 from copy import deepcopy
 from pathlib import Path
+
+
+def clean_name(name) -> str:
+    """Nama channel dari mixer tanpa akhiran nomor otomatis (mis. 'Lead Keyb_27' -> 'Lead Keyb')."""
+    return re.sub(r"_\d{1,3}$", "", str(name if name is not None else "").strip()).strip()
+
 
 # Jenis sumber dan sifatnya untuk aturan AI.
 #   voice: channel suara manusia; speech: bicara (khotbah); hpf: usulan low cut (Hz);
@@ -160,7 +167,7 @@ def _names(dump: dict | None) -> dict[int, str]:
     for n in range(1, 17):
         v = (dump or {}).get("values", {}).get(f"/ch/{n:02d}/config/name")
         if v and v[0] not in (None, ""):
-            out[n] = str(v[0]).strip()
+            out[n] = clean_name(v[0])
     return out
 
 

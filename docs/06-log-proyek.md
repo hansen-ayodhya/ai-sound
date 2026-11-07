@@ -249,6 +249,11 @@
 - Belum terbukti: manfaat riwayat bagi kualitas saran Gemini (butuh banyak ibadah dan penilaian); sekarang hanya mengumpulkan dan meringkas tanpa menyimpulkan sendiri.
 - Tes: tests/test_memori.py; uji browser menu, halaman Memori AI, dan Ukur Ruangan.
 
+## Update 2026-11-07: batas peringatan 5 menit, nama channel tanpa akhiran
+
+- Peringatan live disembunyikan setelah 5 menit (sebelumnya 2); tetap ada di log.
+- Akhiran angka otomatis pada nama channel dari mixer (mis. "Lead Keyb_27", "Bass_19") tidak ditampilkan lagi: `channels.clean_name` (Python: label live, laporan, prompt Gemini, isi otomatis Daftar Channel) dan `cleanName` di viewer (strip, panel, pemilih channel, tabel). Hanya `_` + 1-3 angka di akhir yang dibuang. Data mentah di dump tidak diubah.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

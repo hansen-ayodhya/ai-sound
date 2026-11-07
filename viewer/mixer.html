@@ -368,6 +368,8 @@ function svg(tag, attrs) {
 }
 const pad2 = (n) => String(n).padStart(2, "0");
 
+// Nama channel dari mixer tanpa akhiran nomor otomatis (mis. "Lead Keyb_27" -> "Lead Keyb").
+const cleanName = (s) => String(s == null ? "" : s).replace(/_\d{1,3}$/, "").trim();
 const state = { dump: null, findings: [], meters: [], live: false, stripEls: {}, seenAlerts: 0 };
 const tokenMeta = document.querySelector('meta[name="aise-token"]');
 const TOKEN = tokenMeta ? tokenMeta.content : null;
@@ -727,7 +729,7 @@ function roleFor(n) {
 }
 function channelStrip(n) {
   const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
-  const name = raw(c + "/config/name");
+  const name = cleanName(raw(c + "/config/name"));
   const on = raw(c + "/mix/on"), lv = levelView(n);
   const changedRecently = state.changedAt && Date.now() - (state.changedAt["ch" + n] || 0) < 2500;
   const strip = el("div", { class: "strip" + (lv.gain ? " gainmode" : "") + (changedRecently ? " changed" : ""), tabindex: "0", role: "button", "aria-label": "Detail channel " + n },
@@ -753,7 +755,7 @@ function channelStrip(n) {
   return strip;
 }
 function masterStrip(label, prefix, key) {
-  const name = raw(prefix + "/config/name");
+  const name = cleanName(raw(prefix + "/config/name"));
   const fader = raw(prefix + "/mix/fader"), on = raw(prefix + "/mix/on");
   const strip = el("div", { class: "strip master" },
     el("div", { class: "sbadges" }),
@@ -872,7 +874,7 @@ async function openChannel(n, strip) {
   } catch (e) { /* abaikan jika tidak bisa fetch */ }
 
   showDrawer(strip,
-    el("h3", { text: "CH " + pad2(n) + " · " + (raw(c + "/config/name") || "(tanpa nama)") }),
+    el("h3", { text: "CH " + pad2(n) + " · " + (cleanName(raw(c + "/config/name")) || "(tanpa nama)") }),
     el("p", { class: "note", text: "Nilai bertanda ≈ adalah perkiraan. Cocokkan dengan aplikasi mixer sebelum dipercaya." }),
     ...doneSection(n),
     changes.length ? el("h3", { text: "Usulan perubahan (" + changes.length + ")" }) : null,
@@ -1001,8 +1003,8 @@ function visibleChannels() {
 }
 function stripKeys() {
   if (!state.dump) return [];
-  return [...channels().map((n) => ["ch" + n, "CH " + pad2(n) + " " + (raw("/ch/" + pad2(n) + "/config/name") || "") + (roleFor(n) ? " · " + roleFor(n) : ""), "Input"]),
-    ...buses().map((b) => { const nm = String(raw("/bus/" + b + "/config/name") || "");
+  return [...channels().map((n) => ["ch" + n, "CH " + pad2(n) + " " + cleanName(raw("/ch/" + pad2(n) + "/config/name")) + (roleFor(n) ? " · " + roleFor(n) : ""), "Input"]),
+    ...buses().map((b) => { const nm = cleanName(raw("/bus/" + b + "/config/name"));
       return ["bus" + b, "Bus " + b + (nm && nm.toLowerCase() !== ("bus " + b) ? " " + nm : ""), "Bus & Main"]; }),
     ["lr", "Main L/R", "Bus & Main"]];
 }
@@ -1183,7 +1185,7 @@ function aiVisual(f) {
   if (!f.ch || !f.usulan || !f.usulan.length || !state.dump || !state.showAI) return null;
   const addrs = f.usulan.map((u) => u.alamat);
   const has = (re) => addrs.some((a) => re.test(a));
-  const parts = [el("h4", { text: "Gambaran usulan · CH " + pad2(f.ch) + " " + (raw("/ch/" + pad2(f.ch) + "/config/name") || "") }),
+  const parts = [el("h4", { text: "Gambaran usulan · CH " + pad2(f.ch) + " " + cleanName(raw("/ch/" + pad2(f.ch) + "/config/name")) }),
     legendEl(hasProposalRe(f.ch, /./, "rule"), true)];
   if (has(/\/(eq\/|preamp\/hp)/)) parts.push(eqChart(f.ch));
   if (has(/\/(dyn|gate)\//)) parts.push(...dynSection(f.ch).slice(2, 3));
@@ -1423,10 +1425,10 @@ function showAlerts(list) {
   applyAlertsMin();
   for (const a of list.slice(state.seenAlerts)) if (a.index >= 0) flash(a.index, a.severity);
   state.seenAlerts = list.length;
-  const fresh = list.filter((a) => a.ago == null || a.ago <= 120), hidden = list.length - fresh.length;   // yang lama tetap ada di log
+  const fresh = list.filter((a) => a.ago == null || a.ago <= 300), hidden = list.length - fresh.length;   // yang lama tetap ada di log
   $("alertCount").textContent = "(" + fresh.length + (hidden ? " · " + hidden + " lama disembunyikan" : "") + ")";
   const ul = $("alertList");
-  if (!fresh.length) { ul.replaceChildren(el("li", { class: "empty", text: list.length ? "Tidak ada peringatan dalam 2 menit terakhir (yang lama ada di log)." : "Belum ada peringatan." })); return; }
+  if (!fresh.length) { ul.replaceChildren(el("li", { class: "empty", text: list.length ? "Tidak ada peringatan dalam 5 menit terakhir (yang lama ada di log)." : "Belum ada peringatan." })); return; }
   ul.replaceChildren(...fresh.slice().reverse().slice(0, 60).map((a) =>
     el("li", { class: a.severity }, el("span", { class: "tm", text: a.time }),
       el("span", { class: "lb", text: a.index >= 0 ? a.label : "Koneksi" }),

@@ -234,7 +234,7 @@ def channel_summary(dump: dict, profile: dict | None) -> list[dict]:
         if not any(k.startswith(c + "/") and v[k] is not None for k in v):
             continue
         src = channels.source_for(profile, n)
-        item: dict = {"ch": n, "nama_mixer": g(c + "/config/name") or ""}
+        item: dict = {"ch": n, "nama_mixer": channels.clean_name(g(c + "/config/name"))}
         if src:
             item.update(sumber=src["nama"], jenis=channels.TYPES[src["jenis"]]["label"], koneksi=src["koneksi"] or None,
                         mic=src["mic"] or None)

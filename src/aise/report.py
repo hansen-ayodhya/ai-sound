@@ -73,7 +73,7 @@ def _db_txt(raw, fn) -> str:
 
 def _label(values: dict, n: int) -> tuple[str, str]:
     name = _first(values, f"/ch/{n:02d}/config/name")
-    name = str(name).strip() if name not in (None, "") else ""
+    name = channels.clean_name(name) if name not in (None, "") else ""
     return name, f"Ch {n:02d}" + (f" '{name}'" if name else "")
 
 
