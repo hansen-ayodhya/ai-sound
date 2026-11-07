@@ -79,7 +79,7 @@ def inactive_from_dump(dump: dict | None) -> set[int]:
     return out
 
 
-def analyze_eq_problems(dump: dict | None, profile: dict | None = None) -> list[dict]:
+def analyze_eq_problems(dump: dict | None) -> list[dict]:
     """Analisis setting EQ per channel dan deteksi masalah: boomy, harsh, kurang jelas, over-bright.
 
     Mengembalikan list of findings dalam format recommendation (id, masalah, penyebab, rekomendasi, usulan).
@@ -157,32 +157,6 @@ def analyze_eq_problems(dump: dict | None, profile: dict | None = None) -> list[
                     "sumber": "program",
                     "usulan": [{"alamat": f"/ch/{ch:02d}/eq/{band['band']}/g", "usulan": convert.eq_gain_raw(4.0), "teks": "Turunkan gain ke +4 dB"}]
                 })
-
-    # Deteksi kurang jelas: jika tidak ada frequency di 2–5 kHz yang dipukul
-    for i in range(N_MAPPED_CHANNELS):
-        ch = channel_for_index(i)
-        if not ch:
-            continue
-
-        eq_bands = []
-        for band in range(1, 5):
-            f_raw = values.get(f"/ch/{ch:02d}/eq/{band}/f")
-            g_raw = values.get(f"/ch/{ch:02d}/eq/{band}/g")
-            if f_raw and g_raw:
-                freq_hz = convert.eq_hz(f_raw[0])
-                gain_db = convert.eq_gain_db(g_raw[0])
-                eq_bands.append({"band": band, "hz": freq_hz, "db": gain_db})
-
-        # Check apakah ada band di 2–5 kHz dengan boost minimal
-        presence_bands = [b for b in eq_bands if 2000 <= b["hz"] <= 5000 and b["db"] > 1.0]
-        if not presence_bands:
-            # Tidak ada presence. Ini INFO saja, bukan warning
-            ch_name = values.get(f"/ch/{ch:02d}/config/name")
-            ch_name = str(ch_name[0]).strip() if ch_name and ch_name[0] not in (None, "") else f"CH {ch:02d}"
-
-            # Jangan flag jika channel suara vokal/khotbah yang biasanya perlu presence
-            # Ini hanya untuk awareness, operator bisa keputusan sendiri
-            pass
 
     return findings
 

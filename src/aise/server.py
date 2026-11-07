@@ -470,8 +470,7 @@ class App:
         _, dump = self.latest_dump()
         if not dump:
             return []
-        profile = self.profile_view().get("profile", {})
-        return analyze_eq_problems(dump, profile)
+        return analyze_eq_problems(dump)
 
     # ---------- DSP ----------
     @property
