@@ -353,10 +353,14 @@ const raw = (addr) => {
 // ---------- kurva EQ (perkiraan bentuk) ----------
 function eqState(ch, get) {
   const c = "/ch/" + pad2(ch);
+  const all = [1, 2, 3, 4].map((b) => ({
+    b, f: EST.eqHz(get(`${c}/eq/${b}/f`)), g: EST.eqGain(get(`${c}/eq/${b}/g`)), q: EST.eqQ(get(`${c}/eq/${b}/q`)),
+    tipe: get(`${c}/eq/${b}/type`),
+  }));
+  // Band digambar bila frekuensi & gain terbaca; Q kosong dianggap 1 (ditandai). Yang tidak terbaca dicatat.
   return {
-    bands: [1, 2, 3, 4].map((b) => ({
-      b, f: EST.eqHz(get(`${c}/eq/${b}/f`)), g: EST.eqGain(get(`${c}/eq/${b}/g`)), q: EST.eqQ(get(`${c}/eq/${b}/q`)),
-    })).filter((x) => x.f && x.g != null && x.q),
+    bands: all.filter((x) => x.f && x.g != null).map((x) => ({ ...x, qGuess: !x.q, q: x.q || 1 })),
+    missing: all.filter((x) => !(x.f && x.g != null)).map((x) => x.b),
     eqOn: get(c + "/eq/on") === 1,
     hpOn: get(c + "/preamp/hpon") === 1,
     hp: EST.hpfHz(get(c + "/preamp/hpf")),
@@ -730,6 +734,8 @@ function openChannel(n, strip) {
     el("h3", { text: "EQ" }),
     legendEl(hasEqProposal(n, "rule"), hasEqProposal(n, "gem")),
     eqChart(n),
+    (() => { const m = eqState(n, raw).missing; return m.length ? el("p", { class: "note bad", text:
+      "EQ band " + m.join(", ") + " tidak terbaca dari mixer (nilainya kosong), jadi tidak digambar. Cek baris EQ band di tabel Setting." }) : null; })(),
     el("p", { class: "note", text: raw(c + "/eq/on") === 0
       ? "EQ channel ini sedang OFF; titik band tidak ditampilkan. Bentuk kurva adalah perkiraan dari nilai mixer."
       : "Lingkaran hijau bernomor = posisi band EQ sekarang. Bentuk kurva adalah perkiraan dari nilai mixer." }),
