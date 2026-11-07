@@ -227,6 +227,18 @@
 - Strip bergaya M-AIR: skala 10/5/0/-5/-10/-20/-30/-50/-∞ berjarak sama (sesuai posisi mentah k/8), tombol fader lebar bergaris putih, meter hijau-kuning-merah di kanan dengan penunjuk puncak dan lampu clip, nilai dB di atas, nama channel di bawah. Garis putus-putus usulan (ungu/biru muda) mengikuti skala yang sama. Strip tidak lagi memuat kurva EQ mini dan batang kiriman; keduanya ada di panel detail.
 - Peringatan live default diringkas satu baris.
 
+## Update 2026-11-07: Mode kontrol (menerapkan rekomendasi dari aplikasi)
+
+- Pertama kalinya aplikasi bisa MENGUBAH mixer, lewat jalur tulis terpisah `aise/writer.py`. `ReadOnlyClient` dan `guard.py` tidak diubah (tes tetap membuktikan klien baca menolak tulis).
+- Mati secara default. Dinyalakan dari menu ⋯ → "Nyalakan mode kontrol" dengan dua centang (scene sudah disimpan, paham perubahan langsung terdengar). Syarat: pantau live berjalan. Mati sendiri setelah 10 menit tanpa aktivitas; nilai terakhir dibiarkan (tidak dipulihkan paksa). Boleh dari semua perangkat yang sudah masuk (PIN).
+- Daftar putih (`writer.SPECS`) channel 01-16: gain, fader, low cut (on/frekuensi), EQ (on, gain, frekuensi, Q tiap band), kompresor (on, threshold, rasio). TIDAK PERNAH: 48V, mute, routing, fader Main/bus, kiriman, gate, scene, reset. Angka kompresor masih perkiraan (≈), ditandai di UI.
+- Cara kerja: tombol "Terapkan" pada tiap titik usulan -> slider dari nilai awal (dibaca langsung dari mixer saat itu) ke target rekomendasi. Mouse atau keyboard (← → 2%, Shift 10%, Home awal, End rekomendasi). Target harus cocok dengan rekomendasi yang tercatat di recs. Slider tidak bisa melewati awal/target. Sakelar dan rasio memakai bilangan bulat; menaikkan gain dan sakelar butuh konfirmasi; ayunan gain maks 20 dB.
+- Pencegah glitch: maks 10 kiriman/detik per parameter (3 per tick total), batas langkah per kiriman (gain 1 dB, EQ gain 1 dB, fader/frekuensi 0,02, threshold 0,05), nilai terbaru menggantikan yang antre, maks 6 parameter sekaligus, baca balik setelah selesai (verifikasi), dan kontrol dilepas bila operator mengubah parameter yang sama di M-AIR (gema dari kiriman sendiri diabaikan).
+- Catatan: `data/changes.jsonl` (arm, kunci, restore, konflik, verifikasi, dll.), `data/control-snapshot-*.json` (nilai awal saat dinyalakan). Tombol "Kembalikan semua perubahan" dan "Kembalikan ke awal" per titik.
+- Rekomendasi EQ aturan kini ikut dicatat recs (id memuat nomor band) sehingga bisa diterapkan dan ditandai ✓. Fader strip berwarna merah saat mode Gain.
+- Bug tampilan realtime diperbaiki: muat ulang file setting bisa membuat strip mundur sebentar; kini kabar perubahan terbaru diterapkan ulang setelah muat ulang.
+- BELUM terbukti di MR18 asli: menulis nilai lewat OSC, gema perubahan ke pelanggan /xremote dari tulisan sendiri, dan pembulatan nilai oleh mixer. Uji pertama sebaiknya di luar ibadah, scene tersimpan, pada channel kosong. Diuji dengan mixer tiruan: tes tests/test_control.py dan uji browser.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

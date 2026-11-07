@@ -45,8 +45,10 @@ from .dump import run_dump
 from .guard import ReadOnlyViolation, check
 from .guard import ALLOWED_PREFIXES
 from .live import LiveMonitor, analyze_eq_problems, inactive_from_dump, labels_from_dump, make_gain_findings
+from .writer import spec_for
 from .report import findings_json, render
 from .menu import load_ip, save_ip, valid_ip
+from .writer import Controller, WriteRefused
 from .paths import BUILD_VERSION_FILE, BUNDLE, FROZEN
 from .paths import DATA as DATA_DIR
 
@@ -118,6 +120,8 @@ class App:
         self._overlay: dict[str, list] = {}
         self._param_lock = threading.Lock()
         self._flush_pending = False
+        # Mode kontrol (jalur tulis terpisah; mati sampai operator menyalakannya)
+        self.control = Controller(self.data / "changes.jsonl", self._read_one)
 
     # ---------- pekerjaan ----------
     def _acquire(self) -> None:
@@ -229,6 +233,7 @@ class App:
 
     # ---------- kabar perubahan dari mixer (realtime) ----------
     def _on_param(self, addr: str, args) -> None:
+        self.control.on_param(addr, args)
         if not addr.startswith(ALLOWED_PREFIXES) or addr.startswith("/meters"):
             return
         val = [a for a in args if isinstance(a, (int, float, str)) and not isinstance(a, bool)]
@@ -460,10 +465,57 @@ class App:
                 except (OSError, ValueError, KeyError):
                     fnd = []
                 now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-                recs.register(state, fnd + self.live_findings(dump), dump, now)
-                recs.evaluate(state, dump, now, {f["id"] for f in fnd})
+                eqp = analyze_eq_problems(dump)
+                recs.register(state, fnd + eqp + self.live_findings(dump), dump, now)
+                recs.evaluate(state, dump, now, {f["id"] for f in fnd + eqp})
                 recs.save(self.recs_path, state)
             return recs.view(state)
+
+    # ---------- Mode kontrol (menerapkan rekomendasi) ----------
+    def _read_one(self, addr: str):
+        """Baca satu nilai langsung dari mixer (query read-only); None bila tidak menjawab."""
+        ip, port = load_ip(self.data / "mixer-ip.txt"), self.load_port()
+        if not valid_ip(ip):
+            return None
+        with ReadOnlyClient(ip, port, timeout=0.4, retries=2, log_path=self.data / "osc_log.jsonl") as c:
+            r = c.query(addr)
+        return r[0] if r else None
+
+    def control_status(self) -> dict:
+        return {**self.control.status(), "live": bool(self.live and self.live.running)}
+
+    def control_enable(self, body: dict) -> dict:
+        if body.get("scene_saved") is not True or body.get("paham") is not True:
+            raise ValueError("Centang dulu: scene sudah disimpan di M-AIR, dan Anda paham perubahan langsung terdengar.")
+        if not (self.live and self.live.running):
+            raise ValueError("Pemantauan live harus berjalan dulu (untuk melihat hasil dan mendeteksi perubahan dari M-AIR).")
+        ip, port = load_ip(self.data / "mixer-ip.txt"), self.load_port()
+        if not valid_ip(ip):
+            raise ValueError("IP mixer belum diisi.")
+        _, dump = self.latest_dump()
+        if dump:
+            snap = {a: v for a, v in dump.get("values", {}).items() if v is not None and spec_for(a)}
+            (self.data / f"control-snapshot-{time.strftime('%Y%m%d-%H%M%S')}.json").write_text(
+                json.dumps({"created": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "values": snap}, ensure_ascii=False), encoding="utf-8")
+        self.control.enable(ip, port)
+        return self.control_status()
+
+    def control_arm(self, addr: str, konfirmasi: bool, hint=None) -> dict:
+        if spec_for(addr) is None:
+            raise WriteRefused(f"{addr} tidak boleh diubah dari aplikasi.")
+        tracked = recs.load(self.recs_path).get("tracked", {})
+        cands = [(t.get("dibuat", ""), it) for t in tracked.values() if not t.get("done_at") for it in t["items"] if it["alamat"] == addr]
+        if not cands:
+            raise WriteRefused("Rekomendasi untuk parameter ini belum tercatat atau sudah selesai. Muat ulang halaman.")
+        if isinstance(hint, (int, float)) and not isinstance(hint, bool):       # target dari kartu yang diklik operator
+            cands = [c for c in cands if abs(float(c[1]["target"]) - float(hint)) <= 0.002]
+            if not cands:
+                raise WriteRefused("Rekomendasi itu sudah berubah. Muat ulang halaman.")
+        target = max(cands, key=lambda c: c[0])[1]["target"]
+        awal = self._read_one(addr)
+        if awal is None:
+            raise ValueError("Mixer tidak menjawab saat membaca nilai sekarang. Perubahan dibatalkan.")
+        return self.control.arm(addr, awal, target, konfirmasi)
 
     def live_findings(self, dump: dict | None = None) -> list[dict]:
         """Usulan gain dari clipping/hampir clipping yang baru terjadi di meter live (kosong bila tidak live)."""
@@ -791,6 +843,8 @@ def make_handler(app: App, http_port: int):
                         since = None
                     return self._json(200, {**app.live.snapshot(include_alerts=want), "settings_at": app.live_settings_at,
                                             **app.params_since(since), "findings": app.live_findings() if want else None})
+                if path == "/api/control":
+                    return self._json(200, app.control_status())
                 if path == "/api/live/eq-problems":
                     return self._json(200, {"findings": app.eq_problems()})
                 if path == "/api/job":
@@ -883,6 +937,19 @@ def make_handler(app: App, http_port: int):
                     if situasi not in ai.SITUASI:
                         raise ValueError("Situasi tidak dikenal.")
                     return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", ""))))
+                if path == "/api/control/enable":
+                    return self._json(200, app.control_enable(body))
+                if path == "/api/control/disable":
+                    app.control.disable("dimatikan operator")
+                    return self._json(200, app.control_status())
+                if path == "/api/control/arm":
+                    return self._json(200, {"item": app.control_arm(str(body.get("alamat", "")), body.get("konfirmasi") is True, body.get("target"))})
+                if path == "/api/control/set":
+                    return self._json(200, {"item": app.control.set_fraction(str(body.get("alamat", "")), body.get("p"))})
+                if path == "/api/control/release":
+                    return self._json(200, {"item": app.control.release(str(body.get("alamat", "")), body.get("kembali") is True)})
+                if path == "/api/control/restore-all":
+                    return self._json(200, {"dipulihkan": app.control.restore_all()})
                 if path == "/api/settings/refresh":
                     return self._json(200, app.refresh_settings())
                 if path == "/api/live/stop":
@@ -896,6 +963,7 @@ def make_handler(app: App, http_port: int):
                 if path == "/api/tests":
                     return self._json(200, app.run_cmd([sys.executable, "-m", "unittest", "discover", "-s", "tests"], 180))
                 if path == "/api/shutdown":
+                    app.control.disable("aplikasi ditutup")
                     self._json(200, {"ok": True})
                     if app.shutdown_cb:
                         threading.Thread(target=app.shutdown_cb, daemon=True).start()
@@ -905,7 +973,7 @@ def make_handler(app: App, http_port: int):
                 return self._json(409, {"error": str(exc)})
             except ai.AIError as exc:
                 return self._json(502, {"error": str(exc)})
-            except (ValueError, ReadOnlyViolation, channels.ProfileError, ClipError, dspmod.DSPError) as exc:
+            except (ValueError, ReadOnlyViolation, WriteRefused, channels.ProfileError, ClipError, dspmod.DSPError) as exc:
                 return self._json(400, {"error": str(exc)})
 
     return Handler

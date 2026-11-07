@@ -153,7 +153,7 @@ def analyze_eq_problems(dump: dict | None) -> list[dict]:
             # Boomy: boost 50-150 Hz dengan gain > +4dB
             if 50 <= freq <= 150 and gain > 4.0:
                 findings.append({
-                    "id": f"eq-boomy-ch{ch}",
+                    "id": f"eq-boomy-ch{ch}-b{band['band']}",
                     "ch": ch,
                     "masalah": "Suara boomy (bass berlebihan)",
                     "penyebab": f"Band {band['band']} dipukul ke {freq:.0f} Hz +{gain:.1f} dB. Frekuensi ini bikin suara berat/menggelegar.",
@@ -169,7 +169,7 @@ def analyze_eq_problems(dump: dict | None) -> list[dict]:
             # Harsh: boost 3–5 kHz dengan gain > +4dB
             elif 3000 <= freq <= 5000 and gain > 4.0:
                 findings.append({
-                    "id": f"eq-harsh-ch{ch}",
+                    "id": f"eq-harsh-ch{ch}-b{band['band']}",
                     "ch": ch,
                     "masalah": "Suara kasar / harsh (vokal/instrumen terasa tajam)",
                     "penyebab": f"Band {band['band']} dipukul ke {freq:.0f} Hz +{gain:.1f} dB. Range ini bikin detail tapi bisa berlebihan jadi kasar.",
@@ -185,7 +185,7 @@ def analyze_eq_problems(dump: dict | None) -> list[dict]:
             # Over-bright: boost 8–12 kHz dengan gain > +6dB
             elif 8000 <= freq <= 12000 and gain > 6.0:
                 findings.append({
-                    "id": f"eq-bright-ch{ch}",
+                    "id": f"eq-bright-ch{ch}-b{band['band']}",
                     "ch": ch,
                     "masalah": "Suara terlalu cerah / sibilant (terlalu terang)",
                     "penyebab": f"Band {band['band']} dipukul ke {freq:.0f} Hz +{gain:.1f} dB. Boost berlebih di range brightness bisa bikin telinga sakit.",
@@ -199,7 +199,7 @@ def analyze_eq_problems(dump: dict | None) -> list[dict]:
                 })
             elif 150 < freq <= 300 and gain > 4.0:
                 findings.append({
-                    "id": f"eq-muddy-ch{ch}",
+                    "id": f"eq-muddy-ch{ch}-b{band['band']}",
                     "ch": ch,
                     "masalah": "Suara berlumpur / tidak jernih",
                     "penyebab": f"Band {band['band']} di {freq:.0f} Hz dinaikkan +{gain:.1f} dB. Area ini memberi 'badan', tapi kalau terlalu banyak suara jadi tebal dan menutupi kejelasan.",
@@ -214,7 +214,7 @@ def analyze_eq_problems(dump: dict | None) -> list[dict]:
 
             elif 1000 <= freq <= 5000 and gain <= -3.0:
                 findings.append({
-                    "id": f"eq-unclear-ch{ch}",
+                    "id": f"eq-unclear-ch{ch}-b{band['band']}",
                     "ch": ch,
                     "masalah": "Suara kurang jelas (kata-kata sulit dimengerti)",
                     "penyebab": f"Band {band['band']} di {freq:.0f} Hz dipotong {gain:.1f} dB. Area 1-5 kHz membuat suara maju dan kata-kata jelas; kalau dipotong, suara tenggelam di antara instrumen.",

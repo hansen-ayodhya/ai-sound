@@ -81,6 +81,29 @@
   .cap { position: absolute; left: 50%; width: 36px; height: 48px; transform: translate(-50%, 50%); border-radius: 3px; box-shadow: 0 1px 4px #000c;
     background: repeating-linear-gradient(to bottom, #bfc4cb 0, #bfc4cb 3px, #8e949c 3px, #8e949c 6px, #a8adb4 6px, #a8adb4 9px); border: 1px solid #5d636b; }
   .cap::after { content: ""; position: absolute; left: 2px; right: 2px; top: 50%; height: 3px; transform: translateY(-50%); background: #fff; box-shadow: 0 0 0 1px #0006; }
+  .strip.gainmode .cap { background: repeating-linear-gradient(to bottom, #e26d6d 0, #e26d6d 3px, #b54a4a 3px, #b54a4a 6px, #cd5a5a 6px, #cd5a5a 9px); border-color: #7d2e2e; }
+  .tools button.ctl { border-color: var(--warn); color: var(--warn); font-weight: 700; }
+  .ctlbox { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 6px; }
+  .chead { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  .crow { padding: 7px 0; border-bottom: 1px dashed var(--line); }
+  .crow .clab { font-size: 13px; margin-bottom: 4px; }
+  .crow button { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--strip-hi); color: var(--text); cursor: pointer; }
+  .crow button.apply { border-color: #b48cff; color: #d6c4ff; }
+  .crow button:disabled { opacity: .5; cursor: default; }
+  .slide { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+  .slide input[type=range] { width: 100%; accent-color: #b48cff; }
+  .slide .sa, .slide .st { font-size: 12px; font-variant-numeric: tabular-nums; } .slide .st { color: #d6c4ff; }
+  .snow { font-size: 12px; color: var(--muted); margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .sbtn { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .shint { font-size: 11px; color: var(--dim); margin-top: 4px; }
+  .cmsg { font-size: 12px; margin-top: 4px; } .cmsg.bad { color: var(--bad); } .cmsg.ok { color: var(--ok); }
+  .modal { position: fixed; inset: 0; background: #000b; display: grid; place-items: center; z-index: 50; padding: 16px; }
+  .mbox { background: var(--desk); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; width: min(480px, 100%); }
+  .mbox h3 { margin: 0 0 6px; font-size: 16px; } .mbox p { color: var(--muted); font-size: 13px; margin: 6px 0; }
+  .mbox label { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-size: 13px; cursor: pointer; }
+  .mbox .mbtns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+  .mbox button { font: inherit; padding: 7px 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--strip); color: var(--text); cursor: pointer; }
+  .mbox button.go { background: var(--warn); border-color: var(--warn); color: #1a1204; font-weight: 700; } .mbox button:disabled { opacity: .45; cursor: not-allowed; }
   .gk { position: absolute; left: 50%; width: 46px; height: 0; border-top: 2px dashed; transform: translate(-50%, 50%); pointer-events: none; z-index: 2; }
   .gk.rule { border-color: #b48cff; } .gk.gem { border-color: #3cc9f0; }
   .mcol { display: flex; flex-direction: column; gap: 2px; width: 14px; flex: 0 0 14px; }
@@ -115,8 +138,6 @@
   .card ol { margin: 0; padding-left: 18px; }
   .card li { margin: 3px 0; }
   .card li b { color: var(--muted); font-weight: 600; }
-  .approve { display: flex; gap: 6px; margin-top: 8px; }
-  .approve button { flex: 1; padding: 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--strip-hi); color: var(--dim); cursor: not-allowed; }
   .note { color: var(--muted); font-size: 12px; }
   .strip.al-bad { box-shadow: 0 0 0 2px var(--bad) inset; background: #2a1717; }
   .strip.al-warn { box-shadow: 0 0 0 2px var(--warn) inset; }
@@ -238,10 +259,13 @@
     <button type="button" id="btnRefresh" hidden title="Baca ulang setting dari mixer sekarang (hanya membaca)">↻</button>
     <button type="button" id="btnPick" aria-expanded="false" aria-controls="picker" title="Pilih channel yang ditampilkan">☰</button>
     <button type="button" id="btnAI" class="aiBtn" hidden>✦ AI</button>
+    <button type="button" id="ctlPill" class="ctl" hidden title="Mode kontrol aktif. Klik untuk mematikan.">✎ Kontrol <span id="ctlLeft"></span></button>
     <details class="more" id="more"><summary title="Menu lain">⋯</summary>
       <div class="menu">
         <h5>Pemantauan</h5>
         <button type="button" id="btnLive" class="liveToggle" hidden>■ Hentikan pantau live</button>
+        <button type="button" id="btnControl" hidden>✎ Nyalakan mode kontrol…</button>
+        <button type="button" id="btnRestoreAll" hidden>↩ Kembalikan semua perubahan</button>
         <h5>Data</h5>
         <button type="button" id="btnChannels" hidden>Daftar Channel</button>
         <button type="button" id="btnLatest" hidden>Audit terakhir</button>
@@ -252,7 +276,7 @@
         <h5>Halaman</h5>
         <a href="home.html">Beranda</a><a href="clips.html">Klip Suara</a><a href="dsp.html">Data DSP</a><a href="room.html">Ukur Ruangan</a><a href="index.html">Tabel</a>
         <h5>Catatan</h5>
-        <p class="info">Halaman ini hanya membaca mixer; tidak ada tombol yang mengubahnya. Fader, gain, nama, HPF, dan EQ sudah dicocokkan dengan M-AIR. Angka kompresor, gate, dan kiriman bus masih perkiraan (≈), begitu juga pemetaan meter ke channel.</p>
+        <p class="info">Secara default halaman ini hanya membaca mixer. Mixer baru berubah bila Anda menyalakan Mode kontrol lalu menekan Terapkan pada sebuah rekomendasi. Fader, gain, nama, HPF, dan EQ sudah dicocokkan dengan M-AIR. Angka kompresor, gate, dan kiriman bus masih perkiraan (≈), begitu juga pemetaan meter ke channel.</p>
         <p class="info" id="source"></p>
       </div>
     </details>
@@ -276,6 +300,14 @@
 </div>
 <main class="desk" id="desk"><div class="empty">Memuat…</div></main>
 <aside class="drawer" id="drawer" hidden></aside>
+<div class="modal" id="ctlModal" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="ctlTitle">
+  <h3 id="ctlTitle">Nyalakan mode kontrol mixer</h3>
+  <p>Dengan mode ini aplikasi bisa mengubah gain, fader, low cut, EQ, dan kompresor pada channel input, sedikit demi sedikit lewat slider, hanya untuk rekomendasi. Tidak pernah menyentuh 48V, mute, routing, Main/bus, atau scene. Mati sendiri bila 10 menit tidak dipakai. Semua perubahan tercatat dan bisa dikembalikan.</p>
+  <label><input type="checkbox" id="ckScene"> Scene sudah disimpan di M-AIR (Scenes → Save), sebagai cadangan.</label>
+  <label><input type="checkbox" id="ckParam"> Saya paham perubahan langsung terdengar di speaker, dan akan melakukannya pelan-pelan, sebaiknya di luar ibadah.</label>
+  <p class="cmsg bad" id="ctlErr"></p>
+  <div class="mbtns"><button type="button" id="ctlCancel">Batal</button><button type="button" id="ctlGo" class="go" disabled>Nyalakan</button></div>
+</div></div>
 
 <script>
 "use strict";
@@ -693,7 +725,7 @@ function channelStrip(n) {
   const name = raw(c + "/config/name");
   const on = raw(c + "/mix/on"), lv = levelView(n);
   const changedRecently = state.changedAt && Date.now() - (state.changedAt["ch" + n] || 0) < 2500;
-  const strip = el("div", { class: "strip" + (changedRecently ? " changed" : ""), tabindex: "0", role: "button", "aria-label": "Detail channel " + n },
+  const strip = el("div", { class: "strip" + (lv.gain ? " gainmode" : "") + (changedRecently ? " changed" : ""), tabindex: "0", role: "button", "aria-label": "Detail channel " + n },
     badgesFor(n),
     el("div", { class: "lamps" },
       lamp("l48", "48V", raw(h + "/phantom"), sugOf(n, /\/headamp\/\d\d\/phantom/)),
@@ -755,10 +787,7 @@ function findingCard(f) {
       el("li", null, el("b", { text: "Rekomendasi: " }), f.rekomendasi),
       el("li", null, el("b", { text: "Risiko perubahan: " }), f.risiko)),
     (f.usulan && f.usulan.length) ? el("ul", { class: "usulan" }, ...f.usulan.map((u) => el("li", { text: u.teks }))) : null,
-    (f.usulan && f.usulan.length) ? el("div", { class: "approve" },
-      el("button", { disabled: "", title: "Aktif di Tahap 4, setelah konversi nilai terbukti", text: "Setujui (Tahap 4)" }),
-      el("button", { disabled: "", title: "Aktif di Tahap 4", text: "Tolak" })) : null,
-    (f.usulan && f.usulan.length) ? el("p", { class: "note", text: "Untuk sekarang, ubah lewat aplikasi mixer bila Anda setuju." }) : null);
+    controlBox(f));
 }
 function showDrawer(strip, ...content) {
   state.openCh = null;      // openChannel mengisinya lagi setelah memanggil showDrawer
@@ -779,8 +808,13 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawe
 function refreshOpenChannel() {
   const n = state.openCh, d = $("drawer");
   if (n == null || d.hidden) return;
-  const top = d.scrollTop;
-  openChannel(n, state.stripEls["ch" + n]).then(() => { d.scrollTop = top; }).catch((e) => console.error("Error refreshing channel:", e));
+  if ([...ctlLive.values()].some((r) => r.dragging)) return;       // jangan ganggu slider yang sedang digeser mouse
+  const top = d.scrollTop, fa = state.ctlFocus;
+  openChannel(n, state.stripEls["ch" + n]).then(() => {
+    d.scrollTop = top;
+    const sl = fa && d.querySelector(`input[data-addr="${fa}"]`);
+    if (sl) sl.focus({ preventScroll: true });
+  }).catch((e) => console.error("Error refreshing channel:", e));
 }
 function doneSection(n) {
   const list = state.recsDone.filter((r) => r.ch === n);
@@ -838,7 +872,8 @@ async function openChannel(n, strip) {
     ...eqProblems.map((f) => el("div", { class: "card perhatian" },
       el("h4", { text: "⚠ " + f.masalah }),
       el("p", { style: "margin: 0; font-size: 12px;", text: f.penyebab }),
-      el("p", { style: "margin: 4px 0 0; font-size: 12px; color: var(--ok);", text: "→ " + f.rekomendasi }))),
+      el("p", { style: "margin: 4px 0 0; font-size: 12px; color: var(--ok);", text: "→ " + f.rekomendasi }),
+      controlBox(f))),
     ...dynSection(n),
     ...levelSection(n),
     ...sendSection(n),
@@ -1035,6 +1070,8 @@ async function loadUrls(dumpUrl, findingsUrl) {
   d._name = dumpUrl.split("/").slice(-2).join("/");
   let f = [];
   if (findingsUrl) { try { f = await getJson(findingsUrl); } catch (e) { f = []; } }
+  // File di disk bisa tertinggal dari kabar perubahan realtime: terapkan ulang yang baru masuk supaya tidak mundur.
+  for (const [a, r] of Object.entries(state.recentParams || {})) if (Date.now() - r.t < 8000) d.values[a] = r.v;
   state.dump = d;
   await refreshRecs();
   setBaseFindings(Array.isArray(f) ? f : []);
@@ -1303,8 +1340,10 @@ function applyParams(list) {
   if (!state.dump) return;
   state.changedAt = state.changedAt || {};
   const now = Date.now();
+  state.recentParams = state.recentParams || {};
   for (const { a, v } of list) {
     state.dump.values[a] = v;
+    state.recentParams[a] = { v, t: now };
     let m = a.match(/^\/(?:ch|headamp)\/(\d\d)\//);
     if (m) state.changedAt["ch" + parseInt(m[1], 10)] = now;
     else if ((m = a.match(/^\/bus\/(\d+)\//))) state.changedAt["bus" + m[1]] = now;
@@ -1391,6 +1430,7 @@ async function poll() {
     if (snap.levels) applyLive(snap);
     if (withAlerts && snap.alerts) showAlerts(snap.alerts);
     if (withAlerts && Array.isArray(snap.findings)) setLiveFindings(snap.findings);
+    if (withAlerts && state.control.aktif) refreshControl();
     if (snap.settings_at && snap.settings_at !== state.settingsAt) {
       state.settingsAt = snap.settings_at;
       state.keepDrawer = true;
@@ -1418,6 +1458,205 @@ $("btnLive").addEventListener("click", async () => {
     startPolling();
   } catch (e) { alert(e.message); }
 });
+// ---------- MODE KONTROL: menerapkan rekomendasi lewat slider (awal -> rekomendasi) ----------
+state.control = { aktif: false, sisa_detik: 0, item: [] };
+const CTL_RE = /^(?:\/headamp\/(?:0[1-9]|1[0-6])\/gain|\/ch\/(?:0[1-9]|1[0-6])\/(?:mix\/fader|preamp\/hpf|preamp\/hpon|eq\/on|eq\/[1-4]\/[gfq]|dyn\/on|dyn\/thr|dyn\/ratio))$/;
+const ctlRows = new Set();
+// Alamat slider yang terakhir difokuskan (tetap diingat walau elemennya sempat dilepas saat panel digambar ulang).
+document.addEventListener("focusin", (e) => { state.ctlFocus = (e.target.dataset && e.target.dataset.addr) || null; });
+const ctlLive = new Map();
+const ctlDone = new Map();      // alamat -> keterangan hasil (dikunci/dikembalikan); tetap tampil walau panel digambar ulang      // alamat -> baris yang sedang aktif (dipertahankan saat panel digambar ulang)
+const ctlItem = (addr) => state.control.item.find((i) => i.alamat === addr);
+const ctlKind = (a) => (/\/(hpon|eq\/on|dyn\/on)$/.test(a) ? "toggle" : a.endsWith("/dyn/ratio") ? "enum" : "float");
+function fmtAddr(a, v) {
+  if (v == null) return "—";
+  if (ctlKind(a) === "toggle") return v === 1 ? "ON" : "OFF";
+  if (a.endsWith("/gain")) return fmtDb(EST.gainDb(v));
+  if (a.endsWith("/mix/fader")) return fmtDb(EST.faderDb(v));
+  if (a.endsWith("/preamp/hpf")) return fmtHz(EST.hpfHz(v));
+  if (/\/eq\/\d\/f$/.test(a)) return fmtHz(EST.eqHz(v));
+  if (/\/eq\/\d\/g$/.test(a)) return fmtDb(EST.eqGain(v));
+  if (/\/eq\/\d\/q$/.test(a)) return "Q " + EST.eqQ(v).toFixed(1);
+  if (a.endsWith("/dyn/thr")) return fmtDb(EST.compThrDb(v)) + " ≈";
+  if (a.endsWith("/dyn/ratio")) return (EST.ratio(v) || "?") + ":1 ≈";
+  return String(v);
+}
+async function refreshControl() {
+  if (!TOKEN) return;
+  try { state.control = await api("/api/control"); } catch (e) { return; }
+  paintControlUi();
+}
+function paintControlUi() {
+  const c = state.control;
+  $("ctlPill").hidden = !c.aktif;
+  $("ctlLeft").textContent = Math.floor(c.sisa_detik / 60) + ":" + String(c.sisa_detik % 60).padStart(2, "0");
+  $("btnControl").textContent = c.aktif ? "✎ Matikan mode kontrol" : "✎ Nyalakan mode kontrol…";
+  $("btnRestoreAll").hidden = !c.aktif;
+  for (const r of [...ctlRows]) { if (!r.el.isConnected) ctlRows.delete(r); else r.paint(); }
+}
+function makeSender(addr) {
+  let pending = null, busy = false, last = 0;
+  const pump = async () => {
+    if (busy || pending == null) return;
+    const wait = 80 - (Date.now() - last);
+    if (wait > 0) { setTimeout(pump, wait); return; }
+    const p = pending; pending = null; busy = true; last = Date.now();
+    try { await api("/api/control/set", { alamat: addr, p }); } catch (e) { /* status berikutnya menampilkan masalahnya */ } finally { busy = false; if (pending != null) pump(); }
+  };
+  const send = (p) => { pending = p; pump(); };
+  send.flush = async () => { while (busy || pending != null) await new Promise((r) => setTimeout(r, 30)); };
+  send.cancel = () => { pending = null; };
+  return send;
+}
+function controlRow(u) {
+  const addr = u.alamat, kind = ctlKind(addr);
+  const box = el("div", { class: "crow" });
+  const send = makeSender(addr);
+  const row = { el: box, mode: "", dragging: false, msg: "", target: u.usulan, paint };
+  let refs = {};
+  const sameTarget = (it) => Math.abs(it.target - u.usulan) <= 0.003;     // slider hanya untuk rekomendasi yang dipilih
+  const modeOf = () => { const it = ctlItem(addr);
+    return ctlDone.has(addr) ? "done" : !state.control.aktif ? "off" : !it ? "ready" : !sameTarget(it) ? "lain" : it.state === "aktif" ? "aktif" : "dilepas"; };
+  const approx = /\/dyn\//.test(addr) ? el("div", { class: "shint", text: "Angka kompresor masih perkiraan (≈): dengarkan hasilnya dan cocokkan dengan M-AIR." }) : null;
+
+  async function apply(btn) {
+    let konfirmasi = false;
+    if (kind === "toggle") {
+      if (!confirm(u.teks + "\n\nSakelar langsung berpindah dan bisa terdengar sekejap. Lanjutkan?")) return;
+      konfirmasi = true;
+    } else if (addr.startsWith("/headamp/") && u.usulan > (raw(addr) == null ? 0 : raw(addr))) {
+      if (!confirm("Menaikkan gain menambah risiko feedback (mendenging). Naikkan pelan-pelan dan siap menurunkannya lagi. Lanjutkan?")) return;
+      konfirmasi = true;
+    }
+    btn.disabled = true; row.msg = ""; ctlDone.delete(addr);
+    try {
+      await api("/api/control/arm", { alamat: addr, konfirmasi, target: u.usulan });
+      if (kind === "toggle") await api("/api/control/set", { alamat: addr, p: 1 });
+    } catch (e) { row.msg = e.message; }
+    await refreshControl();
+    row.mode = ""; paint();
+  }
+  async function finish(restore) {
+    send.cancel();
+    if (!restore) await send.flush();
+    const it = ctlItem(addr);
+    try { await api("/api/control/release", { alamat: addr, kembali: restore }); } catch (e) { row.msg = e.message; }
+    ctlDone.set(addr, restore ? "Dikembalikan ke nilai awal." : "Dikunci di " + fmtAddr(addr, raw(addr) == null ? (it && it.nilai) : raw(addr)) + ". Rekomendasi ditandai ✓ setelah nilai terbaca sesuai.");
+    row.mode = ""; await refreshControl();
+  }
+  function build(mode) {
+    box.replaceChildren(); refs = {};
+    const lab = el("div", { class: "clab", text: u.teks });
+    const it = ctlItem(addr);
+    if (mode === "off" || mode === "ready") {
+      const btn = el("button", { type: "button", class: "apply", text: "Terapkan",
+        title: mode === "off" ? "Nyalakan Mode kontrol dulu" : "Mulai menerapkan perlahan dengan slider" });
+      btn.addEventListener("click", () => (mode === "off" ? openControlModal() : apply(btn)));
+      box.append(lab, btn);
+      if (row.msg) box.append(el("div", { class: "cmsg bad", text: row.msg }));
+      if (approx) box.append(approx);
+    } else if (mode === "lain") {
+      box.append(lab, el("div", { class: "cmsg", text: "Parameter ini sedang diatur dari rekomendasi lain (menuju " + fmtAddr(addr, it.target) + ")." }));
+    } else if (mode === "done") {
+      const again = el("button", { type: "button", text: "Terapkan lagi" });
+      again.addEventListener("click", () => { ctlDone.delete(addr); row.mode = ""; paint(); });
+      box.append(lab, el("div", { class: "cmsg ok", text: ctlDone.get(addr) }), again);
+    } else if (mode === "dilepas") {
+      const ok = el("button", { type: "button", text: "Mengerti" });
+      ok.addEventListener("click", async () => { try { await api("/api/control/release", { alamat: addr }); } catch (e) { /* abaikan */ } row.mode = ""; await refreshControl(); });
+      box.append(lab, el("div", { class: "cmsg bad", text: it.pesan || "Kontrol dilepas." }), ok);
+    } else {
+      refs.now = el("div", { class: "snow" });
+      const btns = el("div", { class: "sbtn" });
+      const back = el("button", { type: "button", text: "Kembalikan ke awal" });
+      const keep = el("button", { type: "button", text: "Selesai & kunci" });
+      back.addEventListener("click", () => finish(true));
+      keep.addEventListener("click", () => finish(false));
+      btns.append(back, keep);
+      box.append(lab);
+      if (kind === "toggle") {
+        box.append(refs.now, btns);
+      } else {
+        refs.slider = el("input", { type: "range", min: "0", max: "100", step: "1", value: String(Math.round((it.p || 0) * 100)),
+          "aria-label": "Dari nilai awal menuju rekomendasi: " + u.teks, "data-addr": addr });
+        refs.sa = el("span", { class: "sa", text: fmtAddr(addr, it.awal) });
+        refs.st = el("span", { class: "st", text: fmtAddr(addr, it.target) });
+        const slide = el("div", { class: "slide" }, refs.sa, refs.slider, refs.st);
+        const move = (p) => { refs.slider.value = String(p); send(p / 100); refs.pct = p; paint(); };
+        refs.slider.addEventListener("pointerdown", () => { row.dragging = true; });
+        window.addEventListener("pointerup", () => { row.dragging = false; }, { once: true });
+        refs.slider.addEventListener("input", () => { refs.pct = +refs.slider.value; send(refs.pct / 100); paint(); });
+        refs.slider.addEventListener("keydown", (e) => {
+          const big = e.shiftKey ? 10 : 2;
+          let p = +refs.slider.value;
+          if (e.key === "ArrowRight" || e.key === "ArrowUp") p += big;
+          else if (e.key === "ArrowLeft" || e.key === "ArrowDown") p -= big;
+          else if (e.key === "PageUp") p += 25;
+          else if (e.key === "PageDown") p -= 25;
+          else if (e.key === "Home") p = 0;
+          else if (e.key === "End") p = 100;
+          else return;
+          e.preventDefault();
+          move(Math.max(0, Math.min(100, p)));
+        });
+        box.append(slide, refs.now, btns,
+          el("div", { class: "shint", text: "← → geser pelan (2%) · Shift + ← → cepat (10%) · Home = awal · End = rekomendasi · geser kembali ke kiri untuk membatalkan" }));
+      }
+      if (approx) box.append(approx);
+    }
+  }
+  function paint() {
+    const mode = modeOf();
+    if (mode !== row.mode) { row.mode = mode; build(mode); }
+    if (mode === "aktif") ctlLive.set(addr, row); else if (ctlLive.get(addr) === row) ctlLive.delete(addr);
+    const it = ctlItem(addr);
+    if (mode !== "aktif" || !it) return;
+    const cur = raw(addr) == null ? it.nilai : raw(addr);
+    const pct = refs.slider ? (row.dragging || document.activeElement === refs.slider ? +refs.slider.value : Math.round((it.p || 0) * 100)) : Math.round((it.p || 0) * 100);
+    if (refs.slider && !row.dragging && document.activeElement !== refs.slider) refs.slider.value = String(pct);
+    refs.now.textContent = (kind === "toggle" ? "Diterapkan: " : "Sekarang ") + fmtAddr(addr, cur) + (kind === "toggle" ? "" : " · " + pct + "% menuju rekomendasi") +
+      (it.verifikasi ? (it.verifikasi[0] ? " · ✓ terbaca di mixer" : " · ⚠ " + (it.pesan || "nilai di mixer berbeda")) : "");
+  }
+  return row;
+}
+function controlBox(f) {
+  const items = f.usulan || [];
+  const ok = items.filter((u) => CTL_RE.test(u.alamat)), manual = items.filter((u) => !CTL_RE.test(u.alamat));
+  if (!ok.length && !manual.length) return null;
+  const box = el("div", { class: "ctlbox" });
+  if (ok.length) {
+    box.append(el("div", { class: "chead", text: "Terapkan dari aplikasi" }));
+    for (const u of ok) {
+      const live = ctlLive.get(u.alamat), r = live && live.target === u.usulan ? live : controlRow(u);     // slider yang sedang dipakai tidak dibuat ulang
+      ctlRows.add(r); r.paint(); box.append(r.el);
+    }
+  }
+  if (manual.length) box.append(el("p", { class: "note", text: "Ubah manual di M-AIR: " + manual.map((u) => u.teks).join("; ") }));
+  return box;
+}
+function openControlModal() {
+  $("ckScene").checked = false; $("ckParam").checked = false; $("ctlGo").disabled = true; $("ctlErr").textContent = "";
+  $("ctlModal").hidden = false;
+}
+for (const id of ["ckScene", "ckParam"]) $(id).addEventListener("change", () => { $("ctlGo").disabled = !($("ckScene").checked && $("ckParam").checked); });
+$("ctlCancel").addEventListener("click", () => { $("ctlModal").hidden = true; });
+$("ctlGo").addEventListener("click", async () => {
+  try { state.control = await api("/api/control/enable", { scene_saved: true, paham: true }); $("ctlModal").hidden = true; paintControlUi(); }
+  catch (e) { $("ctlErr").textContent = e.message; }
+});
+async function disableControl() {
+  try { await api("/api/control/disable", {}); } catch (e) { /* abaikan */ }
+  await refreshControl();
+}
+$("btnControl").addEventListener("click", () => { $("more").open = false; state.control.aktif ? disableControl() : openControlModal(); });
+$("ctlPill").addEventListener("click", () => { if (confirm("Matikan mode kontrol? Nilai di mixer dibiarkan seperti sekarang.")) disableControl(); });
+$("btnRestoreAll").addEventListener("click", async () => {
+  $("more").open = false;
+  if (!confirm("Kembalikan semua parameter yang diubah dari aplikasi ke nilai awalnya?")) return;
+  try { await api("/api/control/restore-all", {}); } catch (e) { alert(e.message); }
+  refreshControl();
+});
+
 applyMode();
 // Tampilan mixer langsung masuk ke live: sambung ke mixer begitu halaman dibuka.
 async function autoLive() {
@@ -1433,6 +1672,8 @@ async function autoLive() {
 document.addEventListener("click", (e) => { const m = $("more"); if (m.open && !m.contains(e.target)) m.open = false; });
 if (TOKEN && location.protocol.startsWith("http")) {
   $("btnLive").hidden = false;
+  $("btnControl").hidden = false;
+  refreshControl();
   $("btnChannels").hidden = false;
   $("btnRefresh").hidden = false;
   $("btnAI").hidden = false;

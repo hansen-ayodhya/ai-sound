@@ -18,6 +18,8 @@ class FakeMixer:
     def __init__(self, state: dict[str, tuple]):
         self.state = dict(state)
         self.write_attempts: list[tuple[str, tuple]] = []
+        self.write_log: list[tuple[float, str, tuple]] = []   # (waktu, alamat, argumen) tiap tulis diterima
+        self.echo_writes = False   # True: kabarkan tulis ke pelanggan /xremote (seperti mixer yang mengabarkan perubahan)
         self.queries: list[str] = []
         self.meter_requests: list[tuple] = []
         self.subscribers: set = set()        # pelanggan /xremote
@@ -77,7 +79,14 @@ class FakeMixer:
                 continue
             if args:
                 self.write_attempts.append((address, args))
+                self.write_log.append((time.monotonic(), address, args))
                 self.state[address] = args
+                if self.echo_writes:
+                    for sub in list(self.subscribers):
+                        try:
+                            self._sock.sendto(encode(address, args), sub)
+                        except OSError:
+                            pass
                 continue
             self.queries.append(address)
             if address in self.state:
