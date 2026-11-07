@@ -180,6 +180,13 @@
 - Catatan umum di atas strip jadi satu baris yang bisa dibuka; peringatan live bisa diringkas. Pilihan diingat per perangkat.
 - Beban ke mixer (perkiraan, belum diukur di MR18): meter ~20 paket kecil/dtk dari mixer; query dibatasi ≤50/dtk; baca ulang setting tiap 60 dtk. Pemrosesan audio MR18 terpisah dari jaringan.
 
+## Update 2026-11-07: uji pertama di MR18 asli
+
+- Koneksi OSC berhasil: port 10024, MR18 firmware 1.16, 777/777 alamat dijawab, nama channel terbaca.
+- Dicocokkan dengan M-AIR oleh operator: nama channel, fader, HPF on/off, gain, frekuensi HPF → tanda ≈ dihapus untuk fader, gain, HPF. EQ band terbaca 4 (sebelumnya satu band tersaring karena Q kosong; diperbaiki).
+- DSP: software Protea yang terpasang adalah versi "NE" (jaringan), bukan USB; perlu versi non-NE untuk 4.8SP via USB. Belum tersambung.
+- Belum diverifikasi: kompresor, gate, kiriman bus/FX (alamat tebakan), pemetaan meter ke channel, tipe band EQ (shelf).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

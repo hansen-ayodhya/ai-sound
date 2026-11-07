@@ -649,7 +649,7 @@ function channelStrip(n) {
       lamp("leq", "EQ", raw(c + "/eq/on"), sugOf(n, /\/eq\//)), el("div", { class: "lamp", text: "→LR " + (raw(c + "/mix/lr") === 1 ? "✓" : "✗") })),
     eqSvg(n),
     el("div", { class: "body" }, meterEl("ch" + n, on === 0), faderEl(fader)),
-    el("div", { class: "db", text: fmtDb(EST.faderDb(fader)) + (fader == null ? "" : " ≈") }),
+    el("div", { class: "db", text: fmtDb(EST.faderDb(fader)) }),
     muteEl(on),
     el("div", { class: "sends", title: "Kiriman ke Bus 1–6 (monitor/FX)" },
       ...sends.map((s) => el("div", { class: s == null ? "none" : "", style: `height:${Math.max(4, (s || 0) * 100)}%` }))));
@@ -667,7 +667,7 @@ function masterStrip(label, prefix, key) {
       el("div", { class: "name" + (name ? "" : " empty"), text: name || label })),
     el("div", { class: "lamps" }, lamp("leq", "EQ", raw(prefix + "/eq/on")), lamp("lcomp", "COMP", raw(prefix + "/dyn/on"))),
     el("div", { class: "body" }, meterEl(key, on === 0), faderEl(fader)),
-    el("div", { class: "db", text: fmtDb(EST.faderDb(fader)) + (fader == null ? "" : " ≈") }),
+    el("div", { class: "db", text: fmtDb(EST.faderDb(fader)) }),
     muteEl(on));
   strip.addEventListener("click", () => openGeneric(label, prefix, strip));
   return strip;
@@ -709,16 +709,16 @@ function openChannel(n, strip) {
   const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
   const onoff = (v) => (v == null ? "—" : v === 1 ? "ON" : "OFF");
   const t = el("table", null,
-    row("Gain", fmtDb(EST.gainDb(raw(h + "/gain"))), true),
+    row("Gain", fmtDb(EST.gainDb(raw(h + "/gain"))), false),  // terverifikasi dengan M-AIR (2026-11-07)
     row("48V", onoff(raw(h + "/phantom"))),
-    row("Low cut (HPF)", onoff(raw(c + "/preamp/hpon")) + " · " + fmtHz(EST.hpfHz(raw(c + "/preamp/hpf"))), true),
+    row("Low cut (HPF)", onoff(raw(c + "/preamp/hpon")) + " · " + fmtHz(EST.hpfHz(raw(c + "/preamp/hpf"))), false),  // terverifikasi dengan M-AIR
     row("Gate", onoff(raw(c + "/gate/on")) + " · thr " + fmtDb(EST.gateThrDb(raw(c + "/gate/thr"))), true),
     row("Kompresor", onoff(raw(c + "/dyn/on")) + " · thr " + fmtDb(EST.compThrDb(raw(c + "/dyn/thr"))), true),
     row("EQ", onoff(raw(c + "/eq/on"))),
     ...[1, 2, 3, 4].map((b) => row("EQ band " + b,
       fmtHz(EST.eqHz(raw(`${c}/eq/${b}/f`))) + " · " + fmtDb(EST.eqGain(raw(`${c}/eq/${b}/g`))) +
       " · Q " + (raw(`${c}/eq/${b}/q`) == null ? "—" : EST.eqQ(raw(`${c}/eq/${b}/q`)).toFixed(1)), true)),
-    row("Fader", fmtDb(EST.faderDb(raw(c + "/mix/fader"))), true),
+    row("Fader", fmtDb(EST.faderDb(raw(c + "/mix/fader"))), false),  // terverifikasi dengan M-AIR
     row("Status", raw(c + "/mix/on") === 0 ? "MUTE" : onoff(raw(c + "/mix/on"))),
     ...[1, 2, 3, 4, 5, 6].map((b) => row("Kirim ke Bus " + b, fmtDb(EST.faderDb(raw(`${c}/mix/${pad2(b)}/level`))), true)));
   const list = state.findings.filter((f) => f.ch === n);
