@@ -220,6 +220,13 @@
 - Ukur Ruangan: tombol "Rekam dengan HP" (capture) dan catatan mematikan EQ/low cut/kompresor/gate di channel sumber pink noise.
 - Tes: tests/test_level_recs.py; uji browser dengan mixer tiruan (mode fader/gain, bayangan, panel).
 
+## Update 2026-11-07: tampilan mixer dirapikan, langsung live, fader gaya M-AIR
+
+- Header satu baris 38 px: nama, status koneksi ("LIVE · 20 fps", atau pesan jelas bila belum terhubung), pilihan strip Fader/Gain, ↻ baca setting, ☰ pilih channel, ✦ AI, dan menu ⋯ (pantau live, Daftar Channel, Audit terakhir, Buka dump, zoom, halaman lain, catatan). Bendera status, baris sumber, bar zoom, dan catatan kaki dipindah ke menu/tooltip.
+- Halaman langsung memulai pemantauan live begitu dibuka (butuh IP mixer yang tersimpan di Beranda). Meter simulasi dan tombolnya dihapus; sebelum ada data, meter tampak mati.
+- Strip bergaya M-AIR: skala 10/5/0/-5/-10/-20/-30/-50/-∞ berjarak sama (sesuai posisi mentah k/8), tombol fader lebar bergaris putih, meter hijau-kuning-merah di kanan dengan penunjuk puncak dan lampu clip, nilai dB di atas, nama channel di bawah. Garis putus-putus usulan (ungu/biru muda) mengikuti skala yang sama. Strip tidak lagi memuat kurva EQ mini dan batang kiriman; keduanya ada di panel detail.
+- Peringatan live default diringkas satu baris.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

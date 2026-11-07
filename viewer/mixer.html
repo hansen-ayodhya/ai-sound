@@ -17,78 +17,90 @@
   body { margin: 0; background: var(--bg); color: var(--text);
     font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   button { font: inherit; }
-  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 10px 16px;
-    background: var(--desk); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
-  .brand { font-weight: 700; font-size: 15px; }
-  .brand span { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
-  .flags { display: flex; gap: 6px; flex-wrap: wrap; }
-  .flag { font-size: 11px; font-weight: 700; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
-  .flag.ro { color: var(--ok); border-color: var(--ok); }
-  .flag.est { color: var(--warn); border-color: var(--warn); }
-  .flag.sim { color: var(--accent); border-color: var(--accent); cursor: pointer; background: none; }
-  .flag.sim[aria-pressed="false"] { color: var(--dim); border-color: var(--dim); }
-  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; align-items: center; }
-  .actions button, .actions a, .actions label { color: var(--text); background: var(--strip); border: 1px solid var(--line);
-    padding: 5px 10px; border-radius: 6px; cursor: pointer; text-decoration: none; }
-  .actions input { display: none; }
-  .source { padding: 6px 16px; color: var(--muted); font-size: 12px; }
-  .banner { margin: 6px 16px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--warn); color: var(--warn); background: #2a2210; }
-  .general { margin: 6px 16px; }
-  .desk { display: flex; gap: 14px; padding: 10px 16px 16px; overflow-x: auto; align-items: stretch; }
+  .top { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; background: var(--desk);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 8; }
+  .brand { font-weight: 700; font-size: 13px; letter-spacing: .02em; white-space: nowrap; }
+  .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0; flex: 1 1 auto;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: 0 0 auto; }
+  .status.live { color: var(--text); } .status.live .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .status.wait .dot { background: var(--warn); } .status.warn { color: var(--warn); } .status.warn .dot { background: var(--warn); }
+  .status.bad { color: var(--bad); } .status.bad .dot { background: var(--bad); }
+  .tools { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+  .tools button, .tools summary, .seg button { font: inherit; font-size: 12px; color: var(--text); background: var(--strip); border: 1px solid var(--line);
+    border-radius: 6px; padding: 4px 9px; cursor: pointer; white-space: nowrap; line-height: 1.3; }
+  .tools button:hover, .tools summary:hover { border-color: var(--accent); }
+  .seg { display: inline-flex; } .seg button { border-radius: 0; } .seg button:first-child { border-radius: 6px 0 0 6px; }
+  .seg button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+  .seg button.on { background: var(--accent); border-color: var(--accent); color: #0b1a2e; font-weight: 700; }
+  .tools .aiBtn { border-color: #3cc9f0; color: #9be6fa; }
+  .more { position: relative; } .more summary { list-style: none; font-weight: 700; padding: 4px 11px; } .more summary::-webkit-details-marker { display: none; }
+  .menu { position: absolute; right: 0; top: 34px; width: 270px; background: var(--desk); border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px; box-shadow: 0 10px 30px #000a; z-index: 20; display: grid; gap: 2px; }
+  .menu h5 { margin: 8px 6px 2px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  .menu button, .menu a, .menu label { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 6px 8px;
+    color: var(--text); text-decoration: none; cursor: pointer; font-size: 13px; }
+  .menu button:hover, .menu a:hover, .menu label:hover { background: var(--strip-hi); }
+  .menu input[type=file] { display: none; }
+  .menu .zrow { display: flex; align-items: center; gap: 4px; padding: 2px 4px; }
+  .menu .zrow button { width: auto; padding: 4px 9px; background: var(--strip); border: 1px solid var(--line); }
+  .menu .zrow .zv { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; }
+  .menu .zrow button:disabled { opacity: .4; cursor: default; }
+  .menu .info { margin: 4px 6px 2px; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+  .menu .liveToggle.on { color: var(--bad); }
+  .banner { margin: 6px 12px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--warn); color: var(--warn); background: #2a2210; }
+  .general { margin: 6px 12px; }
+  .desk { display: flex; gap: 18px; padding: 12px 12px 18px; overflow-x: auto; align-items: flex-start; }
   .group { display: flex; flex-direction: column; gap: 6px; }
-  .group h2 { margin: 0; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .group h2 { margin: 0 0 0 2px; font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-weight: 600; }
   .strips { display: flex; gap: 6px; }
-  .strip { width: 92px; flex: 0 0 92px; background: var(--strip); border: 1px solid var(--line); border-radius: 8px;
-    padding: 6px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; position: relative; }
-  .strip:hover, .strip.sel { background: var(--strip-hi); border-color: var(--accent); }
-  .strip.master { width: 104px; flex-basis: 104px; }
-  .head { text-align: center; }
-  .num { color: var(--muted); font-size: 11px; }
-  .name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .name.empty { color: var(--dim); font-weight: 400; }
-  .badges { display: flex; justify-content: center; gap: 4px; min-height: 20px; }
-  .badge { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 7px; }
-  .badge.warn { background: #3a2a0c; color: var(--warn); }
-  .badge.info { background: #10263f; color: var(--accent); }
-  .lamps { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
-  .lamp { font-size: 10px; font-weight: 700; text-align: center; padding: 2px 0; border-radius: 4px;
-    border: 1px solid var(--line); color: var(--dim); }
-  .lamp.on { color: #111; border-color: transparent; }
-  .lamp.unk { border-style: dashed; }
-  .lamp.l48.on { background: var(--lit-48v); } .lamp.lhpf.on { background: var(--lit-hpf); }
-  .lamp.lgate.on { background: var(--lit-gate); } .lamp.lcomp.on { background: var(--lit-comp); }
-  .lamp.leq.on { background: var(--lit-eq); }
-  .eq { width: 100%; height: 36px; background: #12161b; border-radius: 4px; display: block; }
-  .body { display: flex; gap: 6px; height: 190px; }
-  .meter { width: 12px; flex: 1; background: #0b0e11; border-radius: 3px; position: relative; overflow: hidden; }
-  .meter .fill { position: absolute; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(to top, var(--meter-lo) 0%, var(--meter-lo) 60%, var(--meter-mid) 80%, var(--meter-hi) 100%);
-    background-size: 100% 190px; background-position: bottom; }
-  .meter .peak { position: absolute; left: 0; right: 0; height: 2px; background: #fff; opacity: .8; }
-  .meter.off .fill, .meter.off .peak { display: none; }
-  .clip { width: 12px; height: 6px; border-radius: 2px; background: #3a1414; margin-bottom: 3px; }
-  .clip.lit { background: var(--bad); }
-  .mcol { display: flex; flex-direction: column; align-items: center; height: 100%; }
-  .fader { flex: 1; position: relative; display: flex; justify-content: center; }
-  .track { width: 4px; height: 100%; background: #0b0e11; border-radius: 2px; position: relative; }
-  .knob { position: absolute; left: 50%; width: 30px; height: 14px; transform: translate(-50%, 50%);
-    background: linear-gradient(#cfd6df, #8792a0); border-radius: 3px; box-shadow: 0 1px 3px #000a; }
-  .knob::after { content: ""; position: absolute; left: 3px; right: 3px; top: 6px; height: 2px; background: #222; }
-  .fader .gk { position: absolute; left: 50%; width: 40px; height: 0; border-top: 2px dashed; transform: translate(-50%, 50%); pointer-events: none; }
+  .strip { --fh: 250px; width: 112px; flex: 0 0 112px; background: #101a2b; border: 1px solid #1c2940; border-radius: 6px;
+    padding: 6px 6px 8px; display: flex; flex-direction: column; gap: 5px; cursor: pointer; position: relative; }
+  .strip:hover { border-color: #33507d; } .strip.sel { background: #14233b; border-color: var(--accent); }
+  .strip.master { width: 124px; flex-basis: 124px; background: #141a26; }
+  .sbadges { display: flex; justify-content: center; gap: 4px; min-height: 18px; }
+  .badge { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 0 6px; line-height: 17px; }
+  .badge.warn { background: #3a2a0c; color: var(--warn); } .badge.info { background: #10263f; color: var(--accent); }
+  .lamps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+  .lamp { font-size: 9px; font-weight: 700; text-align: center; padding: 1px 0; border-radius: 3px; border: 1px solid #22304a; color: #4f5d75; letter-spacing: .02em; }
+  .lamp.on { color: #0b0f14; border-color: transparent; } .lamp.unk { border-style: dashed; }
+  .lamp.l48.on { background: var(--lit-48v); } .lamp.lhpf.on { background: var(--lit-hpf); } .lamp.lgate.on { background: var(--lit-gate); }
+  .lamp.lcomp.on { background: var(--lit-comp); } .lamp.leq.on { background: var(--lit-eq); } .lamp.llr.on { background: #8fa3bf; }
+  .val { text-align: center; font: 600 13px/1.2 ui-monospace, "SF Mono", Consolas, monospace; color: #dfe7f3; min-height: 17px; font-variant-numeric: tabular-nums; }
+  .val.gain { color: #9cc7ff; }
+  .fwrap { padding-bottom: 24px; }
+  .fbody { display: flex; gap: 2px; height: var(--fh); }
+  .scale { position: relative; width: 24px; flex: 0 0 24px; }
+  .scale span { position: absolute; right: 0; transform: translateY(50%); font-size: 11px; color: #8a97ad; font-variant-numeric: tabular-nums; }
+  .scale span.zero { color: #fff; font-weight: 600; }
+  .ticks { position: relative; width: 8px; flex: 0 0 8px; }
+  .ticks i { position: absolute; left: 0; right: 0; height: 2px; background: #6a768b; transform: translateY(50%); }
+  .ticks i.zero { background: #fff; }
+  .fader { position: relative; width: 36px; flex: 0 0 36px; }
+  .track { position: absolute; left: 50%; top: 0; bottom: 0; width: 6px; transform: translateX(-50%); background: #05080d; border-radius: 3px; }
+  .cap { position: absolute; left: 50%; width: 36px; height: 48px; transform: translate(-50%, 50%); border-radius: 3px; box-shadow: 0 1px 4px #000c;
+    background: repeating-linear-gradient(to bottom, #bfc4cb 0, #bfc4cb 3px, #8e949c 3px, #8e949c 6px, #a8adb4 6px, #a8adb4 9px); border: 1px solid #5d636b; }
+  .cap::after { content: ""; position: absolute; left: 2px; right: 2px; top: 50%; height: 3px; transform: translateY(-50%); background: #fff; box-shadow: 0 0 0 1px #0006; }
+  .gk { position: absolute; left: 50%; width: 46px; height: 0; border-top: 2px dashed; transform: translate(-50%, 50%); pointer-events: none; z-index: 2; }
   .gk.rule { border-color: #b48cff; } .gk.gem { border-color: #3cc9f0; }
-  .fmode { text-align: center; font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--dim); }
-  .fmode.gain { color: var(--accent); }
-  .db.gain { color: #9cc7ff; }
+  .mcol { display: flex; flex-direction: column; gap: 2px; width: 14px; flex: 0 0 14px; }
+  .clip { height: 5px; border-radius: 1px; background: #2a1215; flex: 0 0 5px; } .clip.lit { background: var(--bad); }
+  .meter { position: relative; flex: 1; border-radius: 1px; overflow: hidden;
+    background: linear-gradient(to top, #0e3a1b 0%, #0e3a1b 60%, #3a3410 80%, #3a1215 100%); }
+  .meter .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0;
+    background: linear-gradient(to top, #2fbf5f 0%, #2fbf5f 60%, #e0c43a 80%, #e5484d 100%); background-size: 100% var(--fh); background-position: bottom; }
+  .meter .peak { position: absolute; left: 0; right: 0; height: 2px; background: #fff; opacity: .85; bottom: 0; }
+  .meter.off .fill, .meter.off .peak { display: none; }
   .gtxt { font-size: 10px; text-align: center; line-height: 1.25; font-variant-numeric: tabular-nums; }
   .gtxt.rule { color: #d6c4ff; } .gtxt.gem { color: #9be6fa; }
-  .db { text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; }
-  .mute { text-align: center; font-weight: 700; padding: 4px 0; border-radius: 5px; font-size: 11px; }
-  .mute.on { background: #133524; color: var(--ok); }
-  .mute.muted { background: #3a1414; color: var(--bad); }
-  .mute.unk { border: 1px dashed var(--line); color: var(--dim); }
-  .sends { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; align-items: end; height: 22px; }
-  .sends div { background: var(--accent); opacity: .7; border-radius: 1px; min-height: 1px; }
-  .sends div.none { background: var(--dim); opacity: .4; }
+  .mute { text-align: center; font-weight: 700; padding: 3px 0; border-radius: 4px; font-size: 11px; letter-spacing: .04em; }
+  .mute.on { background: #12301f; color: var(--ok); } .mute.muted { background: #3a1414; color: var(--bad); }
+  .mute.unk { border: 1px dashed #22304a; color: var(--dim); }
+  .lab { text-align: center; min-width: 0; }
+  .lab .num { color: #7d8aa1; font-size: 10px; letter-spacing: .06em; }
+  .lab .name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lab .name.empty { color: var(--dim); font-weight: 400; }
+  .lab .role { color: #7d8aa1; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 13px; }
   .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); background: var(--desk);
     border-left: 1px solid var(--line); overflow-y: auto; padding: 14px 16px 24px; z-index: 10; box-shadow: -8px 0 24px #0008; }
   .drawer h3 { margin: 0 0 2px; font-size: 16px; }
@@ -109,12 +121,7 @@
   .strip.al-bad { box-shadow: 0 0 0 2px var(--bad) inset; background: #2a1717; }
   .strip.al-warn { box-shadow: 0 0 0 2px var(--warn) inset; }
   .strip.al-info { box-shadow: 0 0 0 2px var(--accent) inset; }
-  .flag.live { color: var(--bad); border-color: var(--bad); }
-  .actions .liveBtn { background: #153a26; border-color: var(--ok); color: var(--ok); font-weight: 700; }
-  .actions .liveBtn.on { background: #3a1414; border-color: var(--bad); color: var(--bad); }
-  .livebar { margin: 4px 16px; font-size: 12px; color: var(--muted); }
-  .livebar b { color: var(--bad); }
-  .alerts { margin: 0 16px 10px; background: var(--desk); border: 1px solid var(--line); border-radius: 8px; }
+  .alerts { margin: 6px 12px 0; background: var(--desk); border: 1px solid var(--line); border-radius: 8px; }
   .alerts h2 { margin: 0; padding: 8px 12px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
   .alerts ul { list-style: none; margin: 0; padding: 0; max-height: 230px; overflow: auto; }
   .alerts li { padding: 6px 12px; border-top: 1px solid var(--line); display: flex; gap: 10px; align-items: baseline; }
@@ -176,14 +183,6 @@
   .aibox h4 { margin: 0 0 4px; font-size: 13px; color: #9be6fa; }
   .aibox p { margin: 4px 0; white-space: pre-wrap; }
   .toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; margin: 8px 0; }
-  .actions .aiBtn { border-color: #3cc9f0; color: #9be6fa; }
-  .viewbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 6px 16px; font-size: 13px; color: var(--muted); }
-  .viewbar .grp { display: flex; gap: 4px; align-items: center; }
-  .viewbar button, .viewbar select { font: inherit; font-size: 13px; padding: 4px 9px; border-radius: 6px; border: 1px solid var(--line);
-    background: var(--strip); color: var(--text); cursor: pointer; }
-  .viewbar button:disabled { opacity: .4; cursor: default; }
-  .viewbar .zv { min-width: 46px; text-align: center; color: var(--text); font-variant-numeric: tabular-nums; }
-  .viewbar label { display: flex; gap: 5px; align-items: center; cursor: pointer; }
   .picker { margin: 0 16px 8px; padding: 10px 12px; background: var(--desk); border: 1px solid var(--line); border-radius: 8px; }
   .pickbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .pickbtns button { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--strip); color: var(--text); cursor: pointer; }
@@ -192,17 +191,8 @@
   .pickgrid label { display: flex; gap: 6px; align-items: center; font-size: 13px; padding: 3px 4px; border-radius: 5px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pickgrid label:hover { background: var(--strip); }
   .pickgrid .sep { grid-column: 1 / -1; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 6px; }
-  /* HP posisi mendatar: header ringkas supaya strip mendapat tempat */
-  @media (orientation: landscape) and (max-height: 520px) {
-    .top { position: static; padding: 4px 10px; gap: 4px 8px; }
-    .brand span, .flags { display: none; }
-    .actions { flex-wrap: nowrap; overflow-x: auto; margin-left: 0; max-width: 100%; }
-    .actions button, .actions a, .actions label { padding: 3px 8px; font-size: 12px; white-space: nowrap; }
-    .source, .livebar { padding: 2px 10px; font-size: 11px; }
-    .viewbar { padding: 2px 10px; }
-    .desk { padding: 4px 10px 8px; }
-    .foot, #general { display: none; }
-  }
+  @media (max-width: 640px) { .brand { display: none; } .tools .hide-s { display: none; } }
+  @media (orientation: landscape) and (max-height: 520px) { .top { position: static; } #general { display: none; } .desk { padding: 6px 8px; } }
   .aivis { border: 1px dashed #3cc9f0; border-radius: 8px; padding: 8px 10px; margin: -4px 0 12px; background: #17131f; }
   .aivis h4 { margin: 0 0 4px; font-size: 13px; color: #9be6fa; }
   .aivis .open { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid #3cc9f0; background: none; color: #9be6fa; cursor: pointer; margin-top: 6px; }
@@ -223,6 +213,8 @@
   details.notes .notes-top { color: var(--muted); }
   details.notes[open] { max-height: 45vh; overflow: auto; }
   .alerts.min ul { max-height: 34px; overflow: hidden; }
+  .alerts.min li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .alerts.min li .tm, .alerts.min li .lb { margin-right: 8px; }
   .alerts h2 { cursor: pointer; user-select: none; }
   .badge.done { background: #0f2a1a; color: var(--ok); }
   .fstatus { border-radius: 6px; padding: 6px 10px; margin: 6px 0; font-size: 13px; }
@@ -234,54 +226,44 @@
   .donebox b { color: var(--ok); }
   .donebox ul.doneitems { margin: 4px 0 0; padding-left: 18px; color: #bff0d3; }
   .strip.changed { box-shadow: 0 0 0 2px var(--accent) inset; transition: box-shadow .3s; }
-  .foot { padding: 4px 16px 18px; color: var(--muted); font-size: 12px; }
   .empty { padding: 30px 16px; color: var(--muted); }
 </style>
 </head>
 <body>
 <header class="top">
-  <div class="brand">AI Sound Engineer<span>Tampilan Mixer · purwarupa</span></div>
-  <div class="flags">
-    <span class="flag ro" title="Halaman ini tidak bisa mengubah mixer">HANYA MEMBACA</span>
-    <span class="flag est" title="Angka dB/Hz dihitung dengan rumus perkiraan, belum dicocokkan dengan MR18 Anda">ANGKA PERKIRAAN ≈</span>
-    <span class="flag est" id="mapFlag" hidden title="Indeks meter 0–15 dianggap CH 01–16; belum dicocokkan dengan MR18">PEMETAAN METER PERKIRAAN</span>
-    <button class="flag sim" id="simToggle" aria-pressed="true" title="Klik untuk mematikan/menyalakan">METER SIMULASI</button>
-  </div>
-  <div class="actions">
-    <button id="btnMode" title="Pilih yang ditampilkan di strip channel: posisi fader atau gain preamp">Strip: Fader</button>
-    <button id="btnLive" class="liveBtn" hidden>▶ Mulai pantau live</button>
-    <button id="btnRefresh" hidden title="Baca ulang setting dari mixer sekarang (hanya membaca)">↻ Baca setting</button>
-    <button id="btnChannels" hidden>Daftar Channel</button>
-    <button id="btnAI" class="aiBtn" hidden>✦ Analisis AI</button>
-    <button id="btnLatest" hidden>Audit terakhir</button>
-    <label>Buka dump…<input type="file" id="fileDump" accept=".json,application/json"></label>
-    <a href="home.html">Beranda</a>
-    <a href="clips.html">Klip Suara</a>
-    <a href="dsp.html">Data DSP</a>
-    <a href="room.html">Ukur Ruangan</a>
-    <a href="index.html">Tabel</a>
+  <div class="brand">AI Sound Engineer</div>
+  <div class="status wait" id="status" title=""><span class="dot"></span><span id="statusTxt">Menghubungkan…</span></div>
+  <div class="tools">
+    <div class="seg" role="group" aria-label="Isi strip"><button type="button" id="modeFader" title="Strip menampilkan posisi fader (volume ke speaker)">Fader</button><button type="button" id="modeGain" title="Strip menampilkan gain preamp (kekuatan sinyal masuk)">Gain</button></div>
+    <button type="button" id="btnRefresh" hidden title="Baca ulang setting dari mixer sekarang (hanya membaca)">↻</button>
+    <button type="button" id="btnPick" aria-expanded="false" aria-controls="picker" title="Pilih channel yang ditampilkan">☰</button>
+    <button type="button" id="btnAI" class="aiBtn" hidden>✦ AI</button>
+    <details class="more" id="more"><summary title="Menu lain">⋯</summary>
+      <div class="menu">
+        <h5>Pemantauan</h5>
+        <button type="button" id="btnLive" class="liveToggle" hidden>■ Hentikan pantau live</button>
+        <h5>Data</h5>
+        <button type="button" id="btnChannels" hidden>Daftar Channel</button>
+        <button type="button" id="btnLatest" hidden>Audit terakhir</button>
+        <label>Buka dump…<input type="file" id="fileDump" accept=".json,application/json"></label>
+        <h5>Tampilan</h5>
+        <div class="zrow"><button type="button" id="zOut" aria-label="Perkecil">−</button><span class="zv" id="zVal">100%</span><button type="button" id="zIn" aria-label="Perbesar">+</button><button type="button" id="zFit">Pas layar</button><button type="button" id="zReset">100%</button></div>
+        <button type="button" id="btnLand" hidden>↻ Landscape</button>
+        <h5>Halaman</h5>
+        <a href="home.html">Beranda</a><a href="clips.html">Klip Suara</a><a href="dsp.html">Data DSP</a><a href="room.html">Ukur Ruangan</a><a href="index.html">Tabel</a>
+        <h5>Catatan</h5>
+        <p class="info">Halaman ini hanya membaca mixer; tidak ada tombol yang mengubahnya. Fader, gain, nama, HPF, dan EQ sudah dicocokkan dengan M-AIR. Angka kompresor, gate, dan kiriman bus masih perkiraan (≈), begitu juga pemetaan meter ke channel.</p>
+        <p class="info" id="source"></p>
+      </div>
+    </details>
   </div>
 </header>
-<div class="source" id="source"></div>
 <div id="banner"></div>
 <div id="general" class="general"></div>
-<div class="livebar" id="liveBar" hidden></div>
 <section class="alerts" id="alerts" hidden>
   <h2 id="alertHead" title="Klik untuk meringkas/membuka">Peringatan live <span id="alertCount"></span> <span id="alertToggle">▾ ringkas</span></h2>
   <ul id="alertList"><li class="empty">Belum ada peringatan.</li></ul>
 </section>
-<div class="viewbar" id="viewbar">
-  <div class="grp" role="group" aria-label="Zoom">
-    <span>Zoom</span>
-    <button type="button" id="zOut" aria-label="Perkecil">−</button>
-    <span class="zv" id="zVal">100%</span>
-    <button type="button" id="zIn" aria-label="Perbesar">+</button>
-    <button type="button" id="zFit">Pas layar</button>
-    <button type="button" id="zReset">100%</button>
-  </div>
-  <button type="button" id="btnPick" aria-expanded="false" aria-controls="picker">☰ Pilih channel</button>
-  <button type="button" id="btnLand" hidden>↻ Landscape</button>
-</div>
 <div class="picker" id="picker" hidden>
   <div class="pickbtns">
     <button type="button" id="pkAll">Semua</button>
@@ -293,8 +275,6 @@
   <div class="pickgrid" id="pickGrid"></div>
 </div>
 <main class="desk" id="desk"><div class="empty">Memuat…</div></main>
-<p class="foot">Angka bertanda ≈ dihitung dengan rumus perkiraan keluarga X Air dan belum dicocokkan dengan MR18 Anda.
-  <span id="meterNote">Meter yang bergerak adalah SIMULASI dan belum tersambung ke mixer.</span> Tidak ada tombol di halaman ini yang mengubah mixer.</p>
 <aside class="drawer" id="drawer" hidden></aside>
 
 <script>
@@ -351,7 +331,7 @@ function svg(tag, attrs) {
 }
 const pad2 = (n) => String(n).padStart(2, "0");
 
-const state = { dump: null, findings: [], sim: true, meters: [], live: false, stripEls: {}, seenAlerts: 0 };
+const state = { dump: null, findings: [], meters: [], live: false, stripEls: {}, seenAlerts: 0 };
 const tokenMeta = document.querySelector('meta[name="aise-token"]');
 const TOKEN = tokenMeta ? tokenMeta.content : null;
 async function api(path, body) {
@@ -654,11 +634,19 @@ function muteEl(v) {
   if (v == null) return el("div", { class: "mute unk", text: "?" });
   return v === 1 ? el("div", { class: "mute on", text: "ON" }) : el("div", { class: "mute muted", text: "MUTE" });
 }
-function faderEl(f, ghosts) {
+// Skala fader seperti M-AIR: 10, 5, 0, -5, -10, -20, -30, -50, -∞ berjarak sama; posisi mentah 0..1 = k/8.
+const FADER_MARKS = [[8, "10"], [7, "5"], [6, "0"], [5, "-5"], [4, "-10"], [3, "-20"], [2, "-30"], [1, "-50"], [0, "-∞"]];
+function faderBody(f, ghosts, meter) {
+  const at = (k) => `bottom:${(k / 8) * 100}%`;
   const pos = f == null ? 0 : Math.max(0, Math.min(1, f));
-  return el("div", { class: "fader" },
-    el("div", { class: "track" }, f == null ? null : el("div", { class: "knob", style: `bottom:${pos * 100}%` }),
-      ...(ghosts || []).map((g) => el("div", { class: "gk " + g.src, style: `bottom:${Math.max(0, Math.min(1, g.pos)) * 100}%` }))));
+  return el("div", { class: "fwrap" }, el("div", { class: "fbody" },
+    el("div", { class: "scale" }, ...FADER_MARKS.slice(0, 8).map(([k, t]) => el("span", { class: k === 6 ? "zero" : "", style: at(k), text: t }))),
+    el("div", { class: "ticks" }, ...FADER_MARKS.map(([k]) => el("i", { class: k === 6 ? "zero" : "", style: at(k) }))),
+    el("div", { class: "fader" }, el("div", { class: "track" }),
+      ...(ghosts || []).map((g) => el("div", { class: "gk " + g.src, style: `bottom:${Math.max(0, Math.min(1, g.pos)) * 100}%` })),
+      f == null ? null : el("div", { class: "cap", style: `bottom:${pos * 100}%` })),
+    el("div", { class: "ticks" }, ...FADER_MARKS.map(([k]) => el("i", { class: k === 6 ? "zero" : "", style: at(k) }))),
+    meter));
 }
 // Isi fader strip menurut mode: "fader" (volume ke speaker) atau "gain" (kekuatan sinyal masuk di preamp).
 function levelView(n) {
@@ -672,12 +660,16 @@ function levelView(n) {
     if (m.has(own)) { ghosts.push({ src, pos: m.get(own) }); lines.push(el("div", { class: "gtxt " + src, text: "→ " + fmt(own, m.get(own)) })); }
     if (m.has(other)) lines.push(el("div", { class: "gtxt " + src, text: (gain ? "fader" : "gain") + " → " + fmt(other, m.get(other)) }));
   }
-  return { gain, val, text: (gain ? "G " : "") + fmt(own, val), ghosts, lines };
+  return { gain, val, text: val == null ? "—" : (gain ? "G " : "") + dbShort(own, val), ghosts, lines };
 }
-function meterEl(key, muted) {
+function dbShort(addr, r) {
+  const d = addr.endsWith("/gain") ? EST.gainDb(r) : EST.faderDb(r);
+  return d === -Infinity ? "-∞" : (d > 0 ? "+" : "") + d.toFixed(1);
+}
+function meterEl(key) {
   const fill = el("div", { class: "fill" }), peak = el("div", { class: "peak" }), clip = el("div", { class: "clip" });
-  const m = el("div", { class: "meter" + (state.sim ? "" : " off") }, fill, peak);
-  state.meters.push({ key, fill, peak, clip, meter: m, muted, level: -60, pk: -60, base: -28 + Math.random() * 14 });
+  const m = el("div", { class: "meter off" }, fill, peak);
+  state.meters.push({ key, fill, peak, clip, meter: m });
   return el("div", { class: "mcol" }, clip, m);
 }
 function badgesFor(ch) {
@@ -685,7 +677,7 @@ function badgesFor(ch) {
   const warn = list.filter((f) => f.severity === "perhatian").length;
   const info = list.length - warn;
   const done = state.recsDone.filter((r) => r.ch === ch).length;
-  return el("div", { class: "badges" },
+  return el("div", { class: "sbadges" },
     warn ? el("span", { class: "badge warn", text: "⚠ " + warn, title: warn + " temuan perhatian" }) : null,
     info ? el("span", { class: "badge info", text: "💡 " + info, title: info + " saran" }) : null,
     done ? el("span", { class: "badge done", text: "✓ " + done, title: done + " rekomendasi sudah dilakukan (terverifikasi dari mixer)" }) : null);
@@ -700,27 +692,23 @@ function channelStrip(n) {
   const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
   const name = raw(c + "/config/name");
   const on = raw(c + "/mix/on"), lv = levelView(n);
-  const sends = [1, 2, 3, 4, 5, 6].map((b) => raw(`${c}/mix/${pad2(b)}/level`));
   const changedRecently = state.changedAt && Date.now() - (state.changedAt["ch" + n] || 0) < 2500;
   const strip = el("div", { class: "strip" + (changedRecently ? " changed" : ""), tabindex: "0", role: "button", "aria-label": "Detail channel " + n },
-    el("div", { class: "head" }, el("div", { class: "num", text: "CH " + pad2(n) }),
-      el("div", { class: "name" + (name ? "" : " empty"), text: name || "(tanpa nama)" }),
-      el("div", { class: "role", text: roleFor(n), title: roleFor(n) ? "Daftar Channel: " + roleFor(n) : "" })),
     badgesFor(n),
     el("div", { class: "lamps" },
       lamp("l48", "48V", raw(h + "/phantom"), sugOf(n, /\/headamp\/\d\d\/phantom/)),
       lamp("lhpf", "HPF", raw(c + "/preamp/hpon"), sugOf(n, /\/preamp\/hp/)),
+      lamp("leq", "EQ", raw(c + "/eq/on"), sugOf(n, /\/eq\//)),
       lamp("lgate", "GATE", raw(c + "/gate/on"), sugOf(n, /\/gate\//)),
       lamp("lcomp", "COMP", raw(c + "/dyn/on"), sugOf(n, /\/dyn\//)),
-      lamp("leq", "EQ", raw(c + "/eq/on"), sugOf(n, /\/eq\//)), el("div", { class: "lamp", text: "→LR " + (raw(c + "/mix/lr") === 1 ? "✓" : "✗") })),
-    eqSvg(n),
-    el("div", { class: "fmode" + (lv.gain ? " gain" : ""), text: lv.gain ? "GAIN" : "FADER" }),
-    el("div", { class: "body" }, meterEl("ch" + n, on === 0), faderEl(lv.val, lv.ghosts)),
-    el("div", { class: "db" + (lv.gain ? " gain" : ""), text: lv.text }),
+      lamp("llr", "LR", raw(c + "/mix/lr"))),
+    el("div", { class: "val" + (lv.gain ? " gain" : ""), text: lv.text, title: lv.gain ? "Gain preamp (dB)" : "Fader (dB)" }),
+    faderBody(lv.val, lv.ghosts, meterEl("ch" + n)),
     ...lv.lines,
     muteEl(on),
-    el("div", { class: "sends", title: "Kiriman ke Bus 1–6 (monitor/FX)" },
-      ...sends.map((s) => el("div", { class: s == null ? "none" : "", style: `height:${Math.max(4, (s || 0) * 100)}%` }))));
+    el("div", { class: "lab" }, el("div", { class: "num", text: "CH " + pad2(n) }),
+      el("div", { class: "name" + (name ? "" : " empty"), text: name || "(tanpa nama)" }),
+      el("div", { class: "role", text: roleFor(n), title: roleFor(n) ? "Daftar Channel: " + roleFor(n) : "" })));
   state.stripEls["ch" + n] = strip;
   const open = () => { openChannel(n, strip).catch((e) => console.error("Error opening channel:", e)); };
   strip.addEventListener("click", open);
@@ -731,12 +719,12 @@ function masterStrip(label, prefix, key) {
   const name = raw(prefix + "/config/name");
   const fader = raw(prefix + "/mix/fader"), on = raw(prefix + "/mix/on");
   const strip = el("div", { class: "strip master" },
-    el("div", { class: "head" }, el("div", { class: "num", text: label }),
-      el("div", { class: "name" + (name ? "" : " empty"), text: name || label })),
+    el("div", { class: "sbadges" }),
     el("div", { class: "lamps" }, lamp("leq", "EQ", raw(prefix + "/eq/on")), lamp("lcomp", "COMP", raw(prefix + "/dyn/on"))),
-    el("div", { class: "body" }, meterEl(key, on === 0), faderEl(fader)),
-    el("div", { class: "db", text: fmtDb(EST.faderDb(fader)) }),
-    muteEl(on));
+    el("div", { class: "val", text: fader == null ? "—" : dbShort("/mix/fader", fader), title: "Fader (dB)" }),
+    faderBody(fader, [], meterEl(key)),
+    muteEl(on),
+    el("div", { class: "lab" }, el("div", { class: "num", text: name ? label : "" }), el("div", { class: "name", text: name || label }), el("div", { class: "role" })));
   strip.addEventListener("click", () => openGeneric(label, prefix, strip));
   return strip;
 }
@@ -902,7 +890,7 @@ function render() {
   const d = state.dump;
   $("banner").replaceChildren();
   renderNotes(state.findings.filter((f) => f.ch == null));
-  if (!d) { desk.replaceChildren(el("div", { class: "empty", text: "Belum ada data dari mixer. Klik “↻ Baca setting” (IP mixer harus sudah diisi di Beranda → Uji kecil), atau jalankan Audit lengkap di Beranda." })); return; }
+  if (!d) { desk.replaceChildren(el("div", { class: "empty", text: "Menunggu setting dari mixer… Kalau tidak muncul, klik ↻ (IP mixer harus sudah diisi di Beranda), atau jalankan Audit lengkap di Beranda." })); return; }
   const answered = Object.values(d.values).filter((v) => v !== null).length;
   $("source").textContent = `Sumber: ${d._name} · dibuat ${d.created || "?"} · ${answered}/${Object.keys(d.values).length} alamat dijawab · ${state.findings.length} temuan` +
     (state.recsDone.length ? ` · ✓ ${state.recsDone.length} rekomendasi sudah dilakukan` : "");
@@ -929,7 +917,7 @@ function render() {
 // ---------- tampilan: zoom & pilih channel (disimpan per perangkat) ----------
 const VIEW_KEY = "aise.mixer.view2";
 state.view = (() => {
-  const def = { zoom: window.innerWidth < 700 ? 0.8 : 1, hidden: [], mode: "fader" };  // hidden = strip yang disembunyikan
+  const def = { zoom: window.innerWidth < 700 ? 0.8 : 1, hidden: [], mode: "fader", alertsMin: true };  // hidden = strip yang disembunyikan
   try {
     const v = { ...def, ...(JSON.parse(localStorage.getItem(VIEW_KEY)) || {}) };
     if (!Array.isArray(v.hidden)) v.hidden = [];
@@ -937,9 +925,13 @@ state.view = (() => {
     return v;
   } catch (e) { return def; }
 })();
-function applyMode() { $("btnMode").textContent = "Strip: " + (state.view.mode === "gain" ? "Gain" : "Fader"); }
-$("btnMode").addEventListener("click", () => {
-  state.view.mode = state.view.mode === "gain" ? "fader" : "gain";
+function applyMode() {
+  $("modeFader").classList.toggle("on", state.view.mode !== "gain");
+  $("modeGain").classList.toggle("on", state.view.mode === "gain");
+}
+for (const [id, mode] of [["modeFader", "fader"], ["modeGain", "gain"]]) $(id).addEventListener("click", () => {
+  if (state.view.mode === mode) return;
+  state.view.mode = mode;
   saveView(); applyMode();
   state.keepDrawer = true;
   try { render(); } finally { state.keepDrawer = false; }
@@ -951,7 +943,7 @@ function visibleChannels() {
   const shown = list.filter((n) => !isHidden("ch" + n));
   const total = list.length + (state.dump ? buses().length + 1 : 0);
   const nShown = shown.length + (state.dump ? buses().filter((b) => !isHidden("bus" + b)).length + (isHidden("lr") ? 0 : 1) : 0);
-  $("btnPick").textContent = `☰ Pilih channel (${nShown}/${total})`;
+  $("btnPick").textContent = `☰ ${nShown}/${total}`;
   return shown;
 }
 function stripKeys() {
@@ -1028,31 +1020,6 @@ let lastLandscape = null;
 window.addEventListener("resize", () => {
   const land = window.innerWidth > window.innerHeight && window.innerHeight < 520;
   if (isPhone && land !== lastLandscape) { lastLandscape = land; if (land && state.dump) setTimeout(fitZoom, 250); }
-});
-
-// ---------- meter simulasi ----------
-let lastT = 0;
-function tick(t) {
-  if (state.sim && !state.live && t - lastT > 50) {
-    lastT = t;
-    for (const m of state.meters) {
-      const target = m.muted ? -90 : m.base + (Math.random() - 0.5) * 18;
-      m.level += (target - m.level) * 0.35;
-      m.pk = Math.max(m.level, m.pk - 0.6);
-      const pct = (db) => Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
-      m.fill.style.height = pct(m.level) + "%";
-      m.peak.style.bottom = pct(m.pk) + "%";
-      m.clip.classList.toggle("lit", m.pk > -1);
-    }
-  }
-  requestAnimationFrame(tick);
-}
-requestAnimationFrame(tick);
-$("simToggle").addEventListener("click", () => {
-  state.sim = !state.sim;
-  $("simToggle").setAttribute("aria-pressed", String(state.sim));
-  $("simToggle").textContent = state.sim ? "METER SIMULASI" : "METER MATI";
-  for (const m of state.meters) { m.meter.classList.toggle("off", !state.sim); m.clip.classList.remove("lit"); }
 });
 
 // ---------- memuat data ----------
@@ -1215,13 +1182,11 @@ async function openAI() {
 $("btnAI").addEventListener("click", openAI);
 $("btnRefresh").addEventListener("click", async () => {
   const b = $("btnRefresh");
-  b.disabled = true; b.textContent = "↻ Membaca…";
+  b.disabled = true; b.textContent = "…";
   try {
     const r = await api("/api/settings/refresh", {});
     if (r.mode === "live") {
-      $("liveBar").hidden = false;
-      b.textContent = "↻ Diminta…";
-      setTimeout(() => { b.textContent = "↻ Baca setting"; b.disabled = false; }, 4000);
+      setTimeout(() => { b.textContent = "↻"; b.disabled = false; }, 4000);
       return;
     }
     state.keepDrawer = true;
@@ -1326,7 +1291,12 @@ async function openChannels(useSuggestion) {
 $("btnChannels").addEventListener("click", () => openChannels(false));
 
 // ---------- MODE LIVE (meter asli dari mixer, hanya membaca) ----------
-const pctDb = (db) => Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+const pctDb = (db) => Math.max(0, Math.min(100, ((db + 60) / 70) * 100));   // -60 dB .. +10 dB
+function setStatus(kind, text, title) {
+  $("status").className = "status " + kind;
+  $("statusTxt").textContent = text;
+  $("status").title = title || "";
+}
 // ---------- perubahan setting dari M-AIR tampil langsung ----------
 let paramRenderTimer = null, paramReloadTimer = null;
 function applyParams(list) {
@@ -1368,16 +1338,14 @@ function applyLive(snap) {
     m.peak.style.bottom = pctDb(pk) + "%";
     m.clip.classList.toggle("lit", pk >= -1);
   }
-  const bar = $("liveBar");
-  bar.hidden = false;
-  if (snap.error) bar.textContent = "Pemantauan berhenti karena kesalahan: " + snap.error;
+  const tip = `Mulai ${snap.started} · ${snap.frames} frame · ${snap.bad_frames || 0} tidak terbaca. Pemetaan meter ke channel masih perkiraan.`;
+  if (snap.error) setStatus("bad", "Pemantauan berhenti: " + snap.error, snap.error);
   else if (snap.running) {
-    bar.replaceChildren(el("b", { text: "● LIVE" }),
-      ` sejak ${snap.started} · ${snap.fps} frame/detik · ` +
-      (snap.age == null ? "menunggu data meter…" : `data terakhir ${snap.age} detik lalu`) +
-      (state.paramCount ? ` · ${state.paramCount} perubahan dari M-AIR diterima langsung` : " · perubahan di M-AIR tampil langsung (cadangan: baca ulang tiap 60 dtk)") +
-      (snap.bad_frames ? ` · ${snap.bad_frames} frame tidak terbaca` : ""));
-  } else bar.textContent = `Pemantauan berhenti. ${snap.frames} frame diterima. Peringatan tersimpan di data/live-*.jsonl.`;
+    const late = snap.age != null && snap.age > 2;
+    setStatus(late || snap.age == null ? "wait" : "live",
+      snap.age == null ? "Menunggu data meter…" : `LIVE · ${Math.round(snap.fps)} fps` + (late ? ` · data tertunda ${Math.round(snap.age)} dtk` : "") +
+        (state.paramCount ? ` · ${state.paramCount} perubahan M-AIR` : ""), tip);
+  } else setStatus("off", `Pemantauan berhenti (${snap.frames} frame)`, "Peringatan tersimpan di data/live-*.jsonl");
 }
 function flash(index, sev) {
   const strip = state.stripEls["ch" + (index + 1)];
@@ -1408,17 +1376,9 @@ function showAlerts(list) {
 function setLiveUi(on) {
   state.live = on;
   const b = $("btnLive");
-  b.textContent = on ? "■ Hentikan pantau" : "▶ Mulai pantau live";
+  b.textContent = on ? "■ Hentikan pantau live" : "▶ Mulai pantau live";
   b.classList.toggle("on", on);
-  const f = $("simToggle");
-  f.disabled = on;
-  f.classList.toggle("live", on);
-  f.textContent = on ? "METER LIVE" : (state.sim ? "METER SIMULASI" : "METER MATI");
-  $("mapFlag").hidden = !on;
-  $("meterNote").textContent = on
-    ? "Meter LIVE dari mixer; pemetaan indeks meter ke channel masih perkiraan, dan aturan peringatan memakai ambang umum."
-    : "Meter yang bergerak adalah SIMULASI dan belum tersambung ke mixer.";
-  if (!on) for (const m of state.meters) { m.meter.classList.toggle("off", !state.sim); m.clip.classList.remove("lit"); }
+  if (!on) for (const m of state.meters) { m.meter.classList.add("off"); m.clip.classList.remove("lit"); }
 }
 let pollTimer = null, pollN = 0;
 async function poll() {
@@ -1445,7 +1405,7 @@ async function poll() {
       pollTimer = null;
       return;
     }
-  } catch (e) { $("liveBar").hidden = false; $("liveBar").textContent = "Tidak bisa menghubungi aplikasi: " + e.message; }
+  } catch (e) { setStatus("bad", "Tidak bisa menghubungi aplikasi: " + e.message); }
   pollTimer = setTimeout(poll, 150);
 }
 function startPolling() { if (!pollTimer) { pollN = 0; state.seenAlerts = 0; state.paramSeq = null; state.paramCount = 0; setLiveUi(true); poll(); } }
@@ -1459,6 +1419,18 @@ $("btnLive").addEventListener("click", async () => {
   } catch (e) { alert(e.message); }
 });
 applyMode();
+// Tampilan mixer langsung masuk ke live: sambung ke mixer begitu halaman dibuka.
+async function autoLive() {
+  try {
+    const st = await api("/api/status");
+    if (st.live) { startPolling(); return; }
+    if (!st.ip) { setStatus("warn", "Belum ada IP mixer. Isi di Beranda lalu muat ulang halaman ini."); return; }
+    setStatus("wait", "Menghubungkan ke mixer " + st.ip + "…");
+    await api("/api/live/start", { ip: st.ip, port: st.port || st.default_port });
+    startPolling();
+  } catch (e) { setStatus("bad", "Belum terhubung: " + e.message); }
+}
+document.addEventListener("click", (e) => { const m = $("more"); if (m.open && !m.contains(e.target)) m.open = false; });
 if (TOKEN && location.protocol.startsWith("http")) {
   $("btnLive").hidden = false;
   $("btnChannels").hidden = false;
@@ -1466,7 +1438,9 @@ if (TOKEN && location.protocol.startsWith("http")) {
   $("btnAI").hidden = false;
   api("/api/ai").then((v) => { if (v.last) { useAIResult(v.last); if (state.dump) render(); } }).catch(() => {});
   loadProfile().then(() => { if (state.dump) render(); });
-  api("/api/status").then((s) => { if (s.live) startPolling(); }).catch(() => {});
+  autoLive();
+} else {
+  setStatus("off", "Hanya melihat file (tidak tersambung ke mixer). Buka lewat AI-Sound-Engineer.bat untuk live.");
 }
 </script>
 </body>
