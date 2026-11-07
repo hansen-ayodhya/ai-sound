@@ -82,7 +82,6 @@
     </label>
     <div class="quick" id="quick" hidden>
       <button type="button" id="btnLatest">Muat audit terakhir</button>
-      <button type="button" id="btnSample">Coba data contoh</button>
     </div>
   </div>
   <p class="note" id="autoNote"></p>
@@ -176,10 +175,6 @@ function renderSummary() {
   $("banner").replaceChildren();
   const d = state.a;
   if (!d) return;
-  if (d.sample === true) {
-    $("banner").append(el("div", { class: "banner",
-      text: "DATA CONTOH – ini bukan dari mixer Anda. Hanya untuk melihat tampilan." }));
-  }
   const total = Object.keys(d.values).length;
   const answered = Object.values(d.values).filter((v) => v !== null).length;
   const stats = el("div", { class: "card stats" },
@@ -363,8 +358,6 @@ async function loadLatest(silent) {
 if (location.protocol.startsWith("http")) {
   $("quick").hidden = false;
   $("btnLatest").addEventListener("click", () => loadLatest(false));
-  $("btnSample").addEventListener("click", () =>
-    loadPair("sample-dump-a.json", "sample-dump-b.json", "Data contoh dimuat (bukan dari mixer)."));
   loadLatest(true);
 }
 render();

@@ -409,19 +409,16 @@ class App:
         finally:
             self._ai_lock.release()
 
-    def ai_analyze(self, situasi: str, pertanyaan: str, contoh: bool = False) -> dict:
+    def ai_analyze(self, situasi: str, pertanyaan: str) -> dict:
         if not self._ai_lock.acquire(blocking=False):
             raise Busy("Gemini masih memproses permintaan sebelumnya. Tunggu sebentar.")
         try:
-            if contoh:  # operator sedang melihat DATA CONTOH di Tampilan Mixer
-                dump = json.loads((self.root / "viewer" / "sample-dump-a.json").read_text(encoding="utf-8"))
-            else:
-                _, dump = self.latest_dump()
+            _, dump = self.latest_dump()
             profile = self.profile()
             findings = findings_json(dump, profile) if dump else []
             live = self.live.snapshot() if self.live else None
             res = ai.analyze(ai.load_config(self.ai_cfg_path), dump, profile, findings, live,
-                             situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base, dsp=self.dsp_data(), contoh=contoh)
+                             situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base, dsp=self.dsp_data())
             (self.data / "ai-last.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
             return res
         finally:
@@ -760,8 +757,7 @@ def make_handler(app: App, http_port: int):
                     situasi = str(body.get("situasi", "umum"))
                     if situasi not in ai.SITUASI:
                         raise ValueError("Situasi tidak dikenal.")
-                    return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", "")),
-                                                          contoh=body.get("pakai_contoh") is True))
+                    return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", ""))))
                 if path == "/api/settings/refresh":
                     return self._json(200, app.refresh_settings())
                 if path == "/api/live/stop":

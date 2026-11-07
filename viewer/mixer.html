@@ -236,7 +236,6 @@
     <button id="btnChannels" hidden>Daftar Channel</button>
     <button id="btnAI" class="aiBtn" hidden>✦ Analisis AI</button>
     <button id="btnLatest" hidden>Audit terakhir</button>
-    <button id="btnSample" hidden>Data contoh</button>
     <label>Buka dump…<input type="file" id="fileDump" accept=".json,application/json"></label>
     <a href="home.html">Beranda</a>
     <a href="clips.html">Klip Suara</a>
@@ -786,9 +785,9 @@ function render() {
   if (!state.keepDrawer) closeDrawer();
   const desk = $("desk");
   const d = state.dump;
-  $("banner").replaceChildren(d && d.sample ? el("div", { class: "banner", text: "DATA CONTOH – bukan dari mixer Anda. Hanya untuk melihat bentuk tampilan." }) : "");
+  $("banner").replaceChildren();
   renderNotes(state.findings.filter((f) => f.ch == null));
-  if (!d) { desk.replaceChildren(el("div", { class: "empty", text: "Belum ada data. Klik “Data contoh” atau “Buka dump…”." })); return; }
+  if (!d) { desk.replaceChildren(el("div", { class: "empty", text: "Belum ada data dari mixer. Klik “↻ Baca setting” (IP mixer harus sudah diisi di Beranda → Uji kecil), atau jalankan Audit lengkap di Beranda." })); return; }
   const answered = Object.values(d.values).filter((v) => v !== null).length;
   $("source").textContent = `Sumber: ${d._name} · dibuat ${d.created || "?"} · ${answered}/${Object.keys(d.values).length} alamat dijawab · ${state.findings.length} temuan`;
   const shown = visibleChannels();
@@ -953,7 +952,6 @@ async function loadLatest() {
   const l = await getJson("../data/latest.json");
   await loadUrls("../" + l.dump, l.findings ? "../" + l.findings : null);
 }
-const loadSample = () => loadUrls("sample-dump-a.json", "sample-findings.json");
 
 $("fileDump").addEventListener("change", (e) => {
   const file = e.target.files[0];
@@ -973,10 +971,9 @@ $("fileDump").addEventListener("change", (e) => {
 });
 
 if (location.protocol.startsWith("http")) {
-  $("btnLatest").hidden = false; $("btnSample").hidden = false;
+  $("btnLatest").hidden = false;
   $("btnLatest").addEventListener("click", () => loadLatest().catch(() => alert("Belum ada audit. Jalankan pilihan 3 di menu.")));
-  $("btnSample").addEventListener("click", () => loadSample().catch((e) => alert(e.message)));
-  loadLatest().catch(() => loadSample().catch(() => render()));
+  loadLatest().catch(() => render());
 } else {
   render();
 }
@@ -1005,10 +1002,9 @@ function aiResultView(res) {
   const nUs = drawn.reduce((a, f) => a + f.usulan.length, 0);
   nodes.push(el("div", { class: "aibox" }, el("h4", { text: "Di grafik" }), el("p", { text: nUs
     ? `${nUs} usulan angka untuk ${drawn.length} channel digambar (biru muda) — di bawah tiap saran dan di strip channel.`
-    : !res.ada_data_mixer && !res.data_contoh
-      ? "Tidak ada yang digambar: belum ada data mixer (jalankan Audit di Beranda, atau buka Data contoh), jadi Gemini tidak tahu channel mana yang dimaksud."
+    : !res.ada_data_mixer
+      ? "Tidak ada yang digambar: belum ada data mixer (klik ↻ Baca setting atau jalankan Audit di Beranda), jadi Gemini tidak tahu channel mana yang dimaksud."
       : "Tidak ada yang digambar: Gemini tidak memberi usulan angka untuk channel tertentu kali ini. Coba tanyakan keluhan yang lebih spesifik (mis. 'khotbah kurang jelas')." })));
-  if (res.data_contoh) nodes.push(el("p", { class: "note", text: "Analisis ini memakai DATA CONTOH, bukan mixer asli." }));
   nodes.push(el("h3", { text: "Prioritas (" + res.prioritas.length + ")" }));
   for (const f of res.prioritas) {
     nodes.push(findingCard(f));
@@ -1052,7 +1048,7 @@ async function openAI() {
   go.addEventListener("click", async () => {
     go.disabled = true; go.textContent = "Menunggu Gemini… (bisa 10–60 detik)";
     try {
-      const res = await api("/api/ai/analyze", { situasi: sit.value, pertanyaan: q.value, pakai_contoh: !!(state.dump && state.dump.sample) });
+      const res = await api("/api/ai/analyze", { situasi: sit.value, pertanyaan: q.value });
       useAIResult(res);
       state.keepDrawer = true; render(); state.keepDrawer = false;
       out.replaceChildren(...aiResultView(res));
@@ -1173,7 +1169,7 @@ async function openChannels(useSuggestion) {
           state.profile = r.profile;
           state.keepDrawer = true;  // formulir tetap terbuka supaya pesan "Tersimpan" terlihat
           try {
-            if (state.dump && !state.dump.sample) await loadLatest().catch(() => {});
+            if (state.dump) await loadLatest().catch(() => {});
             else render();
           } finally { state.keepDrawer = false; }
         } catch (e) { msg.className = "msg bad"; msg.textContent = e.message; }

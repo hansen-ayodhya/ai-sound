@@ -44,8 +44,7 @@ alamat tak dijawab bisa lama (timeout 0,5 s x 2 percobaan per alamat).
 
 ## Penampil dump (tanpa server)
 Buka `viewer/index.html` di browser (klik dua kali). Pilih `dump1.json` sebagai Dump A, dan
-dump lain sebagai Dump B untuk membandingkan. Coba dulu dengan `viewer/sample-dump-a.json`
-dan `sample-dump-b.json` (DATA CONTOH, bukan dari mixer). Hanya menampilkan; tidak mengirim apa pun.
+dump lain sebagai Dump B untuk membandingkan. Hanya menampilkan; tidak mengirim apa pun.
 
 ## Meter dan laporan
     python -m aise.monitor --host <IP_MR18> --path /meters/1 --seconds 30 --out data/meter1.json

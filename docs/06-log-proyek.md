@@ -187,6 +187,10 @@
 - DSP: software Protea yang terpasang adalah versi "NE" (jaringan), bukan USB; perlu versi non-NE untuk 4.8SP via USB. Belum tersambung.
 - Belum diverifikasi: kompresor, gate, kiriman bus/FX (alamat tebakan), pemetaan meter ke channel, tipe band EQ (shelf).
 
+## Update 2026-11-07: data contoh dihapus
+
+- File `viewer/sample-*.json`, tombol "Data contoh", banner DATA CONTOH, dan opsi `pakai_contoh` di Analisis AI dihapus (sudah tersambung ke MR18 asli). Tampilan kosong kini memberi petunjuk: ↻ Baca setting / Audit di Beranda.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
