@@ -184,7 +184,10 @@ Aturan menjawab:
    pakai 'fader_db' untuk keseimbangan volume antar sumber. Clipping tidak bisa diperbaiki dengan fader.
    Kosongkan usulan hanya bila benar-benar tidak ada dasar; jelaskan kekurangannya di 'butuh_data'.
 5. Ingat: perubahan dilakukan operator sendiri; jangan menyarankan perubahan routing, master, atau limiter tanpa data DSP.
-6. Bahasa Indonesia yang sederhana dan praktis untuk operator gereja."""
+6. Bahasa Indonesia yang sederhana dan praktis untuk operator gereja.
+7. Bila ada 'riwayat' (saran, perubahan, dan penilaian operator sebelumnya), pakai sebagai petunjuk karakter ruangan dan pendengar.
+   Itu bukti terbatas dari satu ruangan, bukan kepastian: jangan mengulang usulan yang dinilai 'kurang', pertimbangkan yang dinilai 'bagus',
+   dan bila 'cukup_data' false sebutkan bahwa datanya belum cukup."""
 
 PARAMS = (["hpf_on", "hpf_hz", "eq_on", "comp_on", "comp_thr_db", "comp_ratio", "gate_on", "gate_thr_db", "fader_db", "gain_db"]
           + [f"eq{b}_{k}" for b in range(1, 5) for k in ("hz", "db", "q")]
@@ -280,7 +283,7 @@ SITUASI = {"umum": "ibadah umum", "lagu": "sesi pujian/lagu", "khotbah": "khotba
 
 
 def build_prompt(dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
-                 situasi: str, pertanyaan: str, dsp: dict | None = None) -> str:
+                 situasi: str, pertanyaan: str, dsp: dict | None = None, riwayat: dict | None = None) -> str:
     ctx = {
         "dsp": dspmod.summary(dsp) or None,
         "temuan_dsp": [{"masalah": f["masalah"], "usulan": [u["teks"] for u in f["usulan"]]} for f in dspmod.analyze(dsp)],
@@ -300,6 +303,8 @@ def build_prompt(dump: dict | None, profile: dict | None, findings: list[dict], 
                                     for a in (live.get("alerts") or [])[-30:]],
             "catatan": "pemetaan meter ke channel masih perkiraan",
         }
+    if riwayat and riwayat.get("jumlah_catatan"):
+        ctx["riwayat"] = riwayat
     return ("Data sistem saat ini (JSON):\n" + json.dumps(ctx, ensure_ascii=False)
             + "\n\nBerikan analisis sesuai aturan. Bila ada pertanyaan operator, jawab di 'jawaban'.")
 
@@ -440,8 +445,9 @@ def _generate(cfg: dict, parts: list, schema: dict, base: str) -> dict:
 
 
 def analyze(cfg: dict, dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
-            situasi: str = "umum", pertanyaan: str = "", base: str = API_BASE, dsp: dict | None = None) -> dict:
-    parsed = _generate(cfg, [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan, dsp)}],
+            situasi: str = "umum", pertanyaan: str = "", base: str = API_BASE, dsp: dict | None = None,
+            riwayat: dict | None = None) -> dict:
+    parsed = _generate(cfg, [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan, dsp, riwayat)}],
                        RESPONSE_SCHEMA, base)
     out = sanitize(parsed, dump)
     out.update(model=cfg.get("model"), dibuat=time.strftime("%Y-%m-%dT%H:%M:%S%z"), situasi=situasi,

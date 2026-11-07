@@ -266,6 +266,11 @@
         <button type="button" id="btnLive" class="liveToggle" hidden>■ Hentikan pantau live</button>
         <button type="button" id="btnControl" hidden>✎ Nyalakan mode kontrol…</button>
         <button type="button" id="btnRestoreAll" hidden>↩ Kembalikan semua perubahan</button>
+        <h5>Saran AI</h5>
+        <button type="button" id="btnReanalyze" hidden>✦ Analisis ulang sekarang</button>
+        <label class="zrow" for="aiAuto" style="display:flex">Otomatis&nbsp;<select id="aiAuto"><option value="0">Mati</option><option value="5">tiap 5 menit</option><option value="10">tiap 10 menit</option></select></label>
+        <p class="info">Tiap analisis memakai token Gemini Anda. Otomatis dilewati bila setting mixer tidak berubah sejak analisis terakhir, dan mati sendiri bila batas pemakaian tercapai.</p>
+        <p class="info" id="aiStat"></p>
         <h5>Data</h5>
         <button type="button" id="btnChannels" hidden>Daftar Channel</button>
         <button type="button" id="btnLatest" hidden>Audit terakhir</button>
@@ -274,7 +279,7 @@
         <div class="zrow"><button type="button" id="zOut" aria-label="Perkecil">−</button><span class="zv" id="zVal">100%</span><button type="button" id="zIn" aria-label="Perbesar">+</button><button type="button" id="zFit">Pas layar</button><button type="button" id="zReset">100%</button></div>
         <button type="button" id="btnLand" hidden>↻ Landscape</button>
         <h5>Halaman</h5>
-        <a href="home.html">Beranda</a><a href="clips.html">Klip Suara</a><a href="dsp.html">Data DSP</a><a href="room.html">Ukur Ruangan</a><a href="index.html">Tabel</a>
+        <a href="home.html">Beranda</a><a href="clips.html">Klip Suara</a><a href="dsp.html">Data DSP</a><a href="room.html">Ukur Ruangan</a><a href="memori.html">Memori AI</a><a href="index.html">Tabel</a>
         <h5>Catatan</h5>
         <p class="info">Secara default halaman ini hanya membaca mixer. Mixer baru berubah bila Anda menyalakan Mode kontrol lalu menekan Terapkan pada sebuah rekomendasi. Fader, gain, nama, HPF, dan EQ sudah dicocokkan dengan M-AIR. Angka kompresor, gate, dan kiriman bus masih perkiraan (≈), begitu juga pemetaan meter ke channel.</p>
         <p class="info" id="source"></p>
@@ -763,12 +768,24 @@ function masterStrip(label, prefix, key) {
 
 // ---------- panel detail ----------
 function row(label, value, est) { return el("tr", null, el("td", { text: label }), el("td", { class: est ? "est" : "", text: value })); }
+state.nilai = {};
+function ratingEl(id) {
+  const box = el("span", { class: "rate" });
+  const set = (v) => box.replaceChildren(el("span", { class: "note", text: v === "bagus" ? "Dinilai: bagus ✓ (tersimpan di memori AI)" : "Dinilai: kurang (tersimpan di memori AI)" }));
+  if (state.nilai[id]) { set(state.nilai[id]); return box; }
+  for (const [v, t] of [["bagus", "👍 Bagus"], ["kurang", "👎 Kurang"]]) {
+    const b = el("button", { type: "button", text: t, style: "margin-right:6px;font:inherit;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid var(--line);background:var(--strip);color:var(--text);cursor:pointer" });
+    b.addEventListener("click", async (e) => { e.stopPropagation(); try { await api("/api/memori/nilai", { id, nilai: v }); state.nilai[id] = v; set(v); } catch (err) { alert(err.message); } });
+    box.append(b);
+  }
+  return box;
+}
 function recStatusEl(f) {
   const r = state.recs && state.recs[f.id];
   if (!r) return null;
   const lines = (r.items || []).map((i) => el("li", { text: `${i.teks} — awal ${i.awal_teks} → sekarang ${i.sekarang_teks} (usulan ${i.target_teks})` + (i.status === "selesai" ? "  ✓" : "") }));
   if (r.status === "selesai") return el("div", { class: "fstatus done" }, el("b", { text: "✓ Sudah dilakukan" }),
-    ` — terverifikasi dari pembacaan mixer pukul ${hhmm(r.done_at)}.`, el("ul", null, ...lines));
+    ` — terverifikasi dari pembacaan mixer pukul ${hhmm(r.done_at)}. Terdengar lebih baik? `, ratingEl(f.id), el("ul", null, ...lines));
   if (r.status === "sebagian") return el("div", { class: "fstatus part" }, el("b", { text: "◐ Sebagian dilakukan" }),
     " — sudah bergerak ke arah usulan tetapi belum sesuai.", el("ul", null, ...lines));
   return r.kembali ? el("div", { class: "fstatus part" }, el("b", { text: "↺ Sempat dilakukan, lalu dibatalkan" }), " — nilai kembali ke semula.") : null;
@@ -824,6 +841,7 @@ function doneSection(n) {
       el("b", { text: "✓ " + (r.sumber === "gemini" ? "✦ Gemini: " : "") + r.masalah }),
       el("div", { class: "note", text: "Terverifikasi dari pembacaan mixer pukul " + hhmm(r.done_at) +
         (r.kembali ? " (sempat dibatalkan lalu dilakukan lagi)" : "") }),
+      el("div", { class: "note" }, "Terdengar lebih baik? ", ratingEl(r.id)),
       el("ul", { class: "doneitems" }, ...r.items.map((i) => el("li", { text: `${i.teks} — sekarang ${i.sekarang_teks} ✓` })))))];
 }
 async function openChannel(n, strip) {
@@ -1196,6 +1214,7 @@ async function openAI() {
   go.addEventListener("click", async () => {
     go.disabled = true; go.textContent = "Menunggu Gemini… (bisa 10–60 detik)";
     try {
+      state.aiSituasi = sit.value;
       const res = await api("/api/ai/analyze", { situasi: sit.value, pertanyaan: q.value });
       await refreshRecs();
       useAIResult(res);
@@ -1402,12 +1421,13 @@ $("alertHead").addEventListener("click", () => { state.view.alertsMin = !state.v
 function showAlerts(list) {
   $("alerts").hidden = false;
   applyAlertsMin();
-  $("alertCount").textContent = "(" + list.length + ")";
   for (const a of list.slice(state.seenAlerts)) if (a.index >= 0) flash(a.index, a.severity);
   state.seenAlerts = list.length;
+  const fresh = list.filter((a) => a.ago == null || a.ago <= 120), hidden = list.length - fresh.length;   // yang lama tetap ada di log
+  $("alertCount").textContent = "(" + fresh.length + (hidden ? " · " + hidden + " lama disembunyikan" : "") + ")";
   const ul = $("alertList");
-  if (!list.length) { ul.replaceChildren(el("li", { class: "empty", text: "Belum ada peringatan." })); return; }
-  ul.replaceChildren(...list.slice().reverse().slice(0, 60).map((a) =>
+  if (!fresh.length) { ul.replaceChildren(el("li", { class: "empty", text: list.length ? "Tidak ada peringatan dalam 2 menit terakhir (yang lama ada di log)." : "Belum ada peringatan." })); return; }
+  ul.replaceChildren(...fresh.slice().reverse().slice(0, 60).map((a) =>
     el("li", { class: a.severity }, el("span", { class: "tm", text: a.time }),
       el("span", { class: "lb", text: a.index >= 0 ? a.label : "Koneksi" }),
       el("span", { text: a.index >= 0 && a.message.startsWith(a.label + " ") ? a.message.slice(a.label.length + 1) : a.message }))));
@@ -1458,6 +1478,37 @@ $("btnLive").addEventListener("click", async () => {
     startPolling();
   } catch (e) { alert(e.message); }
 });
+// ---------- ANALISIS ULANG (manual / otomatis) ----------
+function dumpSig() {
+  const t = state.dump ? JSON.stringify(state.dump.values) : "";
+  let h = 0;
+  for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+  return h + ":" + t.length;
+}
+async function reanalyze(manual) {
+  if (state.aiBusy || !state.dump || !TOKEN) return;
+  state.aiAt = Date.now();
+  const sig = dumpSig();
+  if (!manual && sig === state.aiSig) { $("aiStat").textContent = "Dilewati: setting mixer tidak berubah."; return; }
+  state.aiBusy = true; $("aiStat").textContent = "Menganalisis…";
+  try {
+    const res = await api("/api/ai/analyze", { situasi: state.aiSituasi || "umum", pertanyaan: "" });
+    await refreshRecs(); useAIResult(res); state.aiSig = sig;
+    state.keepDrawer = true; try { render(); refreshOpenChannel(); } finally { state.keepDrawer = false; }
+    $("aiStat").textContent = "Analisis terakhir " + new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  } catch (e) {
+    $("aiStat").textContent = e.message;
+    if (/batas pemakaian/i.test(e.message)) { state.view.aiAuto = 0; saveView(); $("aiAuto").value = "0"; }
+  } finally { state.aiBusy = false; }
+}
+$("btnReanalyze").addEventListener("click", () => { $("more").open = false; reanalyze(true); });
+$("aiAuto").value = String(state.view.aiAuto || 0);
+$("aiAuto").addEventListener("change", () => { state.view.aiAuto = +$("aiAuto").value; saveView(); state.aiAt = Date.now(); });
+setInterval(() => {
+  const m = +state.view.aiAuto;
+  if (m && state.live && Date.now() - (state.aiAt || 0) >= m * 60000) reanalyze(false);
+}, 15000);
+
 // ---------- MODE KONTROL: menerapkan rekomendasi lewat slider (awal -> rekomendasi) ----------
 state.control = { aktif: false, sisa_detik: 0, item: [] };
 const CTL_RE = /^(?:\/headamp\/(?:0[1-9]|1[0-6])\/gain|\/ch\/(?:0[1-9]|1[0-6])\/(?:mix\/fader|preamp\/hpf|preamp\/hpon|eq\/on|eq\/[1-4]\/[gfq]|dyn\/on|dyn\/thr|dyn\/ratio))$/;
@@ -1673,6 +1724,7 @@ document.addEventListener("click", (e) => { const m = $("more"); if (m.open && !
 if (TOKEN && location.protocol.startsWith("http")) {
   $("btnLive").hidden = false;
   $("btnControl").hidden = false;
+  $("btnReanalyze").hidden = false;
   refreshControl();
   $("btnChannels").hidden = false;
   $("btnRefresh").hidden = false;

@@ -48,6 +48,7 @@ from .live import LiveMonitor, analyze_eq_problems, inactive_from_dump, labels_f
 from .writer import spec_for
 from .report import findings_json, render
 from .menu import load_ip, save_ip, valid_ip
+from .memori import Memori
 from .writer import Controller, WriteRefused
 from .paths import BUILD_VERSION_FILE, BUNDLE, FROZEN
 from .paths import DATA as DATA_DIR
@@ -121,7 +122,8 @@ class App:
         self._param_lock = threading.Lock()
         self._flush_pending = False
         # Mode kontrol (jalur tulis terpisah; mati sampai operator menyalakannya)
-        self.control = Controller(self.data / "changes.jsonl", self._read_one)
+        self.memori = Memori(self.data / "memori")
+        self.control = Controller(self.data / "changes.jsonl", self._read_one, on_event=self._memori_event)
 
     # ---------- pekerjaan ----------
     def _acquire(self) -> None:
@@ -197,7 +199,7 @@ class App:
 
         log = self.data / f"live-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
         self.live = LiveMonitor(ip, port, path, labels_from_dump(dump, self.profile()), log, on_stop=on_stop,
-                                on_param=self._on_param, inactive=inactive_from_dump(dump))
+                                on_param=self._on_param, inactive=inactive_from_dump(dump), on_alert=self._memori_alert)
         try:
             self.live.start()
         except Exception:
@@ -466,12 +468,46 @@ class App:
                     fnd = []
                 now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
                 eqp = analyze_eq_problems(dump)
+                before = {k: bool(t.get("done_at")) for k, t in state.get("tracked", {}).items()}
                 recs.register(state, fnd + eqp + self.live_findings(dump), dump, now)
                 recs.evaluate(state, dump, now, {f["id"] for f in fnd + eqp})
+                self._memori_recs(state, before)
                 recs.save(self.recs_path, state)
             return recs.view(state)
 
+    def _memori_recs(self, state: dict, before: dict) -> None:
+        """Catat saran baru dan saran yang baru terverifikasi selesai ke memori belajar."""
+        try:
+            view = recs.view(state)["recs"]
+            for fid, t in state.get("tracked", {}).items():
+                items = [i.get("teks", "")[:80] for i in t.get("items", [])][:4]
+                if fid not in before:
+                    self.memori.catat("saran", unik_id=fid, id=fid, ch=t.get("ch"), sumber=t.get("sumber"), masalah=t.get("masalah", "")[:120], usulan=items)
+                if t.get("done_at") and not before.get(fid):
+                    ch = [{"teks": i["teks"][:80], "awal": i["awal_teks"], "sekarang": i["sekarang_teks"]} for i in view[fid]["items"]][:4]
+                    self.memori.catat("selesai", unik_id=fid + "@" + str(t["done_at"]), id=fid, ch=t.get("ch"), masalah=t.get("masalah", "")[:120], items=ch)
+        except Exception:
+            pass
+
+    def memori_nilai(self, rid: str, nilai: str) -> dict:
+        if nilai not in ("bagus", "kurang"):
+            raise ValueError("Penilaian harus 'bagus' atau 'kurang'.")
+        if rid not in recs.load(self.recs_path).get("tracked", {}):
+            raise ValueError("Rekomendasi itu tidak dikenal.")
+        self.memori.catat("nilai", id=rid, nilai=nilai)
+        return {"ok": True}
+
     # ---------- Mode kontrol (menerapkan rekomendasi) ----------
+    def _memori_event(self, event: str, kw: dict) -> None:
+        if event == "selesai":
+            self.memori.catat("perubahan", alamat=kw.get("alamat"), aksi="dikembalikan" if kw.get("akhir") == kw.get("awal") else "diterapkan",
+                              awal=recs.fmt_value(kw.get("alamat", ""), kw.get("awal")), akhir=recs.fmt_value(kw.get("alamat", ""), kw.get("akhir")))
+        elif event == "konflik":
+            self.memori.catat("perubahan", alamat=kw.get("alamat"), aksi="diubah_operator", akhir=recs.fmt_value(kw.get("alamat", ""), kw.get("nilai_mixer")))
+
+    def _memori_alert(self, a) -> None:
+        self.memori.catat("masalah", ch=a.index + 1, jenis_masalah=a.kind, level_db=a.level_db)
+
     def _read_one(self, addr: str):
         """Baca satu nilai langsung dari mixer (query read-only); None bila tidak menjawab."""
         ip, port = load_ip(self.data / "mixer-ip.txt"), self.load_port()
@@ -584,7 +620,8 @@ class App:
             findings = findings_json(dump, profile) if dump else []
             live = self.live.snapshot() if self.live else None
             res = ai.analyze(ai.load_config(self.ai_cfg_path), dump, profile, findings, live,
-                             situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base, dsp=self.dsp_data())
+                             situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base, dsp=self.dsp_data(),
+                             riwayat=self.memori.profil())
             self._track_gemini(res, dump)
             (self.data / "ai-last.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
             return res
@@ -845,6 +882,8 @@ def make_handler(app: App, http_port: int):
                                             **app.params_since(since), "findings": app.live_findings() if want else None})
                 if path == "/api/control":
                     return self._json(200, app.control_status())
+                if path == "/api/memori":
+                    return self._json(200, {"profil": app.memori.profil(), "catatan": app.memori.semua(n=60)[::-1]})
                 if path == "/api/live/eq-problems":
                     return self._json(200, {"findings": app.eq_problems()})
                 if path == "/api/job":
@@ -937,6 +976,12 @@ def make_handler(app: App, http_port: int):
                     if situasi not in ai.SITUASI:
                         raise ValueError("Situasi tidak dikenal.")
                     return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", ""))))
+                if path == "/api/memori/nilai":
+                    return self._json(200, app.memori_nilai(str(body.get("id", "")), str(body.get("nilai", ""))))
+                if path == "/api/memori/ukur":
+                    return self._json(200, app.memori.catat_ukur(body))
+                if path == "/api/memori/hapus":
+                    return self._json(200, {"dihapus": app.memori.hapus(body.get("jenis") or None)})
                 if path == "/api/control/enable":
                     return self._json(200, app.control_enable(body))
                 if path == "/api/control/disable":

@@ -156,6 +156,7 @@
     <div id="notes"></div>
     <div class="btns">
       <button type="button" id="btnExport">Simpan hasil (JSON)</button>
+      <button type="button" id="btnMem" title="Menyimpan ringkasan usulan ke memori belajar AI (lokal)">Simpan ke memori AI</button>
       <button type="button" id="btnClear" class="danger">Hapus semua titik</button>
     </div>
   </section>
@@ -355,6 +356,16 @@ function renderPositions() {
   });
   $("posEmpty").hidden = store.positions.length > 0;
 }
+$("btnMem").addEventListener("click", async () => {
+  if (!window.__lastRoom) { alert("Belum ada hasil untuk disimpan."); return; }
+  const tk = (document.querySelector('meta[name="aise-token"]') || {}).content;
+  try {
+    const r = await fetch("/api/memori/ukur", { method: "POST", headers: { "Content-Type": "application/json", "X-AISE-Token": tk || "" }, body: JSON.stringify(window.__lastRoom) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    alert("Tersimpan di memori AI (" + j.band + " usulan band).");
+  } catch (e) { alert("Gagal menyimpan: " + e.message + ". Buka lewat AI-Sound-Engineer.bat."); }
+});
 $("btnClear").addEventListener("click", () => {
   if (!store.positions.length || !confirm("Hapus semua titik ukur?")) return;
   store.positions = []; save(); renderPositions(); renderResults();
@@ -403,6 +414,7 @@ function renderResults() {
   $("summary").hidden = true;
   if (!used.length) { $("rtaChart").append(text("p", "note", "Belum ada titik yang dipakai. Ukur atau centang titik di langkah 4.")); return; }
   const r = C.analyze(used.map((p) => p.bands), { mic: store.mic, target: store.target });
+  window.__lastRoom = { mic: store.mic, target: store.target, titik: used.length, band: r.bands.map((b) => ({ hz: b.hz, db: b.db, q: b.q, jenis: b.jenis })) };
   const R = 18, a = chartBase($("rtaChart"), R, r.trusted);
   store.positions.forEach((p, i) => { if (p.on) polyline(a.s, a.yOf, C.normalize(p.bands), R, { stroke: COLORS[i % COLORS.length], "stroke-width": 1.2, opacity: .75 }); });
   polyline(a.s, a.yOf, r.target, R, { stroke: "#8c97a6", "stroke-width": 1.5, "stroke-dasharray": "5 4" });

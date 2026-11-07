@@ -239,6 +239,16 @@
 - Bug tampilan realtime diperbaiki: muat ulang file setting bisa membuat strip mundur sebentar; kini kabar perubahan terbaru diterapkan ulang setelah muat ulang.
 - BELUM terbukti di MR18 asli: menulis nilai lewat OSC, gema perubahan ke pelanggan /xremote dari tulisan sendiri, dan pembulatan nilai oleh mixer. Uji pertama sebaiknya di luar ibadah, scene tersimpan, pada channel kosong. Diuji dengan mixer tiruan: tes tests/test_control.py dan uji browser.
 
+## Update 2026-11-07: saran dinamis + memori belajar ruangan
+
+- Daftar "Peringatan live": yang lebih tua dari 2 menit disembunyikan otomatis ("N lama disembunyikan"); tetap ada di data/live-*.jsonl. Server menambahkan `ago` (detik) pada tiap peringatan.
+- Menu ⋯ → "Analisis ulang sekarang" dan "Otomatis: Mati/5/10 menit" (default mati, memakai token). Otomatis dilewati bila setting mixer tidak berubah sejak analisis terakhir, dan mati sendiri bila batas pemakaian Gemini tercapai.
+- Memori belajar lokal (`aise/memori.py`, data/memori/catatan.jsonl, maks ±2000 catatan, tanpa API key): saran baru, rekomendasi yang terverifikasi selesai, perubahan lewat Mode kontrol (diterapkan/dikembalikan/diubah operator), masalah clip/hot per channel, hasil Ukur Ruangan (tombol "Simpan ke memori AI"), dan penilaian operator ("Bagus / Kurang" pada rekomendasi yang ✓).
+- `profil()` meringkas (jumlah catatan, masalah berulang ≥2 kali, 20 perubahan terakhir beserta penilaian, ukur ruangan terakhir, `cukup_data` bila ≥5 penilaian) dan ikut ke prompt Gemini sebagai `riwayat`; SYSTEM menegaskan itu bukti terbatas dari satu ruangan, jangan mengulang usulan yang dinilai "kurang", dan sebut bila data belum cukup.
+- Halaman `memori.html` (menu "Memori AI"): lihat profil dan catatan terbaru, hapus per jenis atau semua. API: GET /api/memori, POST /api/memori/{nilai,ukur,hapus}.
+- Belum terbukti: manfaat riwayat bagi kualitas saran Gemini (butuh banyak ibadah dan penilaian); sekarang hanya mengumpulkan dan meringkas tanpa menyimpulkan sendiri.
+- Tes: tests/test_memori.py; uji browser menu, halaman Memori AI, dan Ukur Ruangan.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

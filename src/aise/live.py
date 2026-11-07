@@ -328,7 +328,8 @@ class LiveRules:
 
 class LiveMonitor:
     def __init__(self, ip: str, port: int, path: str, labels: dict[int, str],
-                 log_path: Path, on_stop=None, on_param=None, inactive: set[int] | None = None):
+                 log_path: Path, on_stop=None, on_param=None, inactive: set[int] | None = None, on_alert=None):
+        self.on_alert = on_alert
         self.ip, self.port, self.path = ip, port, path
         self.on_param = on_param          # dipanggil (alamat, argumen) untuk perubahan dari M-AIR
         self.rules = LiveRules(labels, inactive)
@@ -382,6 +383,11 @@ class LiveMonitor:
         now = time.monotonic()
         for a in alerts:
             if a.kind in ("clip", "hot") and a.index >= 0:
+                if self.on_alert:
+                    try:
+                        self.on_alert(a)
+                    except Exception:
+                        pass
                 prev = self._recent.get(a.index)
                 fresh = prev is not None and now - prev[2] <= RECENT_S
                 kind = "clip" if a.kind == "clip" or (fresh and prev[0] == "clip") else "hot"
@@ -414,7 +420,7 @@ class LiveMonitor:
                 self._record(self.rules.stale(now, now - self.last_frame))
             elif self.running and self.last_frame is None and now - self.started > STALE_S:
                 self._record(self.rules.stale(now, now - self.started))
-            alerts = [asdict(a) for a in self.alerts]
+            alerts = [{**asdict(a), "ago": round(now - a.t, 1)} for a in self.alerts]
             elapsed = max(now - self.started, 1e-6)
             return {
                 "running": self.running,

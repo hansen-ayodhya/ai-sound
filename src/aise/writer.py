@@ -142,8 +142,9 @@ class Item:
 class Controller:
     """Mengatur Mode kontrol: daftar parameter yang sedang dikendalikan dan pengirim berlatar belakang."""
 
-    def __init__(self, log_path: Path, read_value, clock=time.monotonic):
+    def __init__(self, log_path: Path, read_value, clock=time.monotonic, on_event=None):
         self.log_path = Path(log_path)
+        self._on_event = on_event
         self._read_value = read_value           # (addr) -> nilai terbaca dari mixer, atau None
         self._clock = clock
         self._lock = threading.RLock()
@@ -156,6 +157,11 @@ class Controller:
 
     # ---------- catatan ----------
     def _log(self, event: str, **kw) -> None:
+        if self._on_event:
+            try:
+                self._on_event(event, kw)
+            except Exception:
+                pass
         try:
             self.log_path.parent.mkdir(parents=True, exist_ok=True)
             with self.log_path.open("a", encoding="utf-8") as fh:

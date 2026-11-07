@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memori AI</title>
+<style>
+  :root { --bg:#0f1216; --panel:#171c22; --line:#2c3540; --text:#e6eaf0; --muted:#8c97a6; --accent:#5aa2ff; --ok:#3fcf7f; --warn:#f5b041; --bad:#ff6b6b; }
+  * { box-sizing: border-box; } [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .top { display: flex; gap: 14px; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .top a { color: var(--muted); text-decoration: none; } .top b { margin-right: 6px; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  h2 { margin: 0 0 6px; font-size: 16px; } .note { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; } td, th { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  button, select { font: inherit; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line); background: #1e252d; color: var(--text); cursor: pointer; }
+  button.danger { color: var(--bad); } .box { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--warn); color: var(--warn); background: #2a2210; margin: 8px 0; }
+  .tag { display: inline-block; font-size: 11px; border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="top"><b>Memori AI</b><a href="mixer.html">Tampilan Mixer</a><a href="home.html">Beranda</a><a href="room.html">Ukur Ruangan</a></div>
+<main>
+  <div class="card"><h2>Apa yang diketahui AI tentang ruangan Anda</h2>
+    <p class="note">Disimpan lokal di laptop (data/memori), tanpa API key. Hanya ringkasan ini yang ikut ke Gemini saat analisis, sebagai riwayat dengan bukti terbatas.</p>
+    <div class="box" id="cukup" hidden></div><div id="profil"></div></div>
+  <div class="card"><h2>Catatan terbaru</h2><table><thead><tr><th>Waktu</th><th>Jenis</th><th>Isi</th></tr></thead><tbody id="rows"></tbody></table>
+    <p class="note" id="kosong" hidden>Belum ada catatan. Catatan muncul seiring saran, perubahan, masalah, dan penilaian Anda.</p></div>
+  <div class="card"><h2>Hapus</h2><div style="display:flex;gap:8px;flex-wrap:wrap">
+    <select id="jenis"><option value="">Semua memori</option><option value="saran">Saran</option><option value="selesai">Rekomendasi selesai</option><option value="perubahan">Perubahan</option><option value="masalah">Masalah</option><option value="ukur">Hasil ukur ruangan</option><option value="nilai">Penilaian</option></select>
+    <button class="danger" id="hapus">Hapus</button></div></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const TOKEN = (document.querySelector('meta[name="aise-token"]') || {}).content;
+async function api(path, body) {
+  const r = await fetch(path, { method: body ? "POST" : "GET", headers: { "X-AISE-Token": TOKEN || "", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j;
+}
+const txt = (t, c) => { const e = document.createElement(c || "p"); e.textContent = t; return e; };
+function isi(r) {
+  if (r.jenis === "saran") return `CH ${r.ch ?? "-"} · ${r.masalah} (${r.sumber})`;
+  if (r.jenis === "selesai") return `CH ${r.ch ?? "-"} · ${r.masalah}: ` + (r.items || []).map((i) => `${i.teks} (${i.awal} → ${i.sekarang})`).join("; ");
+  if (r.jenis === "perubahan") return `${r.alamat}: ${r.aksi} ${r.awal ? r.awal + " → " : ""}${r.akhir ?? ""}`;
+  if (r.jenis === "masalah") return `CH ${r.ch}: ${r.jenis_masalah} (${r.level_db} dB)`;
+  if (r.jenis === "ukur") return `${r.titik} titik, mic ${r.mic}: ` + (r.band || []).map((b) => `${b.hz} Hz ${b.db} dB`).join("; ");
+  if (r.jenis === "nilai") return `${r.id}: ${r.nilai}`;
+  return "";
+}
+async function muat() {
+  try {
+    const v = await api("/api/memori"), p = v.profil;
+    $("cukup").hidden = false; $("cukup").textContent = p.catatan + ` Penilaian: ${p.penilaian.bagus} bagus, ${p.penilaian.kurang} kurang.`;
+    const box = $("profil"); box.replaceChildren();
+    box.append(txt("Jumlah catatan: " + (Object.entries(p.jumlah_catatan).map(([k, n]) => k + " " + n).join(", ") || "belum ada")));
+    if (p.masalah_berulang.length) box.append(txt("Masalah berulang: " + p.masalah_berulang.map((m) => `CH ${m.ch} ${m.jenis} ×${m.kali}`).join("; ")));
+    if (p.ukur_ruangan_terakhir) box.append(txt("Ukur ruangan terakhir: " + p.ukur_ruangan_terakhir.titik + " titik, " + (p.ukur_ruangan_terakhir.band || []).map((b) => `${b.hz} Hz ${b.db} dB`).join("; ")));
+    for (const d of p.perubahan_dinilai.slice(-8)) box.append(txt(`CH ${d.ch ?? "-"} · ${d.masalah} → ${d.nilai}`));
+    const rows = $("rows"); rows.replaceChildren();
+    for (const r of v.catatan) { const tr = document.createElement("tr"); tr.append(txt(r.ts.slice(5, 16).replace("T", " "), "td"), txt(r.jenis, "td"), txt(isi(r), "td")); rows.append(tr); }
+    $("kosong").hidden = v.catatan.length > 0;
+  } catch (e) { $("cukup").hidden = false; $("cukup").textContent = "Tidak bisa memuat: " + e.message + ". Buka lewat AI-Sound-Engineer.bat."; }
+}
+$("hapus").addEventListener("click", async () => {
+  if (!confirm("Hapus " + ($("jenis").value || "semua memori") + "? Ini tidak bisa dibatalkan.")) return;
+  try { await api("/api/memori/hapus", { jenis: $("jenis").value }); } catch (e) { alert(e.message); }
+  muat();
+});
+muat();
+</script>
+</body>
+</html>
