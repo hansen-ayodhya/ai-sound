@@ -666,7 +666,7 @@ function channelStrip(n) {
     el("div", { class: "sends", title: "Kiriman ke Bus 1–6 (monitor/FX)" },
       ...sends.map((s) => el("div", { class: s == null ? "none" : "", style: `height:${Math.max(4, (s || 0) * 100)}%` }))));
   state.stripEls["ch" + n] = strip;
-  const open = () => openChannel(n, strip);
+  const open = () => { openChannel(n, strip).catch((e) => console.error("Error opening channel:", e)); };
   strip.addEventListener("click", open);
   strip.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
   return strip;
@@ -736,8 +736,7 @@ function refreshOpenChannel() {
   const n = state.openCh, d = $("drawer");
   if (n == null || d.hidden) return;
   const top = d.scrollTop;
-  openChannel(n, state.stripEls["ch" + n]);
-  d.scrollTop = top;
+  openChannel(n, state.stripEls["ch" + n]).then(() => { d.scrollTop = top; }).catch((e) => console.error("Error refreshing channel:", e));
 }
 function doneSection(n) {
   const list = state.recsDone.filter((r) => r.ch === n);
@@ -749,7 +748,7 @@ function doneSection(n) {
         (r.kembali ? " (sempat dibatalkan lalu dilakukan lagi)" : "") }),
       el("ul", { class: "doneitems" }, ...r.items.map((i) => el("li", { text: `${i.teks} — sekarang ${i.sekarang_teks} ✓` })))))];
 }
-function openChannel(n, strip) {
+async function openChannel(n, strip) {
   const c = "/ch/" + pad2(n), h = "/headamp/" + pad2(n);
   const onoff = (v) => (v == null ? "—" : v === 1 ? "ON" : "OFF");
   const t = el("table", null,
@@ -768,6 +767,14 @@ function openChannel(n, strip) {
   const list = state.findings.filter((f) => f.ch === n);
   const changes = list.flatMap((f) => (f.usulan || []).map((u) => ({ ...u, src: srcOf(f) })));
   const eqChanges = changes.filter((u) => /\/(eq\/|preamp\/hp)/.test(u.alamat));
+
+  // Fetch EQ problems
+  let eqProblems = [];
+  try {
+    const res = await api("/api/live/eq-problems");
+    eqProblems = (res.findings || []).filter((f) => f.ch === n);
+  } catch (e) { /* abaikan jika tidak bisa fetch */ }
+
   showDrawer(strip,
     el("h3", { text: "CH " + pad2(n) + " · " + (raw(c + "/config/name") || "(tanpa nama)") }),
     el("p", { class: "note", text: "Nilai bertanda ≈ adalah perkiraan. Cocokkan dengan aplikasi mixer sebelum dipercaya." }),
@@ -784,6 +791,10 @@ function openChannel(n, strip) {
     el("p", { class: "note", text: raw(c + "/eq/on") === 0
       ? "EQ channel ini sedang OFF; titik band tidak ditampilkan. Bentuk kurva adalah perkiraan dari nilai mixer."
       : "Lingkaran hijau bernomor = posisi band EQ sekarang. Bentuk kurva adalah perkiraan dari nilai mixer." }),
+    ...eqProblems.map((f) => el("div", { class: "card perhatian" },
+      el("h4", { text: "⚠ " + f.masalah }),
+      el("p", { style: "margin: 0; font-size: 12px;", text: f.penyebab }),
+      el("p", { style: "margin: 4px 0 0; font-size: 12px; color: var(--ok);", text: "→ " + f.rekomendasi }))),
     ...dynSection(n),
     ...sendSection(n),
     el("h3", { text: "Setting" }),
@@ -854,7 +865,7 @@ function render() {
   const m = location.hash.match(/^#ch=(\d{1,2})$/);
   if (m && !state.keepDrawer && channels().includes(+m[1])) {
     history.replaceState(null, "", location.pathname);
-    setTimeout(() => openChannel(+m[1], state.stripEls["ch" + m[1]]), 0);
+    setTimeout(() => { openChannel(+m[1], state.stripEls["ch" + m[1]]).catch((e) => console.error("Error opening channel:", e)); }, 0);
   }
 }
 
@@ -1082,7 +1093,7 @@ function aiVisual(f) {
   if (has(/\/mix\/(\d\d\/level|fader)/)) parts.push(...sendSection(f.ch).slice(2, -1));
   if (parts.length === 2) parts.push(el("ul", { class: "usulan" }, ...f.usulan.map((u) => el("li", { text: u.teks }))));
   parts.push(el("button", { class: "open", type: "button", text: "Buka detail CH " + pad2(f.ch),
-    onclick: () => openChannel(f.ch, state.stripEls["ch" + f.ch]) }));
+    onclick: () => { openChannel(f.ch, state.stripEls["ch" + f.ch]).catch((e) => console.error("Error opening channel:", e)); } }));
   return el("div", { class: "aivis" }, ...parts);
 }
 function useAIResult(res) {

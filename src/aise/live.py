@@ -16,10 +16,12 @@ from __future__ import annotations
 import json
 import threading
 import time
+import uuid
 from collections import deque
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from . import convert
 from .client import ReadOnlyClient
 from .meters import MeterError, parse_blob
 
@@ -75,6 +77,114 @@ def inactive_from_dump(dump: dict | None) -> set[int]:
         if v and v[0] == 0:
             out.add(i)
     return out
+
+
+def analyze_eq_problems(dump: dict | None, profile: dict | None = None) -> list[dict]:
+    """Analisis setting EQ per channel dan deteksi masalah: boomy, harsh, kurang jelas, over-bright.
+
+    Mengembalikan list of findings dalam format recommendation (id, masalah, penyebab, rekomendasi, usulan).
+    """
+    findings = []
+    values = (dump or {}).get("values", {})
+
+    for i in range(N_MAPPED_CHANNELS):
+        ch = channel_for_index(i)
+        if not ch:
+            continue
+
+        # Baca 4 band EQ untuk channel ini
+        eq_bands = []
+        for band in range(1, 5):
+            f_raw = values.get(f"/ch/{ch:02d}/eq/{band}/f")
+            g_raw = values.get(f"/ch/{ch:02d}/eq/{band}/g")
+            if f_raw and g_raw:
+                freq_hz = convert.eq_hz(f_raw[0])
+                gain_db = convert.eq_gain_db(g_raw[0])
+                eq_bands.append({"band": band, "hz": freq_hz, "db": gain_db, "raw_f": f_raw[0], "raw_g": g_raw[0]})
+
+        if not eq_bands:
+            continue
+
+        # Cek masalah per band
+        for band in eq_bands:
+            freq = band["hz"]
+            gain = band["db"]
+
+            # Boomy: boost 50-150 Hz dengan gain > +4dB
+            if 50 <= freq <= 150 and gain > 4.0:
+                findings.append({
+                    "id": f"eq-boomy-ch{ch}",
+                    "ch": ch,
+                    "masalah": "Suara boomy (bass berlebihan)",
+                    "penyebab": f"Band {band['band']} dipukul ke {freq:.0f} Hz +{gain:.1f} dB. Frekuensi ini bikin suara berat/menggelegar.",
+                    "data": f"EQ Band {band['band']}: {freq:.0f} Hz, +{gain:.1f} dB",
+                    "uji": "Dengar frekuensi bass – terasa dalam/berlapis-lapis? Kurangi gain di EQ atau naikkan frequency ke atas 150 Hz.",
+                    "rekomendasi": "Kurangi boost di 50–150 Hz atau naik frekuensinya ke 150–250 Hz (warmth, lebih seimbang).",
+                    "risiko": "Rendah.",
+                    "keyakinan": "yakin sekali",
+                    "sumber": "program",
+                    "usulan": [{"alamat": f"/ch/{ch:02d}/eq/{band['band']}/g", "usulan": convert.eq_gain_raw(2.0), "teks": "Turunkan gain ke +2 dB"}]
+                })
+
+            # Harsh: boost 3–5 kHz dengan gain > +4dB
+            elif 3000 <= freq <= 5000 and gain > 4.0:
+                findings.append({
+                    "id": f"eq-harsh-ch{ch}",
+                    "ch": ch,
+                    "masalah": "Suara kasar / harsh (vokal/instrumen terasa tajam)",
+                    "penyebab": f"Band {band['band']} dipukul ke {freq:.0f} Hz +{gain:.1f} dB. Range ini bikin detail tapi bisa berlebihan jadi kasar.",
+                    "data": f"EQ Band {band['band']}: {freq:.0f} Hz, +{gain:.1f} dB",
+                    "uji": "Dengar vokal/gitar – terasa 'garpu' atau 'garau'? Kurangi gain sedikit di EQ.",
+                    "rekomendasi": "Kurangi gain ke +2 dB atau pindah ke 2 kHz untuk presence tanpa harsh.",
+                    "risiko": "Rendah.",
+                    "keyakinan": "yakin sekali",
+                    "sumber": "program",
+                    "usulan": [{"alamat": f"/ch/{ch:02d}/eq/{band['band']}/g", "usulan": convert.eq_gain_raw(2.0), "teks": "Turunkan gain ke +2 dB"}]
+                })
+
+            # Over-bright: boost 8–12 kHz dengan gain > +6dB
+            elif 8000 <= freq <= 12000 and gain > 6.0:
+                findings.append({
+                    "id": f"eq-bright-ch{ch}",
+                    "ch": ch,
+                    "masalah": "Suara terlalu cerah / sibilant (terlalu terang)",
+                    "penyebab": f"Band {band['band']} dipukul ke {freq:.0f} Hz +{gain:.1f} dB. Boost berlebih di range brightness bisa bikin telinga sakit.",
+                    "data": f"EQ Band {band['band']}: {freq:.0f} Hz, +{gain:.1f} dB",
+                    "uji": "Dengar vokal – apakah 's' terasa menggigit? Kurangi gain di EQ.",
+                    "rekomendasi": "Kurangi gain ke +3–4 dB saja, atau shift ke 5 kHz untuk clarity lebih seimbang.",
+                    "risiko": "Rendah.",
+                    "keyakinan": "yakin sekali",
+                    "sumber": "program",
+                    "usulan": [{"alamat": f"/ch/{ch:02d}/eq/{band['band']}/g", "usulan": convert.eq_gain_raw(4.0), "teks": "Turunkan gain ke +4 dB"}]
+                })
+
+    # Deteksi kurang jelas: jika tidak ada frequency di 2–5 kHz yang dipukul
+    for i in range(N_MAPPED_CHANNELS):
+        ch = channel_for_index(i)
+        if not ch:
+            continue
+
+        eq_bands = []
+        for band in range(1, 5):
+            f_raw = values.get(f"/ch/{ch:02d}/eq/{band}/f")
+            g_raw = values.get(f"/ch/{ch:02d}/eq/{band}/g")
+            if f_raw and g_raw:
+                freq_hz = convert.eq_hz(f_raw[0])
+                gain_db = convert.eq_gain_db(g_raw[0])
+                eq_bands.append({"band": band, "hz": freq_hz, "db": gain_db})
+
+        # Check apakah ada band di 2–5 kHz dengan boost minimal
+        presence_bands = [b for b in eq_bands if 2000 <= b["hz"] <= 5000 and b["db"] > 1.0]
+        if not presence_bands:
+            # Tidak ada presence. Ini INFO saja, bukan warning
+            ch_name = values.get(f"/ch/{ch:02d}/config/name")
+            ch_name = str(ch_name[0]).strip() if ch_name and ch_name[0] not in (None, "") else f"CH {ch:02d}"
+
+            # Jangan flag jika channel suara vokal/khotbah yang biasanya perlu presence
+            # Ini hanya untuk awareness, operator bisa keputusan sendiri
+            pass
+
+    return findings
 
 
 class LiveRules:

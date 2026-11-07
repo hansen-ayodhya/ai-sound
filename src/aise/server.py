@@ -44,7 +44,7 @@ from .client import DEFAULT_PORT, ReadOnlyClient
 from .dump import run_dump
 from .guard import ReadOnlyViolation, check
 from .guard import ALLOWED_PREFIXES
-from .live import LiveMonitor, inactive_from_dump, labels_from_dump
+from .live import LiveMonitor, inactive_from_dump, labels_from_dump, analyze_eq_problems
 from .report import findings_json, render
 from .menu import load_ip, save_ip, valid_ip
 from .paths import BUILD_VERSION_FILE, BUNDLE, FROZEN
@@ -465,6 +465,14 @@ class App:
                 recs.save(self.recs_path, state)
             return recs.view(state)
 
+    def eq_problems(self) -> list[dict]:
+        """Analisis setting EQ mixer dan deteksi masalah: boomy, harsh, dll."""
+        _, dump = self.latest_dump()
+        if not dump:
+            return []
+        profile = self.profile_view().get("profile", {})
+        return analyze_eq_problems(dump, profile)
+
     # ---------- DSP ----------
     @property
     def dsp_path(self) -> Path:
@@ -773,6 +781,8 @@ def make_handler(app: App, http_port: int):
                         since = None
                     return self._json(200, {**app.live.snapshot(include_alerts=want), "settings_at": app.live_settings_at,
                                             **app.params_since(since)})
+                if path == "/api/live/eq-problems":
+                    return self._json(200, {"findings": app.eq_problems()})
                 if path == "/api/job":
                     return self._json(200, app.job)
                 if path == "/api/channels":
