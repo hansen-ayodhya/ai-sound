@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ukur Ruangan</title>
+<style>
+  :root {
+    --bg: #0f1216; --panel: #171c22; --panel-2: #1e252d; --line: #2c3540;
+    --text: #e6eaf0; --muted: #8c97a6; --accent: #5aa2ff; --ok: #3fcf7f; --warn: #f5b041; --bad: #ff6b6b; --prog: #b48cff;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 16px; background: var(--panel);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .brand { font-weight: 700; font-size: 16px; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; }
+  nav a.cur { color: var(--text); background: var(--panel-2); }
+  .ro { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--ok); border: 1px solid var(--ok); border-radius: 999px; padding: 2px 8px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  h2 { margin: 0 0 4px; font-size: 16px; } h3 { margin: 14px 0 6px; font-size: 14px; }
+  .sub, .note { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  .box { border: 1px solid var(--warn); background: #2a2210; color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin: 8px 0; }
+  .box.bad { border-color: var(--bad); background: #2a1313; color: var(--bad); }
+  .box.ok { border-color: var(--ok); background: #10261a; color: var(--ok); }
+  label.f { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  input[type=text], select { width: 100%; font: inherit; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  input[type=range] { width: 100%; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  button, .filebtn { font: inherit; border-radius: 7px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button.primary { background: var(--accent); color: #0b1a2e; border-color: var(--accent); font-weight: 700; }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .filebtn input { display: none; }
+  .meter { height: 12px; background: #0b0e11; border-radius: 6px; overflow: hidden; position: relative; margin-top: 6px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ok); width: 0; }
+  .meter i.hot { background: var(--bad); }
+  .bar { height: 8px; background: #0b0e11; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  ol.steps { margin: 6px 0 0; padding-left: 20px; } ol.steps li { margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 600; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  svg.chart { width: 100%; height: auto; display: block; background: #12161b; border-radius: 8px; }
+  svg.chart text { font: 10px system-ui, sans-serif; fill: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin: 6px 0; }
+  .rec { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .rec .n { flex: 0 0 24px; height: 24px; border-radius: 50%; background: var(--prog); color: #1a1030; font-weight: 700; display: grid; place-items: center; }
+  .rec.nogo .n { background: none; border: 2px dashed var(--warn); color: var(--warn); }
+  .rec b { display: block; }
+  .rec .meta { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">AI Sound Engineer</div>
+  <nav>
+    <a href="home.html">Beranda</a>
+    <a href="mixer.html">Tampilan Mixer</a>
+    <a href="clips.html">Klip Suara</a>
+    <a href="dsp.html">Data DSP</a>
+    <a href="room.html" class="cur">Ukur Ruangan</a>
+    <a href="index.html">Tabel</a>
+  </nav>
+  <span class="ro" title="Halaman ini tidak mengirim apa pun ke mixer">TIDAK MENGUBAH MIXER</span>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <h2>1. Persiapan</h2>
+    <p class="sub">Tujuan: melihat apakah ruangan membuat suara terlalu menonjol atau kurang di frekuensi tertentu, lalu mendapat usulan EQ (master atau DSP). Aplikasi ini hanya mendengar dan menghitung; semua perubahan Anda lakukan sendiri.</p>
+    <div class="box bad"><b>Keamanan:</b> pink noise terdengar seperti desis keras. Mulai dari volume kecil, pastikan tidak ada orang berdiri dekat speaker, dan naikkan pelan-pelan dari fader master. Jangan dibiarkan lama.</div>
+    <ol class="steps">
+      <li>Sambungkan keluaran laptop ke satu channel mixer yang kosong (mic dan musik lain di-mute). Atau unduh file pink noise di langkah 2 lalu putar dari komputer playback.</li>
+      <li>Pilih jenis mic dan input di langkah 3. Letakkan mic di titik duduk jemaat, setinggi telinga.</li>
+      <li>Ukur beberapa titik (depan, tengah, belakang, pinggir kiri dan kanan) di langkah 4. Makin banyak titik, makin bisa dipercaya.</li>
+      <li>Lihat usulan EQ di langkah 5, terapkan satu per satu di mixer/DSP, lalu ukur ulang.</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>2. Pink noise</h2>
+    <p class="sub">Dibuat di laptop ini. Volume di sini hanya sinyal digital; seberapa keras terdengar ditentukan fader di mixer.</p>
+    <label class="f" for="noiseLevel">Level sinyal: <span id="noiseLevelTxt"></span></label>
+    <input type="range" id="noiseLevel" min="-50" max="-12" step="1" value="-32">
+    <div class="grid">
+      <div><label class="f" for="outDev">Keluaran suara (opsional)</label><select id="outDev"><option value="">Bawaan sistem</option></select></div>
+    </div>
+    <div class="btns">
+      <button type="button" id="btnNoise" class="primary">▶ Putar pink noise</button>
+      <button type="button" id="btnWav">⬇ Unduh pink noise (WAV 30 detik)</button>
+      <span class="note" id="noiseMsg" style="margin:0"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. Mic dan input</h2>
+    <div class="grid">
+      <div>
+        <label class="f" for="micType">Jenis mic yang dipakai mengukur</label>
+        <select id="micType"></select>
+      </div>
+      <div>
+        <label class="f" for="inDev">Input suara</label>
+        <select id="inDev"><option value="">(klik “Izinkan mic” dulu)</option></select>
+      </div>
+    </div>
+    <div class="box" id="micNote"></div>
+    <div class="box bad" id="secureNote" hidden>Browser memblokir mic di alamat ini (bukan localhost). Buka aplikasi di laptop lewat <b>http://localhost</b>, atau pakai tombol “Pilih file rekaman” di langkah 4.</div>
+    <div class="btns">
+      <button type="button" id="btnMic">🎤 Izinkan mic</button>
+      <span class="note" id="micMsg" style="margin:0"></span>
+    </div>
+    <div class="meter" title="Level sinyal masuk"><i id="meterFill"></i></div>
+    <p class="note" id="meterTxt" style="margin-top:4px">Level: —</p>
+  </section>
+
+  <section class="card">
+    <h2>4. Titik ukur</h2>
+    <div class="grid">
+      <div><label class="f" for="posName">Nama titik</label><input type="text" id="posName" placeholder="mis. Tengah, baris 5" maxlength="40"></div>
+      <div><label class="f" for="posSecs">Lama pengukuran</label>
+        <select id="posSecs"><option value="8">8 detik</option><option value="12" selected>12 detik</option><option value="20">20 detik</option></select></div>
+    </div>
+    <div class="btns">
+      <button type="button" id="btnMeasure" class="primary" disabled>● Ukur titik ini</button>
+      <label class="filebtn">Pilih file rekaman<input type="file" id="fileIn" accept="audio/*,.wav"></label>
+    </div>
+    <div class="bar" id="measBar" hidden><i id="measFill"></i></div>
+    <div class="box" id="measMsg" hidden></div>
+    <h3>Titik yang sudah diukur</h3>
+    <table><thead><tr><th>Pakai</th><th>Nama</th><th>Waktu</th><th>Level</th><th></th></tr></thead><tbody id="posRows"></tbody></table>
+    <p class="note" id="posEmpty">Belum ada titik. Ukur titik pertama setelah pink noise dinyalakan dan mic siap.</p>
+  </section>
+
+  <section class="card">
+    <h2>5. Hasil dan usulan EQ</h2>
+    <div class="grid">
+      <div><label class="f" for="target">Target bentuk suara</label><select id="target"></select></div>
+    </div>
+    <div class="box ok" id="summary" hidden></div>
+    <h3>Hasil ukur (bentuk saja, level mutlak tidak dinilai)</h3>
+    <div id="rtaChart"></div>
+    <div class="legend" id="rtaLegend"></div>
+    <h3>Usulan EQ (belum diterapkan)</h3>
+    <div id="eqChart"></div>
+    <div class="legend" id="eqLegend"></div>
+    <div id="recs"></div>
+    <div id="notes"></div>
+    <div class="btns">
+      <button type="button" id="btnExport">Simpan hasil (JSON)</button>
+      <button type="button" id="btnClear" class="danger">Hapus semua titik</button>
+    </div>
+  </section>
+</main>
+
+<script src="room-core.js"></script>
+<script>
+"use strict";
+const C = window.RoomCore;
+const $ = (id) => document.getElementById(id);
+const KEY = "aise.room.v1";
+const COLORS = ["#5aa2ff", "#f5b041", "#3fcf7f", "#ff8f9c", "#3cc9f0", "#d4e157", "#ffab91", "#80cbc4"];
+const store = (() => {
+  const def = { positions: [], mic: "genggam", target: "umum", seq: 0 };
+  try { return { ...def, ...(JSON.parse(localStorage.getItem(KEY)) || {}) }; } catch (e) { return def; }
+})();
+function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* abaikan */ } }
+function text(tag, cls, t) { const e = document.createElement(tag); if (cls) e.className = cls; if (t != null) e.textContent = t; return e; }
+function svg(tag, attrs, parent) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// ---------- pilihan ----------
+for (const k in C.TRUST) $("micType").append(new Option(C.TRUST[k].label, k));
+for (const k in C.TARGETS) $("target").append(new Option(C.TARGETS[k].label, k));
+$("micType").value = store.mic; $("target").value = store.target;
+function micNote() {
+  const t = C.TRUST[store.mic];
+  $("micNote").textContent = store.mic === "ukur"
+    ? "Mic ukur: seluruh rentang dinilai."
+    : `Mic suara punya warna sendiri (bass dipotong, area atas dinaikkan) dan pemancar wireless menekan level. Karena itu hanya ${C.fmtHz(t.lo)} – ${C.fmtHz(t.hi)} yang dinilai; di luar itu hanya ditampilkan. Pastikan di channel mic ini EQ off, low cut off, kompresor off, supaya yang terukur adalah ruangan, bukan setting channel.`;
+}
+micNote();
+$("micType").addEventListener("change", () => { store.mic = $("micType").value; save(); micNote(); renderResults(); });
+$("target").addEventListener("change", () => { store.target = $("target").value; save(); renderResults(); });
+if (!window.isSecureContext || !navigator.mediaDevices) $("secureNote").hidden = false;
+
+// ---------- pink noise ----------
+let outCtx = null, noiseSrc = null, noiseGain = null, noiseTimer = null;
+const noiseDb = () => +$("noiseLevel").value;
+function noiseLabel() { $("noiseLevelTxt").textContent = noiseDb() + " dBFS" + (noiseDb() > -24 ? " (keras, hati-hati)" : ""); }
+noiseLabel();
+$("noiseLevel").addEventListener("input", () => {
+  noiseLabel();
+  if (noiseGain) noiseGain.gain.setTargetAtTime(Math.pow(10, noiseDb() / 20), outCtx.currentTime, 0.1);
+});
+async function startNoise() {
+  outCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const dev = $("outDev").value;
+  if (dev && outCtx.setSinkId) { try { await outCtx.setSinkId(dev); } catch (e) { $("noiseMsg").textContent = "Keluaran dipilih gagal; memakai bawaan."; } }
+  const buf = outCtx.createBuffer(1, outCtx.sampleRate * 10, outCtx.sampleRate);
+  buf.copyToChannel(C.pinkNoise(buf.length, 99), 0);
+  noiseSrc = outCtx.createBufferSource(); noiseSrc.buffer = buf; noiseSrc.loop = true;
+  noiseGain = outCtx.createGain(); noiseGain.gain.value = 0;
+  noiseSrc.connect(noiseGain).connect(outCtx.destination);
+  noiseSrc.start();
+  noiseGain.gain.linearRampToValueAtTime(Math.pow(10, noiseDb() / 20), outCtx.currentTime + 3);
+  $("btnNoise").textContent = "■ Hentikan pink noise";
+  $("noiseMsg").textContent = "Memutar (naik pelan 3 detik, berhenti otomatis setelah 3 menit).";
+  noiseTimer = setTimeout(stopNoise, 180000);
+}
+function stopNoise() {
+  clearTimeout(noiseTimer);
+  if (outCtx) { try { noiseSrc.stop(); } catch (e) { /* abaikan */ } outCtx.close(); }
+  outCtx = noiseSrc = noiseGain = null;
+  $("btnNoise").textContent = "▶ Putar pink noise";
+  $("noiseMsg").textContent = "";
+}
+$("btnNoise").addEventListener("click", () => (outCtx ? stopNoise() : startNoise().catch((e) => { $("noiseMsg").textContent = "Gagal memutar: " + e.message; })));
+$("btnWav").addEventListener("click", () => {
+  const sr = 48000, blob = C.wavBlob(C.pinkNoise(sr * 30, 5), sr, 0.25);
+  const a = text("a"); a.href = URL.createObjectURL(blob); a.download = "pink-noise-30detik.wav"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+async function listOutputs() {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    const outs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audiooutput");
+    $("outDev").replaceChildren(new Option("Bawaan sistem", ""), ...outs.map((d) => new Option(d.label || "Keluaran", d.deviceId)));
+  } catch (e) { /* abaikan */ }
+}
+
+// ---------- mic ----------
+let stream = null, inCtx = null, analyser = null, meterTimer = null;
+function stopMic() {
+  clearInterval(meterTimer);
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  if (inCtx) inCtx.close();
+  stream = inCtx = analyser = null;
+}
+async function openMic() {
+  stopMic();
+  const id = $("inDev").value;
+  stream = await navigator.mediaDevices.getUserMedia({ audio: {
+    deviceId: id ? { exact: id } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } });
+  inCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = inCtx.createMediaStreamSource(stream);
+  analyser = inCtx.createAnalyser(); analyser.fftSize = C.FFT_N; analyser.smoothingTimeConstant = 0;
+  src.connect(analyser);
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audioinput");
+  const cur = stream.getAudioTracks()[0].getSettings().deviceId;
+  $("inDev").replaceChildren(...devs.map((d) => new Option(d.label || "Input", d.deviceId)));
+  if (cur) $("inDev").value = cur;
+  listOutputs();
+  const buf = new Float32Array(C.FFT_N);
+  meterTimer = setInterval(() => {
+    analyser.getFloatTimeDomainData(buf);
+    let pk = 0, ss = 0;
+    for (let i = C.FFT_N - 4096; i < C.FFT_N; i++) { const a = Math.abs(buf[i]); if (a > pk) pk = a; ss += buf[i] * buf[i]; }
+    const pdb = 20 * Math.log10(pk + 1e-10), rdb = 10 * Math.log10(ss / 4096 + 1e-20);
+    $("meterFill").style.width = Math.max(0, Math.min(100, (pdb + 70) / 70 * 100)) + "%";
+    $("meterFill").className = pdb > -3 ? "hot" : "";
+    $("meterTxt").textContent = `Level: puncak ${pdb.toFixed(0)} dBFS · rata-rata ${rdb.toFixed(0)} dBFS` +
+      (pdb > -3 ? " — terlalu keras, kecilkan gain/volume" : rdb < -60 ? " — hampir tidak ada sinyal" : rdb < -45 ? " — agak kecil, naikkan volume pink noise" : " — baik");
+  }, 150);
+  $("btnMeasure").disabled = false;
+  $("micMsg").textContent = "Mic aktif: " + (stream.getAudioTracks()[0].label || "input");
+}
+$("btnMic").addEventListener("click", () => openMic().catch((e) => { $("micMsg").textContent = "Mic gagal dibuka: " + e.message; }));
+$("inDev").addEventListener("change", () => { if (stream) openMic().catch((e) => { $("micMsg").textContent = "Mic gagal dibuka: " + e.message; }); });
+
+// ---------- pengukuran ----------
+let busy = false;
+function measMsg(msg, cls) { const b = $("measMsg"); b.hidden = !msg; b.className = "box" + (cls ? " " + cls : ""); b.textContent = msg || ""; }
+function nextName() { return $("posName").value.trim() || "Titik " + (store.positions.length + 1); }
+function addPosition(avg, sr) {
+  const bands = avg.bands();
+  const peak = avg.peakDb(), rms = avg.rmsDb();
+  if (rms < -75) throw new Error("Sinyal terlalu kecil (hampir senyap). Naikkan volume pink noise atau gain mic, lalu ulangi.");
+  if (avg.frames < 5) throw new Error("Rekaman terlalu pendek.");
+  store.seq++;
+  store.positions.push({ id: store.seq, name: nextName(), bands, on: true, time: new Date().toLocaleTimeString("id-ID"), peak, rms, sr });
+  save(); $("posName").value = "";
+  let warn = null;
+  if (peak > -1) warn = "Peringatan: sinyal sempat clipping (terlalu keras). Hasil titik ini kurang akurat; kecilkan volume dan ukur ulang.";
+  else if (rms < -50) warn = "Level cukup kecil; kalau ada banyak bising ruangan, hasil bisa kurang akurat.";
+  measMsg(warn || "Titik tersimpan.", warn ? "" : "ok");
+  renderPositions(); renderResults();
+}
+async function measureLive() {
+  if (busy || !analyser) return;
+  busy = true; $("btnMeasure").disabled = true; measMsg(null);
+  const secs = +$("posSecs").value, warm = 1.5, avg = new C.Averager(inCtx.sampleRate), buf = new Float32Array(C.FFT_N);
+  $("measBar").hidden = false;
+  const t0 = performance.now();
+  try {
+    await new Promise((resolve) => {
+      const tick = setInterval(() => {
+        const t = (performance.now() - t0) / 1000;
+        $("measFill").style.width = Math.min(100, t / (secs + warm) * 100) + "%";
+        if (t >= warm) { analyser.getFloatTimeDomainData(buf); avg.add(buf); }
+        if (t >= secs + warm) { clearInterval(tick); resolve(); }
+      }, 220);
+    });
+    addPosition(avg, inCtx.sampleRate);
+  } catch (e) { measMsg(e.message, "bad"); }
+  $("measBar").hidden = true; busy = false; $("btnMeasure").disabled = !analyser;
+}
+$("btnMeasure").addEventListener("click", measureLive);
+$("fileIn").addEventListener("change", async () => {
+  const f = $("fileIn").files[0]; $("fileIn").value = "";
+  if (!f || busy) return;
+  busy = true; measMsg("Membaca rekaman…");
+  try {
+    if (f.size > 40e6) throw new Error("File terlalu besar (maks 40 MB).");
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    let ab;
+    try { ab = await ac.decodeAudioData(await f.arrayBuffer()); } finally { ac.close(); }
+    const x = ab.getChannelData(0), sr = ab.sampleRate;
+    const start = x.length > sr * 6 ? Math.round(sr * 1.5) : 0, end = Math.min(x.length, start + sr * 30);
+    if (end - start < C.FFT_N * 2) throw new Error("Rekaman terlalu pendek (minimal sekitar 4 detik).");
+    const avg = new C.Averager(sr);
+    for (let i = start; i + C.FFT_N <= end; i += C.FFT_N / 2) avg.add(x.subarray(i, i + C.FFT_N));
+    addPosition(avg, sr);
+  } catch (e) { measMsg("Gagal membaca file: " + e.message, "bad"); }
+  busy = false;
+});
+
+// ---------- daftar titik ----------
+function renderPositions() {
+  const rows = $("posRows"); rows.replaceChildren();
+  store.positions.forEach((p, i) => {
+    const tr = text("tr");
+    const cb = text("input"); cb.type = "checkbox"; cb.checked = p.on;
+    cb.addEventListener("change", () => { p.on = cb.checked; save(); renderResults(); });
+    const sw = text("span", "sw"); sw.style.background = COLORS[i % COLORS.length];
+    const nm = text("td"); nm.append(sw, p.name);
+    const del = text("button", "danger", "Hapus");
+    del.addEventListener("click", () => { store.positions.splice(i, 1); save(); renderPositions(); renderResults(); });
+    const tdc = text("td"); tdc.append(cb);
+    const tdd = text("td"); tdd.append(del);
+    tr.append(tdc, nm, text("td", null, p.time), text("td", null, `${p.peak.toFixed(0)} / ${p.rms.toFixed(0)} dBFS`), tdd);
+    rows.append(tr);
+  });
+  $("posEmpty").hidden = store.positions.length > 0;
+}
+$("btnClear").addEventListener("click", () => {
+  if (!store.positions.length || !confirm("Hapus semua titik ukur?")) return;
+  store.positions = []; save(); renderPositions(); renderResults();
+});
+$("btnExport").addEventListener("click", () => {
+  const out = { dibuat: new Date().toISOString(), mic: store.mic, target: store.target, titik: store.positions.map((p) => ({ nama: p.name, aktif: p.on, hz: C.NOMINAL, db: p.bands })) };
+  const a = text("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: "application/json" }));
+  a.download = "ukur-ruangan.json"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+
+// ---------- grafik ----------
+const FMIN = 50, FMAX = 16000, W = 720, H = 280, ML = 38, MR = 10, MT = 10, MB = 24;
+const xOf = (f) => ML + Math.log(f / FMIN) / Math.log(FMAX / FMIN) * (W - ML - MR);
+function chartBase(host, range, trusted) {
+  host.replaceChildren();
+  const s = svg("svg", { class: "chart", viewBox: `0 0 ${W} ${H}`, role: "img" }, host);
+  const yOf = (db) => MT + (range - db) / (2 * range) * (H - MT - MB);
+  if (trusted) {
+    svg("rect", { x: ML, y: MT, width: Math.max(0, xOf(trusted[0]) - ML), height: H - MT - MB, fill: "#000", opacity: .28 }, s);
+    svg("rect", { x: xOf(trusted[1]), y: MT, width: Math.max(0, W - MR - xOf(trusted[1])), height: H - MT - MB, fill: "#000", opacity: .28 }, s);
+  }
+  for (let db = -range; db <= range; db += range / 3) {
+    svg("line", { x1: ML, x2: W - MR, y1: yOf(db), y2: yOf(db), stroke: db === 0 ? "#3b4755" : "#222b34" }, s);
+    const t = svg("text", { x: ML - 5, y: yOf(db) + 3, "text-anchor": "end" }, s); t.textContent = (db > 0 ? "+" : "") + Math.round(db);
+  }
+  [63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000].forEach((f) => {
+    svg("line", { x1: xOf(f), x2: xOf(f), y1: MT, y2: H - MB, stroke: "#222b34" }, s);
+    const t = svg("text", { x: xOf(f), y: H - 8, "text-anchor": "middle" }, s); t.textContent = f >= 1000 ? f / 1000 + "k" : f;
+  });
+  return { s, yOf };
+}
+const clampDb = (v, r) => Math.max(-r, Math.min(r, v));
+function polyline(s, yOf, vals, range, attrs) {
+  const pts = C.CENTERS.map((f, i) => (vals[i] == null ? null : `${xOf(f).toFixed(1)},${yOf(clampDb(vals[i], range)).toFixed(1)}`)).filter(Boolean);
+  svg("polyline", { points: pts.join(" "), fill: "none", "stroke-linejoin": "round", ...attrs }, s);
+}
+function legend(host, items) {
+  host.replaceChildren(...items.map(([c, t, dash]) => {
+    const d = text("span"); const sw = text("span", "sw"); sw.style.background = dash ? "none" : c; if (dash) sw.style.border = `2px dashed ${c}`;
+    d.append(sw, t); return d;
+  }));
+}
+function renderResults() {
+  const used = store.positions.filter((p) => p.on);
+  ["rtaChart", "eqChart", "rtaLegend", "eqLegend", "recs", "notes"].forEach((id) => $(id).replaceChildren());
+  $("summary").hidden = true;
+  if (!used.length) { $("rtaChart").append(text("p", "note", "Belum ada titik yang dipakai. Ukur atau centang titik di langkah 4.")); return; }
+  const r = C.analyze(used.map((p) => p.bands), { mic: store.mic, target: store.target });
+  const R = 18, a = chartBase($("rtaChart"), R, r.trusted);
+  store.positions.forEach((p, i) => { if (p.on) polyline(a.s, a.yOf, C.normalize(p.bands), R, { stroke: COLORS[i % COLORS.length], "stroke-width": 1.2, opacity: .75 }); });
+  polyline(a.s, a.yOf, r.target, R, { stroke: "#8c97a6", "stroke-width": 1.5, "stroke-dasharray": "5 4" });
+  polyline(a.s, a.yOf, r.avg, R, { stroke: "#fff", "stroke-width": 3 });
+  legend($("rtaLegend"), [["#fff", `Rata-rata ${used.length} titik`], ["#8c97a6", "Target", true], ["#555", "Area gelap = di luar rentang yang dinilai"]]);
+
+  const E = 9, e = chartBase($("eqChart"), E, r.trusted);
+  const fq = Array.from({ length: 160 }, (_, i) => FMIN * Math.pow(FMAX / FMIN, i / 159));
+  const curve = C.eqCurve(r.bands, fq);
+  const path = fq.map((f, i) => `${i ? "L" : "M"}${xOf(f).toFixed(1)},${e.yOf(clampDb(curve[i], E)).toFixed(1)}`).join(" ");
+  svg("path", { d: `${path} L${xOf(FMAX)},${e.yOf(0)} L${xOf(FMIN)},${e.yOf(0)} Z`, fill: "#b48cff", opacity: .18 }, e.s);
+  svg("path", { d: path, fill: "none", stroke: "#b48cff", "stroke-width": 2.5 }, e.s);
+  const after = C.CENTERS.map((f, i) => (r.dev[i] == null ? null : r.dev[i] + C.eqCurve(r.bands, [f])[0]));
+  polyline(e.s, e.yOf, r.dev, E, { stroke: "#8c97a6", "stroke-width": 1.2, opacity: .8 });
+  polyline(e.s, e.yOf, after, E, { stroke: "#3fcf7f", "stroke-width": 1.8 });
+  r.bands.forEach((b, i) => {
+    const g = svg("g", {}, e.s), cy = e.yOf(clampDb(b.aman ? b.db : 0, E));
+    svg("circle", { cx: xOf(b.hz), cy, r: 9, fill: b.aman ? "#b48cff" : "#12161b", stroke: b.aman ? "#12161b" : "#f5b041", "stroke-width": 2, "stroke-dasharray": b.aman ? "" : "3 2" }, g);
+    const t = svg("text", { x: xOf(b.hz), y: cy + 3.5, "text-anchor": "middle", style: `fill:${b.aman ? "#1a1030" : "#f5b041"};font-weight:700;font-size:10px` }, g);
+    t.textContent = i + 1;
+  });
+  legend($("eqLegend"), [["#b48cff", "Usulan EQ (ungu = usulan program)"], ["#8c97a6", "Selisih dari target sekarang"], ["#3fcf7f", "Perkiraan setelah usulan dipakai"]]);
+
+  const box = $("recs");
+  if (!r.bands.length) box.append(text("p", "note", "Tidak ada koreksi yang disarankan."));
+  r.bands.forEach((b, i) => {
+    const row = text("div", "rec" + (b.aman ? "" : " nogo"));
+    const body = text("div");
+    body.append(text("b", null, b.aman ? `${C.fmtHz(b.hz)} · ${b.db > 0 ? "+" : "−"}${Math.abs(b.db).toFixed(1).replace(".", ",")} dB · Q ${String(b.q).replace(".", ",")}` : `${C.fmtHz(b.hz)} · bukan masalah EQ`),
+      text("span", null, b.teks));
+    row.append(text("div", "n", b.aman ? i + 1 : "!"), body);
+    box.append(row);
+  });
+  const nt = $("notes");
+  r.notes.forEach((n) => nt.append(text("p", "note", n)));
+  nt.append(text("p", "note", "Terapkan di EQ master (Main L/R) atau DSP Protea, jangan di channel mic. Ubah satu band, dengarkan, lalu ukur ulang titik yang sama untuk memastikan."));
+  if (used.length < 3) nt.append(text("p", "note", `Baru ${used.length} titik dipakai. Disarankan 3 titik atau lebih (depan, tengah, belakang) sebelum mengubah EQ.`));
+  const top = r.bands.filter((b) => b.aman);
+  $("summary").hidden = false;
+  $("summary").textContent = top.length
+    ? `Ditemukan ${top.length} area yang perlu dikoreksi${r.bands.some((b) => !b.aman) ? " dan masalah yang bukan soal EQ" : ""}. Mulai dari nomor 1 pada daftar di bawah grafik.`
+    : r.bands.length ? "Tidak ada koreksi EQ yang aman, tetapi ada cekungan sempit yang perlu diatasi dengan penempatan." : "Bentuk suara sudah dekat dengan target pada rentang yang dinilai.";
+}
+
+renderPositions(); renderResults(); listOutputs();
+window.__room = { store, renderResults };
+</script>
+</body>
+</html>

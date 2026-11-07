@@ -205,6 +205,12 @@
 - BELUM terbukti di MR18 asli: bahwa mixer benar-benar mengirim kabar setelah /xremote. Bila tidak ada kabar, tampilan tetap diperbarui oleh pembacaan 60 dtk/tombol Baca setting.
 - 112 tes lulus; diuji di browser dengan mixer tiruan yang mendorong perubahan.
 
+## Update 2026-11-07: aturan EQ + Ukur Ruangan
+
+- Aturan EQ dari setting mixer (`live.analyze_eq_problems`, `GET /api/live/eq-problems`, tampil di panel channel): boomy, berlumpur, harsh, terlalu cerah, kurang jelas, potongan di bawah 60 Hz, gain ekstrem (≥9 dB), dua band bertumpuk. Bug awal: endpoint memanggil fungsi yang tidak ada sehingga tidak ada peringatan; kini diuji lewat server.
+- Halaman baru `viewer/room.html` + `viewer/room-core.js` (semua dihitung di browser, tidak menyentuh mixer): pink noise dari laptop (atau unduh WAV), rekam lewat mic/input USB atau pilih file rekaman, beberapa titik ukur, spektrum 1/3 oktaf (FFT 16384, jendela Hann, rata-rata daya), target datar atau pedoman umum, usulan maks 5 band EQ (potong lebih disukai; boost maks +3 dB; cekungan sempit dianggap masalah penempatan, bukan EQ), keyakinan diturunkan bila hasil berbeda jauh antar titik. Rentang yang dinilai dibatasi menurut jenis mic (mic vokal tidak datar). Hanya BENTUK kurva dinilai karena mic tidak terkalibrasi.
+- BELUM terbukti di perangkat asli: mic Shure wireless lewat MR18/USB audio masuk ke browser, dan kecocokan usulan dengan telinga di ruangan. Diuji dengan rekaman sintetis (tonjolan 200 Hz, cekungan 3,15 kHz) di Chromium.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
