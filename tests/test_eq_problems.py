@@ -33,6 +33,25 @@ class EqProblems(unittest.TestCase):
         self.assertEqual(analyze_eq_problems(dump_with(1, 100, 1)), [])
         self.assertEqual(analyze_eq_problems(dump_with(1, 2500, -1)), [])
 
+    def test_screenshot_ch12(self):
+        v = {}
+        for b, (hz, db) in enumerate([(22, -13), (500, -3.5), (43, -13), (11000, 1.5)], 1):
+            v[f"/ch/12/eq/{b}/f"] = [convert.eq_raw_hz(hz)]
+            v[f"/ch/12/eq/{b}/g"] = [convert.eq_gain_raw(db)]
+        ids = [f["id"] for f in analyze_eq_problems({"values": v})]
+        self.assertIn("eq-subcut-ch12-b1", ids)
+        self.assertIn("eq-subcut-ch12-b3", ids)
+        self.assertEqual(len(ids), 2)
+
+    def test_extreme_and_overlap(self):
+        v = {}
+        for b, (hz, db) in enumerate([(1000, 10), (300, -4), (400, -5), (8000, 0)], 1):
+            v[f"/ch/01/eq/{b}/f"] = [convert.eq_raw_hz(hz)]
+            v[f"/ch/01/eq/{b}/g"] = [convert.eq_gain_raw(db)]
+        ids = [f["id"] for f in analyze_eq_problems({"values": v})]
+        self.assertIn("eq-extreme-ch1-b1", ids)
+        self.assertIn("eq-overlap-ch1-b3", ids)
+
     def test_endpoint(self):
         with tempfile.TemporaryDirectory() as tmp:
             data = Path(tmp) / "data"

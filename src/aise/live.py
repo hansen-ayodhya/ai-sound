@@ -14,6 +14,7 @@ pasti sesudah fader/bus.
 from __future__ import annotations
 
 import json
+import math
 import threading
 import time
 import uuid
@@ -79,6 +80,43 @@ def inactive_from_dump(dump: dict | None) -> set[int]:
     return out
 
 
+def _eq_shape_problems(ch: int, bands: list[dict]) -> list[dict]:
+    """Pola EQ yang janggal: potongan di bawah 60 Hz, gain ekstrem, band bertumpuk."""
+    out = []
+
+    def add(kind, band_no, masalah, penyebab, data, uji, rek, target_db, teks, yakin="sedang"):
+        out.append({"id": f"eq-{kind}-ch{ch}-b{band_no}", "ch": ch, "masalah": masalah, "penyebab": penyebab, "data": data,
+                    "uji": uji, "rekomendasi": rek, "risiko": "Rendah.", "keyakinan": yakin, "sumber": "program",
+                    "usulan": [{"alamat": f"/ch/{ch:02d}/eq/{band_no}/g", "usulan": convert.eq_gain_raw(target_db), "teks": teks}]})
+
+    for b in bands:
+        hz, db, n = b["hz"], b["db"], b["band"]
+        if hz < 60 and db <= -6.0:
+            add("subcut", n, "Potongan EQ di bass terdalam tidak berguna",
+                f"Band {n} memotong {db:.1f} dB di {hz:.0f} Hz. Di bawah 60 Hz hampir tidak ada suara mic/vokal; tugas ini lebih tepat dikerjakan Low cut (HPF), dan potongan sedalam ini menyisakan lembah aneh di kurva.",
+                f"EQ Band {n}: {hz:.0f} Hz, {db:.1f} dB",
+                "Nyalakan Low cut (HPF) sekitar 80-100 Hz untuk mic suara, lalu kembalikan band ini ke 0 dB dan bandingkan.",
+                "Kembalikan band ini ke 0 dB dan pakai Low cut (HPF) untuk membuang bass yang tidak perlu.", 0.0, "Kembalikan gain ke 0 dB")
+        elif abs(db) >= 9.0:
+            add("extreme", n, "Pengaturan EQ terlalu ekstrem",
+                f"Band {n} di {hz:.0f} Hz diatur {db:+.1f} dB. Perubahan sebesar ini biasanya merusak warna suara; panduan umum: boost +1 sampai +3 dB, hindari lebih dari +6 dB.",
+                f"EQ Band {n}: {hz:.0f} Hz, {db:+.1f} dB",
+                "Bypass EQ dan bandingkan: apakah suara jadi lebih baik atau lebih aneh?",
+                "Kecilkan perubahannya ke sekitar -6 sampai +3 dB. Kalau memang mengatasi masalah tertentu (mis. feedback), biarkan.",
+                -6.0 if db < 0 else 3.0, "Kurangi perubahan gain")
+    active = [b for b in bands if abs(b["db"]) >= 3.0]
+    for i, a in enumerate(active):
+        for b in active[i + 1:]:
+            if abs(math.log2(a["hz"] / b["hz"])) < 0.5 and (a["db"] > 0) == (b["db"] > 0):
+                lo, hi = sorted((a, b), key=lambda x: x["hz"])
+                add("overlap", hi["band"], "Dua band EQ saling bertumpuk",
+                    f"Band {lo['band']} ({lo['hz']:.0f} Hz) dan band {hi['band']} ({hi['hz']:.0f} Hz) berdekatan dan sama-sama kuat, sehingga efeknya menumpuk dan sulit diprediksi.",
+                    f"Band {lo['band']}: {lo['hz']:.0f} Hz {lo['db']:+.1f} dB; Band {hi['band']}: {hi['hz']:.0f} Hz {hi['db']:+.1f} dB",
+                    "Matikan salah satu band lalu dengar apakah suara tetap sesuai yang diinginkan.",
+                    "Gabungkan menjadi satu band, atau jauhkan frekuensinya.", 0.0, "Kembalikan band ini ke 0 dB")
+    return out
+
+
 def analyze_eq_problems(dump: dict | None) -> list[dict]:
     """Analisis setting EQ per channel dan deteksi masalah: boomy, harsh, kurang jelas, over-bright.
 
@@ -104,6 +142,8 @@ def analyze_eq_problems(dump: dict | None) -> list[dict]:
 
         if not eq_bands:
             continue
+
+        findings.extend(_eq_shape_problems(ch, eq_bands))
 
         # Cek masalah per band
         for band in eq_bands:
