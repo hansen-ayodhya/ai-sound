@@ -157,6 +157,35 @@ def analyze_eq_problems(dump: dict | None) -> list[dict]:
                     "sumber": "program",
                     "usulan": [{"alamat": f"/ch/{ch:02d}/eq/{band['band']}/g", "usulan": convert.eq_gain_raw(4.0), "teks": "Turunkan gain ke +4 dB"}]
                 })
+            elif 150 < freq <= 300 and gain > 4.0:
+                findings.append({
+                    "id": f"eq-muddy-ch{ch}",
+                    "ch": ch,
+                    "masalah": "Suara berlumpur / tidak jernih",
+                    "penyebab": f"Band {band['band']} di {freq:.0f} Hz dinaikkan +{gain:.1f} dB. Area ini memberi 'badan', tapi kalau terlalu banyak suara jadi tebal dan menutupi kejelasan.",
+                    "data": f"EQ Band {band['band']}: {freq:.0f} Hz, +{gain:.1f} dB",
+                    "uji": "Dengar kata-kata: apakah terdengar tertutup/mendem? Coba bypass EQ dan bandingkan.",
+                    "rekomendasi": "Turunkan boost ke maksimal +2 dB. Panduan umum: boost kecil (+1 sampai +3 dB) sudah cukup.",
+                    "risiko": "Rendah.",
+                    "keyakinan": "sedang",
+                    "sumber": "program",
+                    "usulan": [{"alamat": f"/ch/{ch:02d}/eq/{band['band']}/g", "usulan": convert.eq_gain_raw(2.0), "teks": "Turunkan gain ke +2 dB"}]
+                })
+
+            elif 1000 <= freq <= 5000 and gain <= -3.0:
+                findings.append({
+                    "id": f"eq-unclear-ch{ch}",
+                    "ch": ch,
+                    "masalah": "Suara kurang jelas (kata-kata sulit dimengerti)",
+                    "penyebab": f"Band {band['band']} di {freq:.0f} Hz dipotong {gain:.1f} dB. Area 1-5 kHz membuat suara maju dan kata-kata jelas; kalau dipotong, suara tenggelam di antara instrumen.",
+                    "data": f"EQ Band {band['band']}: {freq:.0f} Hz, {gain:.1f} dB",
+                    "uji": "Bicara/bernyanyi lewat mic ini: apakah suara terdengar jauh atau tertutup? Coba kembalikan ke 0 dB.",
+                    "rekomendasi": "Kembalikan ke 0 dB, atau naikkan +1 sampai +2 dB di 2-4 kHz bila ini mic khotbah/vokal. Kalau potongan ini disengaja (mis. meredam feedback), abaikan.",
+                    "risiko": "Rendah. Jika feedback muncul lagi, kembalikan potongannya.",
+                    "keyakinan": "sedang",
+                    "sumber": "program",
+                    "usulan": [{"alamat": f"/ch/{ch:02d}/eq/{band['band']}/g", "usulan": convert.eq_gain_raw(0.0), "teks": "Kembalikan gain ke 0 dB"}]
+                })
 
     return findings
 

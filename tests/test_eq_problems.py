@@ -28,7 +28,10 @@ class EqProblems(unittest.TestCase):
         self.assertIn("boomy", analyze_eq_problems(dump_with(1, 100, 6))[0]["id"])
         self.assertIn("harsh", analyze_eq_problems(dump_with(4, 3500, 5))[0]["id"])
         self.assertIn("bright", analyze_eq_problems(dump_with(2, 10000, 7))[0]["id"])
+        self.assertIn("muddy", analyze_eq_problems(dump_with(3, 200, 5))[0]["id"])
+        self.assertIn("unclear", analyze_eq_problems(dump_with(5, 2500, -4))[0]["id"])
         self.assertEqual(analyze_eq_problems(dump_with(1, 100, 1)), [])
+        self.assertEqual(analyze_eq_problems(dump_with(1, 2500, -1)), [])
 
     def test_endpoint(self):
         with tempfile.TemporaryDirectory() as tmp:
