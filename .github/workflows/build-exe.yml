@@ -60,7 +60,7 @@ jobs:
 
       - name: Sertakan petunjuk
         shell: bash
-        run: cp PETUNJUK-EXE.txt dist/
+        run: cp PETUNJUK-EXE.txt Pasang-Alat-Siaran.bat dist/
 
       - uses: actions/upload-artifact@v4
         with:
@@ -68,5 +68,6 @@ jobs:
           path: |
             dist/AI-Sound-Engineer.exe
             dist/PETUNJUK-EXE.txt
+            dist/Pasang-Alat-Siaran.bat
           retention-days: 90
           if-no-files-found: error

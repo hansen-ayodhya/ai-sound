@@ -46,6 +46,7 @@ from .guard import ReadOnlyViolation, check
 from .guard import ALLOWED_PREFIXES
 from .live import LiveMonitor, analyze_eq_problems, inactive_from_dump, labels_from_dump, make_gain_findings
 from . import siaran as siaranmod
+from . import stream as streammod
 from .writer import spec_for
 from .report import findings_json, render
 from .menu import load_ip, save_ip, valid_ip
@@ -127,6 +128,7 @@ class App:
         self.memori = Memori(self.data / "memori")
         self.ignored = Ignored(self.data / "diabaikan.json")
         self.prefs_path = self.data / "prefs.json"
+        self.stream = streammod.Checker(self.data / "stream-checks.jsonl", self.stream_cfg)
         self._fails: dict[str, int] = {}   # berapa kali berturut-turut alamat tidak dijawab (dilewati setelah 3x)
         self._values: dict = {}           # nilai setting terbaru (untuk menilai peringatan live secara realtime)
         self.control = Controller(self.data / "changes.jsonl", self._read_one, on_event=self._memori_event)
@@ -547,6 +549,29 @@ class App:
         b = self.stream_bus()
         return out + (siaranmod.findings(dump, b, profile) if b else [])
 
+    def stream_cfg(self) -> tuple[str, int]:
+        p = self.prefs()
+        url = p.get("youtube_url") if isinstance(p.get("youtube_url"), str) else ""
+        m = p.get("stream_check_min", 10)
+        return url, m if m in (0, 5, 10, 15, 30) else 10
+
+    def stream_view(self) -> dict:
+        url, m = self.stream_cfg()
+        return {"url": url, "menit": m, "alat": streammod.tools(), "sedang": self.stream.busy, "terakhir": self.stream.last,
+                "riwayat": self.stream.history(10)}
+
+    def stream_gemini(self) -> dict:
+        url, _ = self.stream_cfg()
+        if not url:
+            raise ValueError("Isi link YouTube dulu.")
+        try:
+            s = streammod.sample_for_ai(url)
+        except streammod.StreamError as exc:
+            raise ValueError(str(exc)) from exc
+        return self.ai_analyze("umum", "Analisis siaran YouTube saya: apa yang terdengar oleh penonton (clipping, kekerasan, keseimbangan), "
+                               "bandingkan dengan Bus siaran di mixer, dan apa penyebabnya.",
+                               audio=[{"peran": "youtube", "wav": s["wav"], "detik": s["detik"], "spektrum": s["spektrum"], "angka": s["angka"]}])
+
     def siaran_view(self) -> dict:
         b = self.stream_bus()
         _, dump = self.latest_dump()
@@ -582,6 +607,14 @@ class App:
             if not isinstance(sb, int) or isinstance(sb, bool) or not 0 <= sb <= siaranmod.N_BUSES:
                 raise ValueError("Bus siaran harus 0 (tidak ada) sampai 6.")
             p["stream_bus"] = sb
+        if "youtube_url" in body:
+            u = body["youtube_url"]
+            p["youtube_url"] = "" if u in (None, "") else streammod.valid_url(u)
+        if "stream_check_min" in body:
+            m = body["stream_check_min"]
+            if m not in (0, 5, 10, 15, 30) or isinstance(m, bool):
+                raise ValueError("Jeda pengecekan harus 0 (mati), 5, 10, 15, atau 30 menit.")
+            p["stream_check_min"] = m
         if "weak_alerts" in body:
             if not isinstance(body["weak_alerts"], bool):
                 raise ValueError("Pilihan tidak valid.")
@@ -590,6 +623,9 @@ class App:
                 self.live.rules.weak_enabled = p["weak_alerts"]
         self.prefs_path.parent.mkdir(parents=True, exist_ok=True)
         self.prefs_path.write_text(json.dumps(p), encoding="utf-8")
+        if "youtube_url" in body or "stream_check_min" in body:
+            self.stream.reschedule()
+            self.stream.start()
         return {"weak_alerts": p.get("weak_alerts", False), "stream_bus": self.stream_bus()}
 
     def _state_of(self, index: int) -> dict:
@@ -1004,11 +1040,14 @@ def make_handler(app: App, http_port: int):
                     except ValueError:
                         since = None
                     return self._json(200, {**app.live.snapshot(include_alerts=want), "settings_at": app.live_settings_at,
-                                            **app.params_since(since), "findings": app.live_findings() if want else None})
+                                            **app.params_since(since), "findings": app.live_findings() if want else None,
+                                            "stream": app.stream.brief() if want else None})
                 if path == "/api/control":
                     return self._json(200, app.control_status())
                 if path == "/api/siaran":
                     return self._json(200, app.siaran_view())
+                if path == "/api/stream":
+                    return self._json(200, app.stream_view())
                 if path == "/api/memori":
                     return self._json(200, {"profil": app.memori.profil(), "catatan": app.memori.semua(n=60)[::-1]})
                 if path == "/api/live/eq-problems":
@@ -1103,6 +1142,11 @@ def make_handler(app: App, http_port: int):
                     if situasi not in ai.SITUASI:
                         raise ValueError("Situasi tidak dikenal.")
                     return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", "")), _clean_audio(body.get("audio"), body.get("izin"))))
+                if path == "/api/stream/cek":
+                    threading.Thread(target=app.stream.run_check, daemon=True).start()
+                    return self._json(202, {"ok": True})
+                if path == "/api/stream/gemini":
+                    return self._json(200, app.stream_gemini())
                 if path == "/api/siaran/routing":
                     return self._json(200, app.siaran_routing())
                 if path == "/api/prefs":
@@ -1197,6 +1241,7 @@ def main(argv: list[str] | None = None) -> int:
         ip = lan_ip()
         app.lan_url = f"http://{ip}:{args.port}" if ip else None
     httpd = serve(app, args.port)
+    app.stream.start()
     print("=" * 56)
     print("  AI SOUND ENGINEER berjalan  (hanya MEMBACA mixer)")
     print(f"  Buka di browser: {url}")

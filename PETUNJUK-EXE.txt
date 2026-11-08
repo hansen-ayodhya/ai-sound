@@ -30,3 +30,10 @@ UPDATE KE VERSI BARU (di luar jam ibadah)
    > build teratas yang centang hijau > bagian Artifacts > AI-Sound-Engineer-exe (file zip).
 3. Buka zip, timpa AI-Sound-Engineer.exe yang lama. Folder data tetap aman.
 4. Klik dua kali exe yang baru. Cek "Versi program" di bagian bawah Beranda.
+
+PENGECEKAN SIARAN YOUTUBE (opsional)
+1. Klik dua kali Pasang-Alat-Siaran.bat (butuh internet; memasang yt-dlp dan ffmpeg lewat winget).
+2. Tutup lalu buka lagi AI Sound Engineer.
+3. Tampilan Mixer > menu titik tiga > "Siaran YouTube (bus USB)" > tempel link siaran, pilih jeda, klik Simpan atau Cek sekarang.
+Cuplikan 15 detik diperiksa di laptop (clipping, kekerasan, senyap). Gemini hanya dipakai bila Anda menekan tombolnya.
+Bila suatu hari gagal membuka siaran, perbarui alatnya: winget upgrade yt-dlp.yt-dlp

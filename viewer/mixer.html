@@ -1264,8 +1264,65 @@ async function openSiaran() {
   showDrawer(null, el("h3", { text: "📡 Siaran YouTube (bus USB)" }),
     el("p", { class: "note", text: "Level sinyal bus belum bisa dipantau aplikasi ini. Lihat meter Bus di M-AIR dan meter input di software streaming." }),
     el("label", { class: "f", text: "Bus untuk siaran" }), sel, ...parts,
+    el("h3", { text: "Pengecekan siaran YouTube" }), streamBox(),
     el("h3", { text: "Temuan (" + v.temuan.length + ")" }), ...v.temuan.map(findingCard),
     el("h3", { text: "Routing USB" }), btn, out);
+}
+// ---------- pengecekan siaran YouTube: link, jeda, hasil lokal, dan analisis Gemini manual ----------
+function streamBox() {
+  const box = el("div"), msg = el("p", { class: "note" }), err = el("p", { class: "msg bad" }), res = el("div"), hist = el("div");
+  const inp = el("input", { type: "text", placeholder: "https://www.youtube.com/watch?v=… atau https://youtu.be/…", maxlength: "300", "aria-label": "Link siaran YouTube",
+    style: "width:100%;font:inherit;padding:7px 9px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--text)" });
+  const sel = el("select", { "aria-label": "Jeda pengecekan" }, ...[0, 5, 10, 15, 30].map((m) => el("option", { value: String(m), text: m ? "Cek otomatis tiap " + m + " menit" : "Cek otomatis: mati" })));
+  const btn = (t, fn) => { const b = el("button", { type: "button", text: t, style: "font:inherit;font-size:13px;padding:5px 11px;border-radius:7px;border:1px solid var(--line);background:var(--strip);color:var(--text);cursor:pointer" }); b.addEventListener("click", () => fn(b)); return b; };
+  let init = false, timer = null;
+  const fmt = (r) => {
+    const a = r.angka;
+    return el("div", { class: "donebox", style: `border-color:${r.status === "baik" ? "var(--ok)" : r.status === "senyap" || r.status === "error" ? "var(--muted)" : "var(--warn)"};background:var(--strip)` },
+      el("b", { text: (r.status === "baik" ? "✓ " : "⚠ ") + r.ringkas }),
+      el("div", { class: "note", text: String(r.ts || "").slice(0, 19).replace("T", " ") + (a ? ` · puncak ${a.puncak_db} dBFS · ${a.lufs == null ? "?" : a.lufs + " LUFS"} · clipping ${a.clip_persen}%` : "") }),
+      el("ul", { style: "margin:4px 0 0;padding-left:18px" }, ...r.pesan.map((m) => el("li", { text: m }))));
+  };
+  async function paint() {
+    let v;
+    try { v = await api("/api/stream"); } catch (e) { msg.textContent = e.message; return; }
+    if (!init) { init = true; inp.value = v.url || ""; sel.value = String(v.menit); }
+    const miss = Object.entries(v.alat).filter(([, ok]) => !ok).map(([n]) => n);
+    msg.className = miss.length ? "msg bad" : "note";
+    msg.textContent = miss.length ? "Belum terpasang: " + miss.join(", ") + ". Jalankan Pasang-Alat-Siaran.bat (klik dua kali, butuh internet), lalu tutup dan buka lagi aplikasi ini."
+      : (v.sedang ? "Memeriksa siaran… (sekitar 20–40 detik)" : "Alat terpasang. Siaran diperiksa dari cuplikan 15 detik; hasil tertunda 10–60 detik dari mixer.");
+    res.replaceChildren(...(v.terakhir ? [fmt(v.terakhir)] : []));
+    hist.replaceChildren(...v.riwayat.slice(1, 8).map((r) => el("div", { class: "note", text: `${String(r.ts).slice(5, 16).replace("T", " ")} · ${r.ringkas}` + (r.angka ? ` · ${r.angka.lufs == null ? "?" : r.angka.lufs + " LUFS"}, clipping ${r.angka.clip_persen}%` : "") })));
+    clearTimeout(timer);
+    if (box.isConnected) timer = setTimeout(paint, v.sedang ? 2500 : 8000);
+  }
+  const save = btn("Simpan", async () => {
+    try { await api("/api/prefs", { youtube_url: inp.value.trim(), stream_check_min: +sel.value }); err.textContent = ""; } catch (e) { err.textContent = e.message; }
+    paint();
+  });
+  const now = btn("Cek sekarang", async () => {
+    try { await api("/api/prefs", { youtube_url: inp.value.trim(), stream_check_min: +sel.value }); await api("/api/stream/cek", {}); err.textContent = ""; } catch (e) { err.textContent = e.message; return; }
+    setTimeout(paint, 600);
+  });
+  const ai = btn("Analisis Gemini (memakai token)", async (b) => {
+    if (!confirm("Cuplikan audio siaran 15 detik akan dikirim ke Google (Gemini) bersama data setting mixer, dan memakai token. Lanjutkan?")) return;
+    b.disabled = true; const out = el("div"); res.after(out); out.append(el("p", { class: "note", text: "Mengambil cuplikan dan menunggu Gemini… (bisa 30–90 detik)" }));
+    try {
+      await api("/api/prefs", { youtube_url: inp.value.trim(), stream_check_min: +sel.value });
+      const r = await api("/api/stream/gemini", {});
+      await refreshRecs(); useAIResult(r);
+      state.keepDrawer = true; try { render(); } finally { state.keepDrawer = false; }
+      out.replaceChildren(...aiResultView(r));
+    } catch (e) { out.replaceChildren(el("p", { class: "msg bad", text: e.message })); }
+    b.disabled = false;
+  });
+  box.append(inp, el("div", { style: "display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;align-items:center" }, sel, save, now, ai), err, msg, res, hist);
+  paint();
+  return box;
+}
+function updateStreamBadge(st) {
+  const bad = st && ["perhatian", "bermasalah", "senyap", "error"].includes(st.status);
+  $("btnSiaran").textContent = "📡 Siaran YouTube (bus USB)…" + (bad ? " ⚠" : "");
 }
 function openIgnored() {
   const list = state.ignoredList || [];
@@ -1680,6 +1737,7 @@ async function poll() {
     if (withAlerts && snap.alerts) showAlerts(snap.alerts);
     if (withAlerts && Array.isArray(snap.findings)) setLiveFindings(snap.findings);
     if (withAlerts && state.control.aktif) refreshControl();
+    if (withAlerts && snap.stream) updateStreamBadge(snap.stream);
     if (snap.settings_at && snap.settings_at !== state.settingsAt) {
       state.settingsAt = snap.settings_at;
       state.keepDrawer = true;

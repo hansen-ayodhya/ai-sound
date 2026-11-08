@@ -173,7 +173,7 @@ AUDIO_NOTE = ("\n\nREKAMAN: audio terlampir ditandai perannya. 'ruangan_hp' = di
               "= level relatif per pita 1/3 oktaf (pita_spektrum_hz), dihitung program dari rekaman yang sama; 'selisih_ruangan_minus_mixer_db' "
               "= apa yang ruangan dan speaker tambahkan/kurangi dibanding sinyal di mixer. Bandingkan keduanya untuk memisahkan masalah "
               "di mixer (setting channel) dari masalah di speaker/DSP/ruangan. Pakai angka spektrum untuk frekuensi, jangan menebak dari pendengaran. "
-              "Rekaman mungkin bukan dari momen yang sama; bila hanya satu rekaman, katakan tidak ada pembanding. Jangan menyimpulkan lebih dari bukti."
+              "'youtube' = cuplikan siaran YouTube (yang didengar penonton; tertunda 10-60 detik dan dikompres ulang, 'analisis_lokal' berisi puncak, LUFS, dan clipping). Rekaman mungkin bukan dari momen yang sama; bila hanya satu rekaman, katakan tidak ada pembanding. Jangan menyimpulkan lebih dari bukti."
               )
 
 SYSTEM = """Anda adalah sound engineer gereja profesional yang membantu operator mixer Midas MR18.
@@ -320,10 +320,12 @@ def build_prompt(dump: dict | None, profile: dict | None, findings: list[dict], 
     if siaran:
         ctx["siaran_youtube"] = {**siaran, "catatan": f"Bus {siaran['bus']} dikirim lewat USB ke komputer streaming YouTube. Pertimbangkan keseimbangan dan clipping bus ini; level sinyal bus belum terukur."}
     if audio:
-        ctx["rekaman"] = [{"peran": a["peran"], "durasi_detik": a["detik"],
-                           "spektrum_relatif_db": a.get("spektrum")} for a in audio]
+        ctx["rekaman"] = [{"peran": a["peran"], "durasi_detik": a["detik"], "spektrum_relatif_db": a.get("spektrum"),
+                           **({"analisis_lokal": a["angka"]} if a.get("angka") else {})} for a in audio]
         ctx["pita_spektrum_hz"] = ROOM_BANDS
         by = {a["peran"]: a.get("spektrum") for a in audio}
+        if by.get("youtube") and by.get("mixer"):
+            ctx["selisih_youtube_minus_mixer_db"] = [round(r - m, 1) for r, m in zip(by["youtube"], by["mixer"])]
         if by.get("ruangan_hp") and by.get("mixer"):
             ctx["selisih_ruangan_minus_mixer_db"] = [round(r - m, 1) for r, m in zip(by["ruangan_hp"], by["mixer"])]
     if riwayat and riwayat.get("jumlah_catatan"):
@@ -474,7 +476,9 @@ def analyze(cfg: dict, dump: dict | None, profile: dict | None, findings: list[d
     import base64
     parts = [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan, dsp, riwayat, audio, siaran)}]
     for a in audio or []:
-        parts.append({"text": f"Rekaman peran={a['peran']} ({'direkam HP di ruangan' if a['peran'] == 'ruangan_hp' else 'direkam dari mixer'}):"})
+        lab = {"ruangan_hp": "direkam HP di ruangan", "mixer": "direkam dari mixer",
+               "youtube": "diambil dari siaran YouTube: yang didengar penonton, tertunda dan dikompres ulang oleh YouTube"}.get(a["peran"], a["peran"])
+        parts.append({"text": f"Rekaman peran={a['peran']} ({lab}):"})
         parts.append({"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(a["wav"]).decode("ascii")}})
     parsed = _generate(cfg, parts, RESPONSE_SCHEMA, base)
     out = sanitize(parsed, dump)

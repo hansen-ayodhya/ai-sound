@@ -301,6 +301,15 @@
 - Batas: level sinyal bus belum bisa dipantau (pemetaan meter bus belum terbukti); kiriman channel bukan level sinyal. Tidak ada penulisan ke bus (daftar putih Mode kontrol tidak memuat bus).
 - Tes: tests/test_siaran.py.
 
+## Update 2026-11-08: pengecekan siaran YouTube berkala
+
+- Kolom link YouTube di panel Siaran (disimpan di prefs.json: `youtube_url`, `stream_check_min`; jeda bawaan 10 menit, pilihan mati/5/10/15/30). Link divalidasi ketat (https, host youtube.com/youtu.be saja, tanpa spasi/kredensial) dan diberikan ke yt-dlp setelah `--` tanpa shell.
+- `aise/stream.py`: yt-dlp mengambil alamat audio, ffmpeg mengambil 15 detik (WAV mono 48 kHz); analisis lokal tanpa token: puncak, RMS, clipping (sampel >= 0,99 FS), kekerasan terintegrasi (BS.1770, uji sinus -20 dBFS = -23,0 LUFS), senyap, dan spektrum 1/3 oktaf (tidak dinilai otomatis, hanya untuk Gemini). Status baik/perhatian/bermasalah/senyap/error dengan pesan bahasa biasa; riwayat di data/stream-checks.jsonl; lencana ⚠ di menu bila bermasalah.
+- Gemini hanya lewat tombol "Analisis Gemini" (konfirmasi, memakai token): cuplikan segar 16 kHz + analisis lokal + data mixer/Bus siaran dikirim dengan peran `youtube`; prompt menjelaskan bahwa itu tertunda dan sudah dikompres ulang YouTube.
+- Alat luar: Pasang-Alat-Siaran.bat (winget: yt-dlp.yt-dlp, Gyan.FFmpeg) ikut paket exe; alat dicari di folder tools/ di samping exe, folder exe, lalu PATH.
+- BELUM terbukti: pengambilan audio dari siaran YouTube sungguhan (diuji dengan yt-dlp/ffmpeg palsu dan WAV sintetis); yt-dlp bisa rusak bila YouTube berubah (perlu diperbarui).
+- Tes: tests/test_stream.py.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
