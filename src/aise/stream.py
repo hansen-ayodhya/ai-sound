@@ -43,10 +43,32 @@ def valid_url(url: str) -> str:
     return u
 
 
+def tools_dir() -> Path:
+    """Folder tempat alat diletakkan oleh Pasang-Alat-Siaran.bat (di samping exe)."""
+    return APP_DIR / "tools"
+
+
+def _winget_candidates(exe: str) -> list[Path]:
+    base = os.environ.get("LOCALAPPDATA")
+    if not base:
+        return []
+    w = Path(base) / "Microsoft" / "WinGet"
+    out = [w / "Links" / exe]
+    try:
+        out += list((w / "Packages").glob(f"*/{exe}")) + list((w / "Packages").glob(f"*/*/bin/{exe}")) + list((w / "Packages").glob(f"*/bin/{exe}"))
+    except OSError:
+        pass
+    return out
+
+
+def _exe_name(name: str) -> str:
+    return name + (".exe" if os.name == "nt" else "")
+
+
 def find_tool(name: str) -> str | None:
-    exe = name + (".exe" if os.name == "nt" else "")
-    for d in (APP_DIR / "tools", APP_DIR, APP_DIR / "data" / "tools"):
-        p = d / exe
+    """Cari alat: folder tools di samping exe, folder exe, lokasi winget, lalu PATH (PATH sering belum terbarui setelah pemasangan)."""
+    exe = _exe_name(name)
+    for p in [tools_dir() / exe, APP_DIR / exe, APP_DIR / "data" / "tools" / exe, *_winget_candidates(exe)]:
         if p.is_file():
             return str(p)
     return shutil.which(name)
@@ -71,7 +93,8 @@ def grab_audio(url: str, seconds: int = SECONDS) -> bytes:
     url = valid_url(url)
     ytdlp, ff = find_tool("yt-dlp"), find_tool("ffmpeg")
     if not ytdlp or not ff:
-        raise StreamError("yt-dlp dan ffmpeg belum terpasang. Jalankan Pasang-Alat-Siaran.bat lalu buka ulang aplikasi.")
+        raise StreamError("yt-dlp dan ffmpeg belum terpasang. Jalankan Pasang-Alat-Siaran.bat (simpan di folder yang sama dengan exe), "
+                          f"atau salin yt-dlp.exe dan ffmpeg.exe ke folder: {tools_dir()}")
     r = _run([ytdlp, "-g", "-f", "bestaudio/best", "--no-playlist", "--no-warnings", "--", url], 60)
     out = r.stdout.decode("utf-8", "replace").strip().splitlines()
     if r.returncode != 0 or not out:

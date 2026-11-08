@@ -1289,7 +1289,7 @@ function streamBox() {
     if (!init) { init = true; inp.value = v.url || ""; sel.value = String(v.menit); }
     const miss = Object.entries(v.alat).filter(([, ok]) => !ok).map(([n]) => n);
     msg.className = miss.length ? "msg bad" : "note";
-    msg.textContent = miss.length ? "Belum terpasang: " + miss.join(", ") + ". Jalankan Pasang-Alat-Siaran.bat (klik dua kali, butuh internet), lalu tutup dan buka lagi aplikasi ini."
+    msg.textContent = miss.length ? "Belum terpasang: " + miss.join(", ") + ". Simpan Pasang-Alat-Siaran.bat di folder yang sama dengan aplikasi ini, klik dua kali (butuh internet), lalu klik Cek sekarang lagi. Atau salin yt-dlp.exe dan ffmpeg.exe ke folder: " + v.folder_alat
       : (v.sedang ? "Memeriksa siaran… (sekitar 20–40 detik)" : "Alat terpasang. Siaran diperiksa dari cuplikan 15 detik; hasil tertunda 10–60 detik dari mixer.");
     res.replaceChildren(...(v.terakhir ? [fmt(v.terakhir)] : []));
     hist.replaceChildren(...v.riwayat.slice(1, 8).map((r) => el("div", { class: "note", text: `${String(r.ts).slice(5, 16).replace("T", " ")} · ${r.ringkas}` + (r.angka ? ` · ${r.angka.lufs == null ? "?" : r.angka.lufs + " LUFS"}, clipping ${r.angka.clip_persen}%` : "") })));

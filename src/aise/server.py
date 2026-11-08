@@ -557,7 +557,7 @@ class App:
 
     def stream_view(self) -> dict:
         url, m = self.stream_cfg()
-        return {"url": url, "menit": m, "alat": streammod.tools(), "sedang": self.stream.busy, "terakhir": self.stream.last,
+        return {"url": url, "menit": m, "alat": streammod.tools(), "folder_alat": str(streammod.tools_dir()), "sedang": self.stream.busy, "terakhir": self.stream.last,
                 "riwayat": self.stream.history(10)}
 
     def stream_gemini(self) -> dict:

@@ -166,3 +166,26 @@ class ServerStream(test_ai.ServerAI):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ToolDiscovery(unittest.TestCase):
+    def test_finds_tools_folder_and_winget_locations_without_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, local = Path(tmp) / "app", Path(tmp) / "local"
+            (app / "tools").mkdir(parents=True)
+            (app / "tools" / "yt-dlp.exe").write_bytes(b"x")
+            wg = local / "Microsoft" / "WinGet" / "Packages" / "Gyan.FFmpeg_x" / "ffmpeg-7" / "bin"
+            wg.mkdir(parents=True)
+            (wg / "ffmpeg.exe").write_bytes(b"x")
+            with mock.patch.object(stream, "APP_DIR", app), mock.patch.object(stream, "_exe_name", lambda n: n + ".exe"), \
+                    mock.patch.dict(stream.os.environ, {"LOCALAPPDATA": str(local)}), mock.patch.object(stream.shutil, "which", lambda n: None):
+                self.assertEqual(stream.find_tool("yt-dlp"), str(app / "tools" / "yt-dlp.exe"))
+                self.assertEqual(stream.find_tool("ffmpeg"), str(wg / "ffmpeg.exe"))
+                self.assertEqual(stream.tools(), {"yt-dlp": True, "ffmpeg": True})
+            with mock.patch.object(stream, "APP_DIR", Path(tmp) / "kosong"), mock.patch.object(stream.shutil, "which", lambda n: None), \
+                    mock.patch.dict(stream.os.environ, {"LOCALAPPDATA": ""}):
+                self.assertEqual(stream.tools(), {"yt-dlp": False, "ffmpeg": False})
+                with self.assertRaises(stream.StreamError) as e:
+                    stream.grab_audio("https://youtu.be/abc")
+                self.assertIn("folder:", str(e.exception))
+                self.assertIn("tools", str(e.exception))

@@ -310,6 +310,12 @@
 - BELUM terbukti: pengambilan audio dari siaran YouTube sungguhan (diuji dengan yt-dlp/ffmpeg palsu dan WAV sintetis); yt-dlp bisa rusak bila YouTube berubah (perlu diperbarui).
 - Tes: tests/test_stream.py.
 
+## Update 2026-11-08: pemasangan alat siaran dibuat lebih pasti
+
+- Pasang-Alat-Siaran.bat kini mengunduh yt-dlp.exe (rilis GitHub) dan ffmpeg.exe (BtbN FFmpeg-Builds) langsung ke folder `tools` di samping exe lewat PowerShell (TLS 1.2), tanpa winget dan tanpa PATH. File harus disimpan di folder yang sama dengan exe.
+- `find_tool` mencari di `tools/`, folder exe, `data/tools`, lokasi winget (`%LOCALAPPDATA%\Microsoft\WinGet`), lalu PATH. Pesan "belum terpasang" kini menyebut folder `tools` yang dicari (juga di panel).
+- BELUM terbukti: skrip .bat belum dijalankan di Windows sungguhan (tidak ada Windows/PowerShell di lingkungan pengembangan); logika pencarian alat diuji dengan tes.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
