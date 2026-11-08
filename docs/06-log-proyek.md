@@ -340,6 +340,13 @@
 - Batas: hanya level (bukan frekuensi); mic vokal meredam bass sehingga bass musik terbaca lebih pelan; hanya satu titik. Pemetaan meter ke channel belum terbukti di MR18 sampai tes ketuk dijalankan.
 - Tes: tests/test_balance.py (logika, sesi, alur server).
 
+## Update 2026-11-08: Ukur Ruangan realtime + tampilan bar
+
+- Langkah baru "Ukur realtime" di Ukur Ruangan: dengan mic aktif (butuh input suara, mis. MR18 lewat USB), spektrum 1/3 oktaf dihitung tiap 250 ms dari jendela rata-rata 5/10/20 dtk; grafik hasil bergerak tiap 250 ms dan usulan EQ, daftar rekomendasi, dan perbandingan EQ L/R dihitung ulang tiap 1 detik. Tombol "Simpan rata-rata ini sebagai titik" memindahkan rata-rata ke daftar titik. Peringatan clipping/sinyal kecil di baris status.
+- Pilihan "Tampilan grafik: Garis atau Bar per frekuensi" (tersimpan): bar untuk hasil ukur (biru dekat target, merah berlebih, oranye kurang, garis putus = target), bar usulan koreksi (ungu) dengan selisih dari target (abu-abu) dan perkiraan setelah usulan (titik hijau), dan bar EQ Main L/R sekarang (hijau) vs setelah usulan (ungu).
+- Level mutlak mic tidak dinilai; mic vokal/SM58 hanya dinilai pada rentang yang dipercaya (profil mic).
+- Tes: tests/test_viewer_syntax.py (sintaks semua halaman); uji browser realtime dengan WAV sebagai mic palsu (rekomendasi 200 Hz -6 dB muncul sendiri).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

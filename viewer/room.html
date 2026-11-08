@@ -141,9 +141,20 @@
   </section>
 
   <section class="card">
-    <h2>5. Hasil dan usulan EQ</h2>
+    <h2>5. Ukur realtime</h2>
+    <p class="sub">Dengan mic aktif dan pink noise menyala, grafik dan rekomendasi di bawah mengikuti suara saat ini (rata-rata beberapa detik terakhir), tanpa menekan "Ukur titik". Butuh input suara (mis. MR18 lewat USB) yang aktif di langkah 3.</p>
+    <div class="grid">
+      <div><label class="f" for="liveWin">Jendela rata-rata</label><select id="liveWin"><option value="5">5 detik (cepat)</option><option value="10" selected>10 detik</option><option value="20">20 detik (stabil)</option></select></div>
+    </div>
+    <div class="btns"><button type="button" id="btnLive" class="primary" disabled>▶ Mulai ukur realtime</button><button type="button" id="btnLiveSave" disabled>Simpan rata-rata ini sebagai titik</button></div>
+    <p class="note" id="liveMsg"></p>
+  </section>
+
+  <section class="card">
+    <h2>6. Hasil dan usulan EQ</h2>
     <div class="grid">
       <div><label class="f" for="target">Target bentuk suara</label><select id="target"></select></div>
+      <div><label class="f" for="viewMode">Tampilan grafik</label><select id="viewMode"><option value="garis">Garis (kurva)</option><option value="bar">Bar per frekuensi (1/3 oktaf)</option></select></div>
     </div>
     <div class="box ok" id="summary" hidden></div>
     <h3>Hasil ukur (bentuk saja, level mutlak tidak dinilai)</h3>
@@ -172,7 +183,7 @@ const $ = (id) => document.getElementById(id);
 const KEY = "aise.room.v1";
 const COLORS = ["#5aa2ff", "#f5b041", "#3fcf7f", "#ff8f9c", "#3cc9f0", "#d4e157", "#ffab91", "#80cbc4"];
 const store = (() => {
-  const def = { positions: [], mic: "genggam", target: "umum", seq: 0 };
+  const def = { positions: [], mic: "genggam", target: "umum", seq: 0, view: "garis" };
   try { return { ...def, ...(JSON.parse(localStorage.getItem(KEY)) || {}) }; } catch (e) { return def; }
 })();
 function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* abaikan */ } }
@@ -247,6 +258,7 @@ async function listOutputs() {
 // ---------- mic ----------
 let stream = null, inCtx = null, analyser = null, meterTimer = null;
 function stopMic() {
+  if (typeof stopLive === "function") stopLive("Mic dimatikan.");
   clearInterval(meterTimer);
   if (stream) stream.getTracks().forEach((t) => t.stop());
   if (inCtx) inCtx.close();
@@ -277,7 +289,7 @@ async function openMic() {
     $("meterTxt").textContent = `Level: puncak ${pdb.toFixed(0)} dBFS · rata-rata ${rdb.toFixed(0)} dBFS` +
       (pdb > -3 ? " — terlalu keras, kecilkan gain/volume" : rdb < -60 ? " — hampir tidak ada sinyal" : rdb < -45 ? " — agak kecil, naikkan volume pink noise" : " — baik");
   }, 150);
-  $("btnMeasure").disabled = false;
+  $("btnMeasure").disabled = false; $("btnLive").disabled = false;
   $("micMsg").textContent = "Mic aktif: " + (stream.getAudioTracks()[0].label || "input");
 }
 $("btnMic").addEventListener("click", () => openMic().catch((e) => { $("micMsg").textContent = "Mic gagal dibuka: " + e.message; }));
@@ -410,36 +422,91 @@ function legend(host, items) {
     d.append(sw, t); return d;
   }));
 }
-function renderResults() {
-  const used = store.positions.filter((p) => p.on);
-  ["rtaChart", "eqChart", "rtaLegend", "eqLegend", "recs", "notes"].forEach((id) => $(id).replaceChildren());
-  $("summary").hidden = true;
-  if (!used.length) { $("rtaChart").append(text("p", "note", "Belum ada titik yang dipakai. Ukur atau centang titik di langkah 4.")); window.__lastR = null; renderLR(); return; }
+// ---------- grafik bar per frekuensi (1/3 oktaf) ----------
+function barsBase(host, range, trusted) {
+  host.replaceChildren();
+  const s = svg("svg", { class: "chart", viewBox: `0 0 ${W} ${H}`, role: "img" }, host);
+  const N = C.CENTERS.length, slot = (W - ML - MR) / N, yOf = (db) => MT + (range - db) / (2 * range) * (H - MT - MB), cx = (i) => ML + slot * (i + .5);
+  if (trusted) C.CENTERS.forEach((f, i) => { if (f < trusted[0] || f > trusted[1]) svg("rect", { x: ML + slot * i, y: MT, width: slot, height: H - MT - MB, fill: "#000", opacity: .28 }, s); });
+  for (let db = -range; db <= range + 1e-9; db += range / 3) {
+    svg("line", { x1: ML, x2: W - MR, y1: yOf(db), y2: yOf(db), stroke: Math.abs(db) < 1e-9 ? "#3b4755" : "#222b34" }, s);
+    const t = svg("text", { x: ML - 5, y: yOf(db) + 3, "text-anchor": "end" }, s); t.textContent = (db > 0 ? "+" : "") + Math.round(db);
+  }
+  C.NOMINAL.forEach((f, i) => { if ([63, 125, 250, 500, 1000, 2000, 4000, 8000, 12500].includes(f)) { const t = svg("text", { x: cx(i), y: H - 8, "text-anchor": "middle" }, s); t.textContent = f >= 1000 ? f / 1000 + "k" : f; } });
+  const bar = (i, v, color, o) => {
+    if (v == null) return;
+    o = o || {};
+    const w = slot * (o.w || .7), x = cx(i) - w / 2 + slot * (o.off || 0), y0 = yOf(0), y1 = yOf(clampDb(v, range));
+    svg("rect", { x, y: Math.min(y0, y1), width: w, height: Math.max(1, Math.abs(y1 - y0)), fill: color, opacity: o.op || 1, rx: 1.5 }, s);
+  };
+  const tick = (i, v, color) => { if (v != null) svg("line", { x1: cx(i) - slot * .45, x2: cx(i) + slot * .45, y1: yOf(clampDb(v, range)), y2: yOf(clampDb(v, range)), stroke: color, "stroke-width": 1.6, "stroke-dasharray": "3 2" }, s); };
+  const dot = (i, v, color) => { if (v != null) svg("circle", { cx: cx(i), cy: yOf(clampDb(v, range)), r: 3, fill: color }, s); };
+  return { s, bar, tick, dot, yOf, cx };
+}
+function rtaBars(host, r) {
+  const b = barsBase(host, 18, r.trusted);
+  r.avg.forEach((v, i) => {
+    if (v == null) return;
+    const dev = v - r.target[i];
+    b.bar(i, v, Math.abs(dev) < 3 ? "#5aa2ff" : dev > 0 ? "#ff6b6b" : "#f5b041");
+    b.tick(i, r.target[i], "#cfd6df");
+  });
+}
+function eqBars(host, r) {
+  const b = barsBase(host, 9, r.trusted), corr = C.eqCurve(r.bands, C.CENTERS);
+  C.CENTERS.forEach((f, i) => {
+    if (r.dev[i] == null) return;
+    b.bar(i, r.dev[i], "#8c97a6", { w: .32, off: -.2, op: .8 });
+    b.bar(i, corr[i], "#b48cff", { w: .32, off: .2 });
+    b.dot(i, r.dev[i] + corr[i], "#3fcf7f");
+  });
+}
+
+function sources() {
+  if (liveOn && liveBands) return { list: [{ bands: liveBands, name: "Langsung" }], live: true };
+  return { list: store.positions.filter((p) => p.on), live: false };
+}
+function renderResults(partial) {
+  const src = sources(), used = src.list;
+  if (!partial) { ["rtaChart", "eqChart", "rtaLegend", "eqLegend", "recs", "notes"].forEach((id) => $(id).replaceChildren()); $("summary").hidden = true; }
+  else ["rtaChart", "rtaLegend"].forEach((id) => $(id).replaceChildren());
+  if (!used.length) { $("rtaChart").append(text("p", "note", liveOn ? "Menunggu sinyal dari mic…" : "Belum ada titik yang dipakai. Ukur atau centang titik di langkah 4, atau mulai ukur realtime di langkah 5.")); window.__lastR = null; if (!partial) renderLR(); return; }
   const r = C.analyze(used.map((p) => p.bands), { mic: store.mic, target: store.target });
   window.__lastR = r;
   window.__lastRoom = { mic: store.mic, target: store.target, titik: used.length, band: r.bands.map((b) => ({ hz: b.hz, db: b.db, q: b.q, jenis: b.jenis })) };
-  const R = 18, a = chartBase($("rtaChart"), R, r.trusted);
-  store.positions.forEach((p, i) => { if (p.on) polyline(a.s, a.yOf, C.normalize(p.bands), R, { stroke: COLORS[i % COLORS.length], "stroke-width": 1.2, opacity: .75 }); });
-  polyline(a.s, a.yOf, r.target, R, { stroke: "#8c97a6", "stroke-width": 1.5, "stroke-dasharray": "5 4" });
-  polyline(a.s, a.yOf, r.avg, R, { stroke: "#fff", "stroke-width": 3 });
-  legend($("rtaLegend"), [["#fff", `Rata-rata ${used.length} titik`], ["#8c97a6", "Target", true], ["#555", "Area gelap = di luar rentang yang dinilai"]]);
+  if (store.view === "bar") {
+    rtaBars($("rtaChart"), r);
+    legend($("rtaLegend"), [["#5aa2ff", "Dekat target (selisih < 3 dB)"], ["#ff6b6b", "Berlebih"], ["#f5b041", "Kurang"], ["#cfd6df", "Target", true], ["#555", "Area gelap = di luar rentang yang dinilai"]]);
+  } else {
+    const R = 18, a = chartBase($("rtaChart"), R, r.trusted);
+    if (!src.live) store.positions.forEach((p, i) => { if (p.on) polyline(a.s, a.yOf, C.normalize(p.bands), R, { stroke: COLORS[i % COLORS.length], "stroke-width": 1.2, opacity: .75 }); });
+    polyline(a.s, a.yOf, r.target, R, { stroke: "#8c97a6", "stroke-width": 1.5, "stroke-dasharray": "5 4" });
+    polyline(a.s, a.yOf, r.avg, R, { stroke: "#fff", "stroke-width": 3 });
+    legend($("rtaLegend"), [["#fff", src.live ? `Langsung (rata-rata ${$("liveWin").value} dtk)` : `Rata-rata ${used.length} titik`], ["#8c97a6", "Target", true], ["#555", "Area gelap = di luar rentang yang dinilai"]]);
+  }
+  if (partial) return;
 
-  const E = 9, e = chartBase($("eqChart"), E, r.trusted);
-  const fq = Array.from({ length: 160 }, (_, i) => FMIN * Math.pow(FMAX / FMIN, i / 159));
-  const curve = C.eqCurve(r.bands, fq);
-  const path = fq.map((f, i) => `${i ? "L" : "M"}${xOf(f).toFixed(1)},${e.yOf(clampDb(curve[i], E)).toFixed(1)}`).join(" ");
-  svg("path", { d: `${path} L${xOf(FMAX)},${e.yOf(0)} L${xOf(FMIN)},${e.yOf(0)} Z`, fill: "#b48cff", opacity: .18 }, e.s);
-  svg("path", { d: path, fill: "none", stroke: "#b48cff", "stroke-width": 2.5 }, e.s);
-  const after = C.CENTERS.map((f, i) => (r.dev[i] == null ? null : r.dev[i] + C.eqCurve(r.bands, [f])[0]));
-  polyline(e.s, e.yOf, r.dev, E, { stroke: "#8c97a6", "stroke-width": 1.2, opacity: .8 });
-  polyline(e.s, e.yOf, after, E, { stroke: "#3fcf7f", "stroke-width": 1.8 });
-  r.bands.forEach((b, i) => {
-    const g = svg("g", {}, e.s), cy = e.yOf(clampDb(b.aman ? b.db : 0, E));
-    svg("circle", { cx: xOf(b.hz), cy, r: 9, fill: b.aman ? "#b48cff" : "#12161b", stroke: b.aman ? "#12161b" : "#f5b041", "stroke-width": 2, "stroke-dasharray": b.aman ? "" : "3 2" }, g);
-    const t = svg("text", { x: xOf(b.hz), y: cy + 3.5, "text-anchor": "middle", style: `fill:${b.aman ? "#1a1030" : "#f5b041"};font-weight:700;font-size:10px` }, g);
-    t.textContent = i + 1;
-  });
-  legend($("eqLegend"), [["#b48cff", "Usulan EQ (ungu = usulan program)"], ["#8c97a6", "Selisih dari target sekarang"], ["#3fcf7f", "Perkiraan setelah usulan dipakai"]]);
+  if (store.view === "bar") {
+    eqBars($("eqChart"), r);
+    legend($("eqLegend"), [["#b48cff", "Usulan koreksi (ungu)"], ["#8c97a6", "Selisih dari target sekarang (abu-abu)"], ["#3fcf7f", "Perkiraan setelah usulan (titik hijau)"]]);
+  } else {
+    const E = 9, e = chartBase($("eqChart"), E, r.trusted);
+    const fq = Array.from({ length: 160 }, (_, i) => FMIN * Math.pow(FMAX / FMIN, i / 159));
+    const curve = C.eqCurve(r.bands, fq);
+    const path = fq.map((f, i) => `${i ? "L" : "M"}${xOf(f).toFixed(1)},${e.yOf(clampDb(curve[i], E)).toFixed(1)}`).join(" ");
+    svg("path", { d: `${path} L${xOf(FMAX)},${e.yOf(0)} L${xOf(FMIN)},${e.yOf(0)} Z`, fill: "#b48cff", opacity: .18 }, e.s);
+    svg("path", { d: path, fill: "none", stroke: "#b48cff", "stroke-width": 2.5 }, e.s);
+    const after = C.CENTERS.map((f, i) => (r.dev[i] == null ? null : r.dev[i] + C.eqCurve(r.bands, [f])[0]));
+    polyline(e.s, e.yOf, r.dev, E, { stroke: "#8c97a6", "stroke-width": 1.2, opacity: .8 });
+    polyline(e.s, e.yOf, after, E, { stroke: "#3fcf7f", "stroke-width": 1.8 });
+    r.bands.forEach((b, i) => {
+      const g = svg("g", {}, e.s), cy = e.yOf(clampDb(b.aman ? b.db : 0, E));
+      svg("circle", { cx: xOf(b.hz), cy, r: 9, fill: b.aman ? "#b48cff" : "#12161b", stroke: b.aman ? "#12161b" : "#f5b041", "stroke-width": 2, "stroke-dasharray": b.aman ? "" : "3 2" }, g);
+      const t = svg("text", { x: xOf(b.hz), y: cy + 3.5, "text-anchor": "middle", style: `fill:${b.aman ? "#1a1030" : "#f5b041"};font-weight:700;font-size:10px` }, g);
+      t.textContent = i + 1;
+    });
+    legend($("eqLegend"), [["#b48cff", "Usulan EQ (ungu = usulan program)"], ["#8c97a6", "Selisih dari target sekarang"], ["#3fcf7f", "Perkiraan setelah usulan dipakai"]]);
+  }
 
   const box = $("recs");
   if (!r.bands.length) box.append(text("p", "note", "Tidak ada koreksi yang disarankan."));
@@ -454,7 +521,8 @@ function renderResults() {
   const nt = $("notes");
   r.notes.forEach((n) => nt.append(text("p", "note", n)));
   nt.append(text("p", "note", "Terapkan di EQ master (Main L/R) atau DSP Protea, jangan di channel mic. Ubah satu band, dengarkan, lalu ukur ulang titik yang sama untuk memastikan."));
-  if (used.length < 3) nt.append(text("p", "note", `Baru ${used.length} titik dipakai. Disarankan 3 titik atau lebih (depan, tengah, belakang) sebelum mengubah EQ.`));
+  if (src.live) nt.append(text("p", "note", "Mode realtime: usulan bergerak mengikuti suara. Tunggu rata-rata stabil sebelum mengubah EQ, dan ini hanya satu titik (posisi mic)."));
+  else if (used.length < 3) nt.append(text("p", "note", `Baru ${used.length} titik dipakai. Disarankan 3 titik atau lebih (depan, tengah, belakang) sebelum mengubah EQ.`));
   const top = r.bands.filter((b) => b.aman);
   $("summary").hidden = false;
   $("summary").textContent = top.length
@@ -462,6 +530,51 @@ function renderResults() {
     : r.bands.length ? "Tidak ada koreksi EQ yang aman, tetapi ada cekungan sempit yang perlu diatasi dengan penempatan." : "Bentuk suara sudah dekat dengan target pada rentang yang dinilai.";
   renderLR();
 }
+
+// ---------- ukur realtime dari mic ----------
+let liveOn = false, liveTimer = null, liveFrames = [], liveBands = null, liveN = 0, livePeak = -120, liveRms = -120;
+const liveBuf = new Float32Array(C.FFT_N);
+function liveStep() {
+  if (!analyser) { stopLive("Mic tidak aktif."); return; }
+  analyser.getFloatTimeDomainData(liveBuf);
+  const av = new C.Averager(inCtx.sampleRate);
+  av.add(liveBuf);
+  const b = av.bands();
+  if (!b || b.some((v) => v == null)) return;
+  liveFrames.push(b.map((v) => Math.pow(10, v / 10)));
+  const maxN = Math.max(4, Math.round(+$("liveWin").value * 4));
+  while (liveFrames.length > maxN) liveFrames.shift();
+  liveBands = C.CENTERS.map((_, i) => 10 * Math.log10(liveFrames.reduce((s, f) => s + f[i], 0) / liveFrames.length));
+  livePeak = av.peakDb(); liveRms = av.rmsDb(); liveN++;
+  $("btnLiveSave").disabled = liveFrames.length < Math.min(maxN, 8);
+  $("liveMsg").textContent = `Realtime: ${liveFrames.length} dari ${maxN} cuplikan terkumpul · level ${liveRms.toFixed(0)} dBFS (puncak ${livePeak.toFixed(0)})` +
+    (livePeak > -1 ? " · CLIPPING: kecilkan gain mic atau volume" : liveRms < -65 ? " · sinyal sangat kecil: nyalakan pink noise atau naikkan gain" : "");
+  renderResults(liveN % 4 !== 1);              // grafik hasil tiap 250 ms; usulan dan daftar tiap 1 detik
+}
+function startLive() {
+  if (!analyser || liveOn) return;
+  liveOn = true; liveFrames = []; liveBands = null; liveN = 0;
+  $("btnLive").textContent = "■ Hentikan ukur realtime"; $("btnLive").classList.remove("primary");
+  liveTimer = setInterval(liveStep, 250);
+}
+function stopLive(msg) {
+  clearInterval(liveTimer); liveTimer = null;
+  if (!liveOn) return;
+  liveOn = false;
+  $("btnLive").textContent = "▶ Mulai ukur realtime"; $("btnLive").classList.add("primary"); $("btnLiveSave").disabled = !liveBands;
+  if (msg) $("liveMsg").textContent = msg;
+  renderResults();
+}
+$("btnLive").addEventListener("click", () => (liveOn ? stopLive("Dihentikan. Rata-rata terakhir masih bisa disimpan sebagai titik.") : startLive()));
+$("btnLiveSave").addEventListener("click", () => {
+  if (!liveBands) return;
+  store.seq++;
+  store.positions.push({ id: store.seq, name: nextName(), bands: liveBands.slice(), on: true, time: new Date().toLocaleTimeString("id-ID"), peak: livePeak, rms: liveRms, sr: inCtx ? inCtx.sampleRate : 48000 });
+  save(); $("posName").value = ""; renderPositions();
+  $("liveMsg").textContent = "Rata-rata tersimpan sebagai titik ukur. Pindahkan mic ke posisi lain lalu ulangi bila perlu.";
+});
+$("viewMode").value = store.view || "garis";
+$("viewMode").addEventListener("change", () => { store.view = $("viewMode").value; save(); renderResults(); });
 
 // ---------- EQ Main L/R (6 band): sekarang vs rekomendasi ----------
 let lrData = null, lrErr = "";
@@ -498,6 +611,11 @@ function renderLR() {
   const cur = lrData.band, r = window.__lastR, recs = r ? r.bands : [];
   const { plan, notes } = C.planLR(cur, recs);
   const next = plan.map((p) => ({ ...p.now, hz: p.next.hz, db: p.next.db, q: p.next.q }));
+  const changed = plan.some((p) => p.aksi !== "tetap");
+  if (store.view === "bar") {
+    const bb = barsBase(box.appendChild(text("div")), 15, null), cc = C.lrCurve(cur, C.CENTERS), nn = C.lrCurve(next, C.CENTERS);
+    C.CENTERS.forEach((f, i) => { bb.bar(i, cc[i], "#3fcf7f", { w: .34, off: -.2 }); if (changed) bb.bar(i, nn[i], "#b48cff", { w: .34, off: .2 }); });
+  } else {
   const E = 15, e = chartBase(box.appendChild(text("div")), E, null);
   const fq = Array.from({ length: 160 }, (_, i) => FMIN * Math.pow(FMAX / FMIN, i / 159));
   const draw = (bands, color, w, dash) => {
@@ -505,7 +623,6 @@ function renderLR() {
     svg("path", { d: fq.map((f, i) => `${i ? "L" : "M"}${xOf(f).toFixed(1)},${e.yOf(clampDb(cv[i], E)).toFixed(1)}`).join(" "), fill: "none", stroke: color, "stroke-width": w, "stroke-dasharray": dash || "" }, e.s);
   };
   draw(cur, "#3fcf7f", 2.5);
-  const changed = plan.some((p) => p.aksi !== "tetap");
   if (changed) draw(next, "#b48cff", 2.5, "6 4");
   cur.forEach((b) => {
     const cut = b.type === 0 || b.type === 5, cy = e.yOf(clampDb(cut ? 0 : b.db, E));
@@ -517,6 +634,7 @@ function renderLR() {
     svg("circle", { cx: xOf(p.next.hz), cy, r: 8, fill: "#b48cff", stroke: "#12161b", "stroke-width": 2 }, e.s);
     const t = svg("text", { x: xOf(p.next.hz), y: cy + 3.5, "text-anchor": "middle", style: "fill:#1a1030;font-weight:700;font-size:10px" }, e.s); t.textContent = p.band;
   });
+  }
   const lg = text("div", "legend");
   box.append(lg);
   legend(lg, [["#3fcf7f", "EQ L/R sekarang (6 band)"], ...(changed ? [["#b48cff", "EQ L/R setelah usulan ukur ruangan", true]] : [])]);
