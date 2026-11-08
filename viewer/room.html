@@ -203,6 +203,8 @@ function micNote() {
   const t = C.TRUST[store.mic];
   $("micNote").textContent = store.mic === "ukur"
     ? "Mic ukur: seluruh rentang dinilai."
+    : store.mic === "podcast"
+    ? "Mic podcast biasanya menonjolkan area 5–10 kHz dan tidak bisa dipercaya di bawah sekitar 80 Hz, jadi hanya 80 Hz – 8 kHz yang dinilai. Bila mic ini kondensor, nyalakan 48V di channel mixernya sendiri (aplikasi tidak pernah menyentuh 48V). Matikan EQ, low cut, kompresor, dan gate di channel itu, dan jangan teruskan ke speaker utama."
     : `Mic suara punya warna sendiri (bass dipotong, area atas dinaikkan) dan pemancar wireless menekan level. Karena itu hanya ${C.fmtHz(t.lo)} – ${C.fmtHz(t.hi)} yang dinilai; di luar itu hanya ditampilkan. Pastikan di channel mic ini EQ off, low cut off, kompresor off, supaya yang terukur adalah ruangan, bukan setting channel.`;
 }
 micNote();

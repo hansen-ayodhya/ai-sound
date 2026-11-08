@@ -10,6 +10,7 @@
   const TRUST = {
     genggam: { label: "Mic genggam vokal (mis. SM58 / Beta 58)", lo: 100, hi: 4000 },
     lavalier: { label: "Mic lavalier / headset", lo: 200, hi: 4000 },
+    podcast: { label: "Mic podcast XLR (mis. Maono)", lo: 80, hi: 8000 },
     ukur: { label: "Mic ukur / mic datar", lo: 63, hi: 10000 },
   };
   const TARGETS = {

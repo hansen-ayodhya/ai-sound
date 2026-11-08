@@ -30,6 +30,8 @@ const d = C.analyze([deep], { mic: "ukur", target: "datar" });
 assert(d.bands.some((b) => !b.aman && b.db === 0), "cekungan sempit tidak boleh di-boost");
 const narrowMic = C.analyze([room(8)], { mic: "genggam", target: "datar" });
 assert(narrowMic.trusted[0] === 100 && narrowMic.trusted[1] === 4000);
+assert.deepStrictEqual([C.TRUST.podcast.lo, C.TRUST.podcast.hi], [80, 8000]);
+assert.strictEqual(C.analyze([room(8)], { mic: "podcast", target: "datar" }).trusted[1], 8000);
 assert.strictEqual(C.fmtHz(10000), "10 kHz");
 assert.strictEqual(C.fmtHz(3150), "3,15 kHz");
 const cur = [{ band: 1, type: 0, hz: 80, db: 0, q: 1 }, { band: 2, type: 2, hz: 200, db: 3, q: 1.4 }, { band: 3, type: 2, hz: 1000, db: 0, q: 1 },

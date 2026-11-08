@@ -347,6 +347,12 @@
 - Level mutlak mic tidak dinilai; mic vokal/SM58 hanya dinilai pada rentang yang dipercaya (profil mic).
 - Tes: tests/test_viewer_syntax.py (sintaks semua halaman); uji browser realtime dengan WAV sebagai mic palsu (rekomendasi 200 Hz -6 dB muncul sendiri).
 
+## Update 2026-11-08: profil mic podcast XLR
+
+- Profil jenis mic baru "Mic podcast XLR (mis. Maono)" di Ukur Ruangan: hanya 80 Hz - 8 kHz yang dinilai (mic podcast biasanya menonjolkan 5-10 kHz dan tidak bisa dipercaya di bawah sekitar 80 Hz). Catatan di halaman: bila kondensor, 48V dinyalakan sendiri oleh operator di channel mixernya (aplikasi tidak pernah menyentuh 48V); EQ/low cut/kompresor/gate channel dimatikan dan tidak diteruskan ke speaker utama.
+- Karena mic ini XLR, ia masuk lewat channel mixer; untuk spektrum realtime tetap butuh USB audio MR18 (cek balance hanya butuh meter). Kalibrasi relatif (SM58 vs Maono pada titik yang sama) belum dibuat.
+- Tes: tests/test_room_core.py (profil podcast).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
