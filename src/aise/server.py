@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import os
 import html
 import ipaddress
 import json
@@ -253,12 +254,12 @@ class App:
         folder = self.data / "live-setting"
         folder.mkdir(parents=True, exist_ok=True)
         profile = self.profile()
-        (folder / "dump1.json").write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
-        (folder / "findings.json").write_text(json.dumps(self.rule_findings(d, profile), indent=2, ensure_ascii=False), encoding="utf-8")
-        (folder / "report.md").write_text(render(d, "live-setting/dump1.json", profile), encoding="utf-8")
+        _write_atomic(folder / "dump1.json", json.dumps(d, indent=2, ensure_ascii=False))
+        _write_atomic(folder / "findings.json", json.dumps(self.rule_findings(d, profile), indent=2, ensure_ascii=False))
+        _write_atomic(folder / "report.md", render(d, "live-setting/dump1.json", profile))
         latest = {"dump": "data/live-setting/dump1.json", "findings": "data/live-setting/findings.json",
                   "report": "data/live-setting/report.md", "created": d["created"], "live": True}
-        (self.data / "latest.json").write_text(json.dumps(latest, indent=2), encoding="utf-8")
+        _write_atomic(self.data / "latest.json", json.dumps(latest, indent=2))
         self._values = d.get("values", {})
         if mark:
             self.live_settings_at = d["created"]
@@ -735,7 +736,7 @@ class App:
             if self.live:
                 self.live.rules.weak_enabled = p["weak_alerts"]
         self.prefs_path.parent.mkdir(parents=True, exist_ok=True)
-        self.prefs_path.write_text(json.dumps(p), encoding="utf-8")
+        _write_atomic(self.prefs_path, json.dumps(p))
         if "youtube_url" in body or "stream_check_min" in body:
             self.stream.reschedule()
             self.stream.start()
@@ -946,6 +947,19 @@ def _parse_target(body: dict) -> tuple[str, int]:
     if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
         raise ValueError("Port tidak valid.")
     return ip, port
+
+
+def _write_atomic(path: Path, text: str) -> None:
+    """Tulis lewat file sementara lalu ganti: pembaca tidak pernah menerima file kosong atau setengah jadi."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    for i in range(8):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:          # Windows: file sedang dibuka pembaca; coba lagi sebentar
+            time.sleep(0.03 * (i + 1))
+    path.write_text(text, encoding="utf-8")
 
 
 def _version(root: Path) -> str:

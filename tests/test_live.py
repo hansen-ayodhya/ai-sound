@@ -180,8 +180,13 @@ class LiveSettingsRefresh(unittest.TestCase):
             self.assertTrue(latest["live"])
             mixer.state["/ch/01/config/name"] = ("WL",)     # operator mengganti nama di mixer
             first = app.live_settings_at
+            d = {"values": {}}
             for _ in range(60):
-                d = json.loads((app.data / "live-setting" / "dump1.json").read_text())
+                try:
+                    d = json.loads((app.data / "live-setting" / "dump1.json").read_text())
+                except (OSError, ValueError):                 # Windows bisa menahan file sesaat saat diganti
+                    time.sleep(0.1)
+                    continue
                 if d["values"].get("/ch/01/config/name") == ["WL"]:
                     break
                 time.sleep(0.1)

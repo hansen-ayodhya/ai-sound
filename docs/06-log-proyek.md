@@ -362,6 +362,11 @@
 - BELUM terbukti: titik ambil sinyal USB MR18 dan driver Windows; uji korelasi hanya diuji secara logika (data sintetis), bukan dengan mixer sungguhan.
 - Tes: tests/test_room_core.py (corr, snrBands, pita lemah), tests/test_siaran.py (MicCheck).
 
+## Update 2026-11-08: penulisan setting terbaru dibuat atomik
+
+- Build #43 gagal di `test_live.test_settings_reread_during_live`: pembaca menerima `dump1.json` kosong saat server sedang menimpanya (JSONDecodeError di runner Windows). Akar: `write_text` memotong file lalu menulis. Kini `_write_atomic` menulis ke file sementara lalu mengganti (`os.replace`, dengan percobaan ulang bila Windows menahan file) untuk dump1.json, findings.json, report.md, latest.json, dan prefs.json, sehingga tampilan juga tidak bisa lagi membaca setting setengah jadi.
+- Tes: tests/test_atomic_write.py (pembaca tidak pernah melihat file kosong/terpotong); test_live memberi percobaan ulang saat Windows menahan file.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
