@@ -125,6 +125,7 @@ class App:
         # Mode kontrol (jalur tulis terpisah; mati sampai operator menyalakannya)
         self.memori = Memori(self.data / "memori")
         self.ignored = Ignored(self.data / "diabaikan.json")
+        self._fails: dict[str, int] = {}   # berapa kali berturut-turut alamat tidak dijawab (dilewati setelah 3x)
         self._values: dict = {}           # nilai setting terbaru (untuk menilai peringatan live secara realtime)
         self.control = Controller(self.data / "changes.jsonl", self._read_one, on_event=self._memori_event)
 
@@ -209,15 +210,22 @@ class App:
             on_stop()
             raise
         # Selama live, setting mixer dibaca ulang berkala (hanya query) supaya saran mengikuti situasi terbaru.
-        known = [a for a, v in (dump or {}).get("values", {}).items() if v is not None] or None
-        threading.Thread(target=self._refresh_settings_loop, args=(ip, port, self.live, known), daemon=True).start()
+        if dump:
+            self._values = dict(dump.get("values", {}))
+        threading.Thread(target=self._refresh_settings_loop, args=(ip, port, self.live, None), daemon=True).start()
 
     def _read_settings(self, ip: str, port: int, addresses: list[str] | None) -> dict:
         """Baca setting sekali (hanya query), simpan sebagai 'setting terbaru' dan jadikan acuan tampilan."""
-        with ReadOnlyClient(ip, port, timeout=0.3, retries=0, log_path=self.data / "osc_log.jsonl") as c:
-            d = run_dump(c, addresses or self.addresses or all_addresses())
+        todo = [a for a in (addresses or self.addresses or all_addresses()) if self._fails.get(a, 0) < 3]
+        with ReadOnlyClient(ip, port, timeout=0.3, retries=1, log_path=self.data / "osc_log.jsonl") as c:
+            d = run_dump(c, todo)
         if not d["answered"]:
             raise MixerNotAnswering(f"Mixer di {ip}:{port} tidak menjawab saat membaca setting.")
+        prev = self._values
+        for a, v in list(d["values"].items()):
+            self._fails[a] = self._fails.get(a, 0) + 1 if v is None else 0
+            if v is None and prev.get(a) is not None:
+                d["values"][a] = prev[a]          # balasan yang hilang tidak boleh menghapus nilai yang sudah diketahui
         self._save_dump(d)
         with self._param_lock:
             self._overlay.clear()          # pembacaan penuh lebih baru daripada kabar perubahan sebelumnya
@@ -298,8 +306,7 @@ class App:
             if not mon.running:
                 return
             try:
-                d = self._read_settings(ip, port, addresses)
-                addresses = [a for a, v in d["values"].items() if v is not None]  # berikutnya lebih cepat
+                self._read_settings(ip, port, addresses)
             except Exception:  # pembaruan setting tidak boleh mematikan pantau meter
                 continue
 
@@ -312,10 +319,11 @@ class App:
         if not valid_ip(ip):
             raise ValueError("IP mixer belum diisi. Isi di Beranda (Uji kecil) dulu.")
         _, dump = self.latest_dump()
-        known = [a for a, v in (dump or {}).get("values", {}).items() if v is not None] or None
+        if dump and not self._values:
+            self._values = dict(dump.get("values", {}))
         self._acquire()
         try:
-            d = self._read_settings(ip, port, known)
+            d = self._read_settings(ip, port, None)
         finally:
             self._lock.release()
         return {"mode": "sekarang", "answered": d["answered"], "queried": d["queried"], "created": d["created"]}

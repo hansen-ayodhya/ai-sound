@@ -542,7 +542,8 @@ function eqChart(ch) {
 function compFn(ch, get) {
   const c = "/ch/" + pad2(ch);
   const on = get(c + "/dyn/on") === 1, thr = EST.compThrDb(get(c + "/dyn/thr")), r = EST.ratio(get(c + "/dyn/ratio"));
-  if (!on || thr == null || !r) return { fn: (x) => x, on, thr, r };
+  if (on && (thr == null || !r)) return { fn: (x) => x, on, thr, r, unknown: true };      // nilai tidak terbaca: jangan gambar kurva palsu
+  if (!on) return { fn: (x) => x, on, thr, r };
   return { fn: (x) => (x <= thr ? x : thr + (x - thr) / r), on, thr, r };
 }
 function gateFn(ch, get) {
@@ -550,7 +551,8 @@ function gateFn(ch, get) {
   const on = get(c + "/gate/on") === 1, thr = EST.gateThrDb(get(c + "/gate/thr"));
   const range = EST.gateRange(get(c + "/gate/range"));
   const rg = range == null ? 60 : range;
-  if (!on || thr == null) return { fn: (x) => x, on, thr, range };
+  if (on && thr == null) return { fn: (x) => x, on, thr, range, unknown: true };
+  if (!on) return { fn: (x) => x, on, thr, range };
   return { fn: (x) => (x >= thr ? x : x - rg), on, thr, range };
 }
 function transferChart(now, sugs, label) {
@@ -574,7 +576,9 @@ function transferChart(now, sugs, label) {
     if (sug.on) thrLine(sug.thr, color, "4 3");
     s.append(svg("path", { d: path(sug.fn), fill: "none", stroke: color, "stroke-width": 2, "stroke-dasharray": "6 4" }));
   }
-  s.append(svg("path", { d: path(now.fn), fill: "none", stroke: "#3fcf7f", "stroke-width": 2 }));
+  if (now.unknown) {
+    const u = svg("text", { x: W / 2, y: T + PH / 2, "text-anchor": "middle" }); u.textContent = "nilai sekarang tidak terbaca"; s.append(u);
+  } else s.append(svg("path", { d: path(now.fn), fill: "none", stroke: "#3fcf7f", "stroke-width": 2 }));
   return s;
 }
 const fmtR = (r) => (r == null ? "—" : r + ":1");
@@ -590,15 +594,26 @@ function dynSection(n) {
   }
   const onoff = (v) => (v ? "ON" : "OFF");
   const who = (src) => (src === "gem" ? "✦ Gemini" : "Program");
+  // Hanya bagian yang BENAR-BENAR diusulkan yang ditulis; bagian lain di grafik usulan mengikuti nilai mixer sekarang.
+  const propLine = (src, items) => {
+    const P = proposals(n, src), parts = [];
+    for (const [label, addr, fmt] of items) if (P.has(addr)) {
+      const cur = raw(addr), same = cur != null && Math.abs(P.get(addr) - cur) <= 0.03;
+      parts.push(`${label} ${fmt(P.get(addr))}` + (same ? " (sudah sama dengan mixer)" : ""));
+    }
+    return `${who(src)} mengusulkan: ${parts.join(" · ")}. Bagian lain tidak diubah.`;
+  };
   const compBox = el("div", { class: "dynbox" }, el("h4", { text: "Kompresor" }),
     transferChart(cNow, cS, "Kurva kompresor: sekarang dan usulan"),
-    el("div", { class: "dynline", text: `Sekarang: ${onoff(cNow.on)} · threshold ${fmtDb(cNow.thr)} · rasio ${fmtR(cNow.r)} ≈` }),
+    el("div", { class: "dynline", text: `Sekarang: ${onoff(cNow.on)} · threshold ${fmtDb(cNow.thr)} · rasio ${fmtR(cNow.r)} ≈` + (cNow.unknown ? " (ada yang tidak terbaca; klik ↻ untuk membaca ulang)" : "") }),
     el("div", { class: "dynline", text: `Attack ${fmtMs(EST.attackMs(raw(c + "/dyn/attack")))} · release ${fmtMs(EST.releaseMs(raw(c + "/dyn/release")))} ≈` }),
-    ...cS.map((x) => el("div", { class: "dynline " + x.src, text: `${who(x.src)}: ${onoff(x.on)} · threshold ${fmtDb(x.thr)} · rasio ${fmtR(x.r)}` })));
+    ...cS.map((x) => el("div", { class: "dynline " + x.src, text: propLine(x.src, [["status", c + "/dyn/on", (v) => onoff(v === 1)],
+      ["threshold", c + "/dyn/thr", (v) => fmtDb(EST.compThrDb(v))], ["rasio", c + "/dyn/ratio", (v) => fmtR(EST.ratio(v))]]) })));
   const gateBox = el("div", { class: "dynbox" }, el("h4", { text: "Gate" }),
     transferChart(gNow, gS, "Kurva gate: sekarang dan usulan"),
     el("div", { class: "dynline", text: `Sekarang: ${onoff(gNow.on)} · threshold ${fmtDb(gNow.thr)} · range ${gNow.range == null ? "—" : Math.round(gNow.range) + " dB"} ≈` }),
-    ...gS.map((x) => el("div", { class: "dynline " + x.src, text: `${who(x.src)}: ${onoff(x.on)} · threshold ${fmtDb(x.thr)}` })));
+    ...gS.map((x) => el("div", { class: "dynline " + x.src, text: propLine(x.src, [["status", c + "/gate/on", (v) => onoff(v === 1)],
+      ["threshold", c + "/gate/thr", (v) => fmtDb(EST.gateThrDb(v))]]) })));
   return [
     el("h3", { text: "Kompresor & Gate" }),
     legendEl(cS.some((x) => x.src === "rule") || gS.some((x) => x.src === "rule"), cS.some((x) => x.src === "gem") || gS.some((x) => x.src === "gem")),

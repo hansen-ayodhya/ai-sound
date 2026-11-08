@@ -274,6 +274,12 @@
 
 - Klik di luar panel detail menutupnya (fase capture, jadi klik pada strip lain langsung membuka panel channel itu, dan menu ⋯ tetap bisa membuka panel "Rekomendasi diabaikan"). Klik yang dimulai di dalam panel (mis. menggeser slider sampai keluar panel) tidak menutupnya; kotak konfirmasi Mode kontrol dikecualikan. Esc tetap menutup.
 
+## Update 2026-11-08: perbaikan pembacaan setting dan grafik kompresor/gate
+
+- Bug: saat live, satu balasan UDP yang hilang pada pembacaan ulang setting menimpa nilai yang tadinya terbaca dengan kosong, lalu alamat itu tidak ditanyakan lagi (daftar dipangkas). Akibatnya threshold/release kompresor tampil "—" dan kurva "sekarang" datar. Kini: nilai lama dipertahankan bila balasan hilang, alamat baru dilewati setelah 3 kali berturut-turut tidak dijawab, dan membaca memakai 1 ulangan.
+- Grafik kompresor/gate: bila ON tetapi threshold/rasio tidak terbaca, kurva "sekarang" tidak digambar (teks "nilai sekarang tidak terbaca") dan baris keterangan menyarankan ↻. Baris usulan menulis hanya bagian yang benar-benar diusulkan (mis. "Gemini mengusulkan: threshold -22 dB (sudah sama dengan mixer). Bagian lain tidak diubah."); di grafik usulan, bagian yang tidak diusulkan mengikuti nilai mixer sekarang. Karena itu grafik usulan ikut bergeser bila Anda mengubah bagian lain di mixer.
+- Tes: tests/test_refresh_keep.py.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
