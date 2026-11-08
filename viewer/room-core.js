@@ -10,6 +10,7 @@
   const TRUST = {
     genggam: { label: "Mic genggam vokal (mis. SM58 / Beta 58)", lo: 100, hi: 4000 },
     lavalier: { label: "Mic lavalier / headset", lo: 200, hi: 4000 },
+    kondensor: { label: "Mic kondensor XLR via mixer (cukup datar)", lo: 63, hi: 10000 },
     podcast: { label: "Mic podcast XLR (mis. Maono)", lo: 80, hi: 8000 },
     ukur: { label: "Mic ukur / mic datar", lo: 63, hi: 10000 },
   };
@@ -155,7 +156,8 @@
     const tgt = targetCurve(opts.target || "datar");
     const comb = combine(positions);
     const dev = comb.avg.map((v, i) => (v == null ? null : v - tgt[i]));
-    const inRange = (i) => CENTERS[i] >= trust.lo && CENTERS[i] <= trust.hi && dev[i] != null;
+    const weak = opts.untrusted || [];            // pita yang sinyalnya terlalu dekat bising: tidak dinilai
+    const inRange = (i) => CENTERS[i] >= trust.lo && CENTERS[i] <= trust.hi && dev[i] != null && !weak[i];
     const work = dev.slice();
     const bands = [], notes = [];
 
@@ -296,7 +298,36 @@
     return { plan, notes };
   }
 
-  const api = { EQ_TYPES, lrCurve, planLR, NOMINAL, CENTERS, FFT_N, TRUST, TARGETS, REF_RANGE, Averager, fft, normalize, targetCurve, combine, analyze,
+  /* Korelasi (Pearson) dua amplop level dB, dengan pergeseran waktu kecil (maks `lag` cuplikan) untuk jeda meter vs audio. */
+  function corr(a, b, lag) {
+    lag = lag == null ? 2 : lag;
+    const n = Math.min(a.length, b.length);
+    const std = (x) => { const m = x.reduce((s, v) => s + v, 0) / x.length; return Math.sqrt(x.reduce((s, v) => s + (v - m) * (v - m), 0) / x.length); };
+    const pear = (x, y) => {
+      const mx = x.reduce((s, v) => s + v, 0) / x.length, my = y.reduce((s, v) => s + v, 0) / y.length;
+      let sxy = 0, sxx = 0, syy = 0;
+      for (let i = 0; i < x.length; i++) { sxy += (x[i] - mx) * (y[i] - my); sxx += (x[i] - mx) ** 2; syy += (y[i] - my) ** 2; }
+      return sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : 0;
+    };
+    const A = a.slice(0, n).map((v) => Math.max(v, -80)), B = b.slice(0, n).map((v) => Math.max(v, -80));
+    let best = -1, bestLag = 0;
+    for (let l = -lag; l <= lag; l++) {
+      const x = l >= 0 ? A.slice(l) : A, y = l >= 0 ? B : B.slice(-l);
+      const m = Math.min(x.length, y.length);
+      if (m < 8) continue;
+      const r = pear(x.slice(0, m), y.slice(0, m));
+      if (r > best) { best = r; bestLag = l; }
+    }
+    return { r: Math.round(best * 100) / 100, lag: bestLag, variasiA: Math.round(std(A) * 10) / 10, variasiB: Math.round(std(B) * 10) / 10 };
+  }
+  /* SNR per pita: sinyal pengukuran (dB) dikurangi bising ruangan (dB); pita dengan SNR < min dianggap tidak dapat dipercaya. */
+  function snrBands(signal, noise, min) {
+    min = min == null ? 10 : min;
+    const snr = signal.map((v, i) => (v == null || noise[i] == null ? null : v - noise[i]));
+    return { snr, lemah: snr.map((x) => x != null && x < min) };
+  }
+
+  const api = { corr, snrBands, EQ_TYPES, lrCurve, planLR, NOMINAL, CENTERS, FFT_N, TRUST, TARGETS, REF_RANGE, Averager, fft, normalize, targetCurve, combine, analyze,
     eqCurve, peakingDb, pinkNoise, wavBlob, fmtHz, describe };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RoomCore = api;

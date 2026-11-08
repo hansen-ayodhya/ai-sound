@@ -353,6 +353,15 @@
 - Karena mic ini XLR, ia masuk lewat channel mixer; untuk spektrum realtime tetap butuh USB audio MR18 (cek balance hanya butuh meter). Kalibrasi relatif (SM58 vs Maono pada titik yang sama) belum dibuat.
 - Tes: tests/test_room_core.py (profil podcast).
 
+## Update 2026-11-08: pengukuran ruangan dengan mic kondensor lewat mixer, kesiapan realtime, versi dan fitur
+
+- Profil mic "Mic kondensor XLR via mixer" (63 Hz - 10 kHz). Bagian "Jalur mic lewat mixer" di Ukur Ruangan: pilih channel mic di mixer; `GET /api/mic-check?ch=N` membaca setting channel (gain, fader, 48V, EQ, low cut, gate, kompresor, LR, kiriman bus) dan level/puncak meter live; aplikasi memperingatkan 48V belum menyala (untuk profil kondensor; tidak pernah menyentuh 48V), pengolahan channel masih aktif, channel masuk ke speaker utama (feedback), dan level terlalu tinggi/rendah.
+- Uji jalur USB: ketuk mic 8 detik; amplop level meter mixer channel itu dikorelasikan (Pearson, geser waktu maks 3 cuplikan) dengan amplop level input suara di browser; r >= 0,7 = input itu terbukti membawa channel tersebut; ketukan kurang jelas dilaporkan terpisah.
+- Analisis kesiapan realtime (panel "Kesiapan pengukuran"): setting mixer, level input (clipping/terlalu kecil), hasil uji jalur, jarak pink noise dari bising ruangan, dan kestabilan level. Tombol "Ukur bising ruangan" (pink noise mati, 5 dtk) menyimpan acuan bising; pita dengan SNR < 10 dB ditandai pudar di grafik bar dan tidak dinilai dalam rekomendasi (`analyze` menerima `untrusted`).
+- Versi dan fitur: `/api/status` memuat `fitur`; baris "Versi program: <commit tanggal> · fitur di versi ini" tampil di Ukur Ruangan dan di menu Tampilan Mixer, supaya operator tahu exe yang dipakai sudah memuat fitur realtime.
+- BELUM terbukti: titik ambil sinyal USB MR18 dan driver Windows; uji korelasi hanya diuji secara logika (data sintetis), bukan dengan mixer sungguhan.
+- Tes: tests/test_room_core.py (corr, snrBands, pita lemah), tests/test_siaran.py (MicCheck).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

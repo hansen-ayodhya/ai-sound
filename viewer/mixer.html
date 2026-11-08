@@ -297,6 +297,7 @@
         <button type="button" id="btnLand" hidden>↻ Landscape</button>
         <h5>Catatan</h5>
         <p class="info">Secara default halaman ini hanya membaca mixer. Mixer baru berubah bila Anda menyalakan Mode kontrol lalu menekan Terapkan pada sebuah rekomendasi. Fader, gain, nama, HPF, dan EQ sudah dicocokkan dengan M-AIR. Angka kompresor, gate, dan kiriman bus masih perkiraan (≈), begitu juga pemetaan meter ke channel.</p>
+        <p class="info" id="verInfo"></p>
         <p class="info" id="source"></p>
       </div>
     </details>
@@ -2003,6 +2004,7 @@ applyMode();
 async function autoLive() {
   try {
     const st = await api("/api/status");
+    $("verInfo").textContent = "Versi program: " + (st.version || "?") + " · fitur: " + Object.values(st.fitur || {}).join(", ");
     $("ckWeak").checked = !!st.weak_alerts;
     if (st.live) { startPolling(); return; }
     if (!st.ip) { setStatus("warn", "Belum ada IP mixer. Isi di Beranda lalu muat ulang halaman ini."); return; }

@@ -30,6 +30,19 @@ const d = C.analyze([deep], { mic: "ukur", target: "datar" });
 assert(d.bands.some((b) => !b.aman && b.db === 0), "cekungan sempit tidak boleh di-boost");
 const narrowMic = C.analyze([room(8)], { mic: "genggam", target: "datar" });
 assert(narrowMic.trusted[0] === 100 && narrowMic.trusted[1] === 4000);
+const env = Array.from({ length: 60 }, (_, i) => (i % 12 < 3 ? -20 : -60));
+const delayed = env.map((v, i) => (i < 2 ? -70 : env[i - 2]));
+const same = C.corr(env, delayed, 3);
+assert(same.r > 0.95 && same.lag === -2, JSON.stringify(same));                                          // jeda meter vs audio terdeteksi
+assert(C.corr(env, Array.from({ length: 60 }, (_, i) => -40 + Math.sin(i * 7.3) * 8), 3).r < 0.7);       // sinyal tak berhubungan tidak lolos ambang 0,7
+assert.strictEqual(C.corr(env, new Array(60).fill(-40), 3).variasiB, 0);                                  // tanpa variasi dilaporkan
+const sn = C.snrBands([10, 5, -3], [0, 2, -10], 10);
+assert.deepStrictEqual(sn.lemah, [false, true, true]);
+const weakMask = new Array(24).fill(false); for (let i = 5; i < 9; i++) weakMask[i] = true;              // pita 200-400 Hz terlalu dekat bising
+const ws = C.analyze([room(8)], { mic: "ukur", target: "datar", untrusted: weakMask });
+assert.strictEqual(ws.bands.filter((b) => b.hz >= 160 && b.hz <= 400 && b.aman).length, 0, "pita lemah tidak boleh dinilai");
+assert.strictEqual(C.analyze([room(8)], { mic: "ukur", target: "datar" }).bands.filter((b) => b.hz >= 160 && b.hz <= 250).length, 1);
+assert.strictEqual(C.TRUST.kondensor.lo, 63);
 assert.deepStrictEqual([C.TRUST.podcast.lo, C.TRUST.podcast.hi], [80, 8000]);
 assert.strictEqual(C.analyze([room(8)], { mic: "podcast", target: "datar" }).trusted[1], 8000);
 assert.strictEqual(C.fmtHz(10000), "10 kHz");

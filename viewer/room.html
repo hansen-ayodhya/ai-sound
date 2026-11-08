@@ -49,6 +49,12 @@
   svg.chart { width: 100%; height: auto; display: block; background: #12161b; border-radius: 8px; }
   svg.chart text { font: 10px system-ui, sans-serif; fill: var(--muted); }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin: 6px 0; }
+  .chk { display: grid; gap: 4px; margin: 8px 0; }
+  .chk div { display: flex; gap: 8px; font-size: 13px; align-items: flex-start; }
+  .chk .i { flex: 0 0 18px; font-weight: 700; text-align: center; }
+  .chk .ok .i { color: var(--ok); } .chk .warn .i { color: var(--warn); } .chk .bad .i { color: var(--bad); } .chk .info .i { color: var(--muted); }
+  .ver { font-size: 12px; color: var(--muted); margin: 4px 0 10px; } .ver b { color: var(--text); }
+  .ver span { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; margin: 2px 4px 0 0; } .ver span.ok { color: var(--ok); border-color: var(--ok); }
   .rec { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
   .rec .n { flex: 0 0 24px; height: 24px; border-radius: 50%; background: var(--prog); color: #1a1030; font-weight: 700; display: grid; place-items: center; }
   .rec.nogo .n { background: none; border: 2px dashed var(--warn); color: var(--warn); }
@@ -73,6 +79,7 @@
 <main class="wrap">
   <section class="card">
     <h2>1. Persiapan</h2>
+    <div class="ver" id="verLine">Memuat versi…</div>
     <p class="sub">Tujuan: melihat apakah ruangan membuat suara terlalu menonjol atau kurang di frekuensi tertentu, lalu mendapat usulan EQ (master atau DSP). Aplikasi ini hanya mendengar dan menghitung; semua perubahan Anda lakukan sendiri.</p>
     <div class="box bad"><b>Keamanan:</b> pink noise terdengar seperti desis keras. Mulai dari volume kecil, pastikan tidak ada orang berdiri dekat speaker, dan naikkan pelan-pelan dari fader master. Jangan dibiarkan lama.</div>
     <ol class="steps">
@@ -118,6 +125,12 @@
     </div>
     <div class="meter" title="Level sinyal masuk"><i id="meterFill"></i></div>
     <p class="note" id="meterTxt" style="margin-top:4px">Level: —</p>
+    <h3>Jalur mic lewat mixer</h3>
+    <p class="note">Mic XLR dicolok ke satu channel mixer. Pilih channel itu: aplikasi membaca setting-nya dari mixer (48V, EQ, routing, level) dan bisa menguji apakah input suara di atas benar-benar membawa channel itu.</p>
+    <div class="grid"><div><label class="f" for="mixCh">Channel mic di mixer</label><select id="mixCh"></select></div></div>
+    <div class="btns"><button type="button" id="btnPath">Uji jalur USB (ketuk mic selama 8 detik)</button></div>
+    <div class="chk" id="micChk"></div>
+    <p class="note" id="pathMsg"></p>
   </section>
 
   <section class="card">
@@ -148,6 +161,10 @@
     </div>
     <div class="btns"><button type="button" id="btnLive" class="primary" disabled>▶ Mulai ukur realtime</button><button type="button" id="btnLiveSave" disabled>Simpan rata-rata ini sebagai titik</button></div>
     <p class="note" id="liveMsg"></p>
+    <div class="btns"><button type="button" id="btnNoise" disabled>Ukur bising ruangan (pink noise MATI, 5 detik)</button></div>
+    <p class="note" id="noiseMsg2"></p>
+    <h3>Kesiapan pengukuran (realtime)</h3>
+    <div class="chk" id="ready"></div>
   </section>
 
   <section class="card">
@@ -203,6 +220,8 @@ function micNote() {
   const t = C.TRUST[store.mic];
   $("micNote").textContent = store.mic === "ukur"
     ? "Mic ukur: seluruh rentang dinilai."
+    : store.mic === "kondensor"
+    ? "Mic kondensor XLR via mixer: rentang 63 Hz – 10 kHz dinilai. Kondensor butuh 48V, yang Anda nyalakan sendiri di M-AIR pada channel mic itu (aplikasi tidak pernah menyentuh 48V). Matikan EQ, low cut, kompresor, dan gate di channel itu, dan jangan teruskan ke speaker utama."
     : store.mic === "podcast"
     ? "Mic podcast biasanya menonjolkan area 5–10 kHz dan tidak bisa dipercaya di bawah sekitar 80 Hz, jadi hanya 80 Hz – 8 kHz yang dinilai. Bila mic ini kondensor, nyalakan 48V di channel mixernya sendiri (aplikasi tidak pernah menyentuh 48V). Matikan EQ, low cut, kompresor, dan gate di channel itu, dan jangan teruskan ke speaker utama."
     : `Mic suara punya warna sendiri (bass dipotong, area atas dinaikkan) dan pemancar wireless menekan level. Karena itu hanya ${C.fmtHz(t.lo)} – ${C.fmtHz(t.hi)} yang dinilai; di luar itu hanya ditampilkan. Pastikan di channel mic ini EQ off, low cut off, kompresor off, supaya yang terukur adalah ruangan, bukan setting channel.`;
@@ -291,7 +310,7 @@ async function openMic() {
     $("meterTxt").textContent = `Level: puncak ${pdb.toFixed(0)} dBFS · rata-rata ${rdb.toFixed(0)} dBFS` +
       (pdb > -3 ? " — terlalu keras, kecilkan gain/volume" : rdb < -60 ? " — hampir tidak ada sinyal" : rdb < -45 ? " — agak kecil, naikkan volume pink noise" : " — baik");
   }, 150);
-  $("btnMeasure").disabled = false; $("btnLive").disabled = false;
+  $("btnMeasure").disabled = false; $("btnLive").disabled = false; $("btnNoise").disabled = false;
   $("micMsg").textContent = "Mic aktif: " + (stream.getAudioTracks()[0].label || "input");
 }
 $("btnMic").addEventListener("click", () => openMic().catch((e) => { $("micMsg").textContent = "Mic gagal dibuka: " + e.message; }));
@@ -445,12 +464,13 @@ function barsBase(host, range, trusted) {
   const dot = (i, v, color) => { if (v != null) svg("circle", { cx: cx(i), cy: yOf(clampDb(v, range)), r: 3, fill: color }, s); };
   return { s, bar, tick, dot, yOf, cx };
 }
-function rtaBars(host, r) {
+function rtaBars(host, r, weak) {
   const b = barsBase(host, 18, r.trusted);
   r.avg.forEach((v, i) => {
     if (v == null) return;
     const dev = v - r.target[i];
-    b.bar(i, v, Math.abs(dev) < 3 ? "#5aa2ff" : dev > 0 ? "#ff6b6b" : "#f5b041");
+    if (weak && weak[i]) b.bar(i, v, "#6b7280", { op: .45 });
+    else b.bar(i, v, Math.abs(dev) < 3 ? "#5aa2ff" : dev > 0 ? "#ff6b6b" : "#f5b041");
     b.tick(i, r.target[i], "#cfd6df");
   });
 }
@@ -473,12 +493,12 @@ function renderResults(partial) {
   if (!partial) { ["rtaChart", "eqChart", "rtaLegend", "eqLegend", "recs", "notes"].forEach((id) => $(id).replaceChildren()); $("summary").hidden = true; }
   else ["rtaChart", "rtaLegend"].forEach((id) => $(id).replaceChildren());
   if (!used.length) { $("rtaChart").append(text("p", "note", liveOn ? "Menunggu sinyal dari mic…" : "Belum ada titik yang dipakai. Ukur atau centang titik di langkah 4, atau mulai ukur realtime di langkah 5.")); window.__lastR = null; if (!partial) renderLR(); return; }
-  const r = C.analyze(used.map((p) => p.bands), { mic: store.mic, target: store.target });
+  const r = C.analyze(used.map((p) => p.bands), { mic: store.mic, target: store.target, untrusted: src.live ? liveWeak : null });
   window.__lastR = r;
   window.__lastRoom = { mic: store.mic, target: store.target, titik: used.length, band: r.bands.map((b) => ({ hz: b.hz, db: b.db, q: b.q, jenis: b.jenis })) };
   if (store.view === "bar") {
-    rtaBars($("rtaChart"), r);
-    legend($("rtaLegend"), [["#5aa2ff", "Dekat target (selisih < 3 dB)"], ["#ff6b6b", "Berlebih"], ["#f5b041", "Kurang"], ["#cfd6df", "Target", true], ["#555", "Area gelap = di luar rentang yang dinilai"]]);
+    rtaBars($("rtaChart"), r, src.live ? liveWeak : null);
+    legend($("rtaLegend"), [["#5aa2ff", "Dekat target (selisih < 3 dB)"], ["#ff6b6b", "Berlebih"], ["#f5b041", "Kurang"], ["#cfd6df", "Target", true], ["#555", "Area gelap = di luar rentang yang dinilai"], ...(src.live && liveWeak && liveWeak.some(Boolean) ? [["#6b7280", "Bar pudar = pink noise terlalu dekat bising (tidak dinilai)"]] : [])]);
   } else {
     const R = 18, a = chartBase($("rtaChart"), R, r.trusted);
     if (!src.live) store.positions.forEach((p, i) => { if (p.on) polyline(a.s, a.yOf, C.normalize(p.bands), R, { stroke: COLORS[i % COLORS.length], "stroke-width": 1.2, opacity: .75 }); });
@@ -533,8 +553,123 @@ function renderResults(partial) {
   renderLR();
 }
 
+// ---------- pra-cek jalur mic lewat mixer ----------
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let micData = null, micItems = [], pathResult = null;
+function evalMic(m) {
+  const it = [], say = (s, t) => it.push({ s, t });
+  if (!m) { say("info", "Setting channel belum terbaca: buka halaman ini lewat AI-Sound-Engineer.bat dan pastikan Tampilan Mixer (live) sudah berjalan."); return it; }
+  if (!m.ada_data) { say("warn", `Setting CH ${String(m.ch).padStart(2, "0")} belum terbaca dari mixer (buka Tampilan Mixer live atau klik ↻ di sana).`); return it; }
+  say("info", `CH ${String(m.ch).padStart(2, "0")}${m.nama ? " · " + m.nama : ""}: gain ${m.gain_db == null ? "?" : m.gain_db + " dB"} · fader ${m.fader_db == null ? "?" : m.fader_db + " dB"}`);
+  if (m.phantom === 1) say(store.mic === "kondensor" ? "ok" : "info", "48V menyala" + (store.mic === "kondensor" ? " (sesuai mic kondensor)." : ". Aman untuk mic dinamis XLR seimbang, tetapi tidak perlu."));
+  else if (store.mic === "kondensor") say("warn", "48V belum menyala: mic kondensor tidak akan bersuara. Nyalakan sendiri di M-AIR pada channel ini (aplikasi tidak pernah menyentuh 48V).");
+  else if (store.mic === "podcast" && m.phantom === 0) say("info", "48V mati. Bila mic podcast Anda kondensor, nyalakan 48V di channel ini; bila dinamis, biarkan.");
+  const proc = [m.eq_on === 1 && "EQ", m.hpf_on === 1 && "low cut", m.gate_on === 1 && "gate", m.dyn_on === 1 && "kompresor"].filter(Boolean);
+  say(proc.length ? "warn" : "ok", proc.length ? `Matikan ${proc.join(", ")} di channel ini: pengolahan mixer ikut mengubah yang diukur.` : "EQ, low cut, gate, dan kompresor mati.");
+  if (m.lr === 1) say("warn", "Channel ini diteruskan ke speaker utama (LR): risiko feedback dan mengubah yang terdengar. Matikan LR untuk pengukuran.");
+  if (m.bus && m.bus.length) say("info", "Ada kiriman ke Bus " + m.bus.map((b) => b.bus + " (" + b.db + " dB)").join(", ") + ".");
+  if (m.mix_on === 0) say("info", "Channel di-mute di mixer; bergantung titik ambil, level di USB bisa ikut hilang.");
+  if (!m.live) say("info", "Pantau live belum berjalan, jadi level channel belum terbaca.");
+  else if (m.puncak_db != null && m.puncak_db >= -3) say("warn", `Level channel terlalu tinggi (puncak ${m.puncak_db} dB): turunkan gain mic di mixer.`);
+  else if (m.level_db != null && m.level_db < -55) say("info", `Level channel sangat kecil (${m.level_db} dB): belum ada suara, atau gain terlalu rendah.`);
+  else if (m.level_db != null) say("ok", `Level channel ${m.level_db} dB (puncak ${m.puncak_db} dB).`);
+  return it;
+}
+function renderMicChk() {
+  micItems = evalMic(micData);
+  const box = $("micChk"); box.replaceChildren();
+  for (const x of micItems) { const d = text("div", x.s); d.append(text("span", "i", x.s === "ok" ? "✓" : x.s === "warn" ? "⚠" : "·"), text("span", null, x.t)); box.append(d); }
+}
+async function pollMic() {
+  if (document.hidden || !$("mixCh").value) return;
+  try { micData = await lrApi("/api/mic-check?ch=" + $("mixCh").value); } catch (e) { micData = null; }
+  renderMicChk();
+}
+async function initMixCh() {
+  let names = {}, guess = null;
+  try { const b = await lrApi("/api/balance"); b.kanal.forEach((k) => { names[k.ch] = k.nama; }); guess = b.saran_mic; } catch (e) { /* tanpa server */ }
+  for (let n = 1; n <= 16; n++) $("mixCh").append(new Option(`CH ${String(n).padStart(2, "0")}${names[n] ? " · " + names[n] : ""}`, String(n)));
+  $("mixCh").value = String(store.mixCh || guess || 12);
+  $("mixCh").addEventListener("change", () => { store.mixCh = +$("mixCh").value; save(); pathResult = null; $("pathMsg").textContent = ""; pollMic(); });
+  pollMic(); setInterval(pollMic, 700);
+}
+// Uji jalur USB: amplop level meter channel (dari mixer) dibandingkan dengan amplop level input suara di browser.
+async function pathTest() {
+  if (!analyser) { $("pathMsg").textContent = "Aktifkan input suara dulu (tombol Izinkan mic di atas)."; return; }
+  const ch = +$("mixCh").value, mix = [], brw = [], buf = new Float32Array(2048);
+  $("btnPath").disabled = true; $("pathMsg").textContent = "Ketuk atau tepuk mic dengan irama tidak teratur selama 8 detik…";
+  const t0 = performance.now();
+  while (performance.now() - t0 < 8000) {
+    try { const j = await lrApi("/api/live?alerts=0"); mix.push(j.levels && j.levels[ch - 1] != null ? j.levels[ch - 1] : -90); } catch (e) { mix.push(-90); }
+    analyser.getFloatTimeDomainData(buf);
+    let ss = 0; for (let i = buf.length - 2048; i < buf.length; i++) ss += buf[i] * buf[i];
+    brw.push(10 * Math.log10(ss / 2048 + 1e-20));
+    await sleep(110);
+  }
+  const c = C.corr(mix, brw, 3);
+  if (c.variasiA < 3 || c.variasiB < 3) pathResult = { s: "warn", t: `Ketukan kurang jelas (variasi meter mixer ${c.variasiA} dB, input suara ${c.variasiB} dB). Ulangi dengan ketukan lebih keras.` };
+  else if (c.r >= 0.7) pathResult = { s: "ok", t: `Jalur terbukti: input suara membawa CH ${String(ch).padStart(2, "0")} (korelasi ${c.r}).` };
+  else pathResult = { s: "warn", t: `Input suara ini TIDAK cocok dengan CH ${String(ch).padStart(2, "0")} (korelasi ${c.r}). Pilih input MR18 yang benar di daftar input, atau kirim channel ini ke USB di mixer (nama menu routing USB bisa berbeda).` };
+  $("pathMsg").textContent = pathResult.t; $("pathMsg").className = "note"; $("btnPath").disabled = false; renderReady();
+}
+$("btnPath").addEventListener("click", pathTest);
+
+// ---------- ukur bising ruangan dan kesiapan pengukuran ----------
+async function captureNoise() {
+  if (!analyser) return;
+  $("btnNoise").disabled = true; $("noiseMsg2").textContent = "Mengukur bising… pink noise HARUS mati dan ruangan tenang (5 detik).";
+  const frames = [], buf = new Float32Array(C.FFT_N);
+  for (let i = 0; i < 20; i++) {
+    analyser.getFloatTimeDomainData(buf);
+    const av = new C.Averager(inCtx.sampleRate); av.add(buf);
+    const b = av.bands();
+    if (b && b.every((v) => v != null)) frames.push(b.map((v) => Math.pow(10, v / 10)));
+    await sleep(250);
+  }
+  if (frames.length < 8) { $("noiseMsg2").textContent = "Tidak cukup data dari mic."; $("btnNoise").disabled = false; return; }
+  noiseBands = C.CENTERS.map((_, i) => 10 * Math.log10(frames.reduce((s, f) => s + f[i], 0) / frames.length));
+  $("noiseMsg2").textContent = "Acuan bising tersimpan. Nyalakan pink noise: pita yang kurang dari 10 dB di atas bising ditandai pudar dan tidak dinilai.";
+  $("btnNoise").disabled = false; renderReady();
+}
+$("btnNoise").addEventListener("click", captureNoise);
+function renderReady() {
+  const box = $("ready"); box.replaceChildren();
+  const add = (s, t) => { const d = text("div", s); d.append(text("span", "i", s === "ok" ? "✓" : s === "warn" ? "⚠" : "·"), text("span", null, t)); box.append(d); return s; };
+  const res = [];
+  const warns = micItems.filter((x) => x.s === "warn");
+  res.push(micData && micData.ada_data ? add(warns.length ? "warn" : "ok", warns.length ? `Setting mixer: ${warns.length} hal perlu dibereskan (lihat Jalur mic lewat mixer).` : "Setting channel mic di mixer sudah sesuai.") : add("info", "Setting channel mic di mixer belum terbaca."));
+  if (!analyser) res.push(add("warn", "Input suara belum aktif (langkah 3)."));
+  else if (!liveOn) res.push(add("info", "Input suara aktif. Mulai ukur realtime untuk menilai level."));
+  else res.push(add(livePeak >= -3 ? "warn" : liveRms < -60 ? "warn" : "ok", livePeak >= -3 ? `Input hampir clipping (puncak ${livePeak.toFixed(0)} dBFS): kecilkan gain mic.` : liveRms < -60 ? `Input terlalu kecil (${liveRms.toFixed(0)} dBFS): nyalakan pink noise atau naikkan gain.` : `Level input baik (${liveRms.toFixed(0)} dBFS, puncak ${livePeak.toFixed(0)}).`));
+  res.push(pathResult ? add(pathResult.s, pathResult.t) : add("info", "Jalur USB belum diuji (tombol Uji jalur USB di langkah 3)."));
+  if (!noiseBands) res.push(add("info", "Belum ada acuan bising: matikan pink noise lalu klik Ukur bising ruangan."));
+  else if (liveSnr) {
+    const t = C.TRUST[store.mic] || C.TRUST.genggam, idx = C.CENTERS.map((f, i) => i).filter((i) => C.CENTERS[i] >= t.lo && C.CENTERS[i] <= t.hi && liveSnr[i] != null);
+    const avg = idx.reduce((s, i) => s + liveSnr[i], 0) / Math.max(1, idx.length), nweak = idx.filter((i) => liveWeak[i]).length;
+    res.push(add(avg >= 15 && nweak <= 2 ? "ok" : "warn", `Pink noise rata-rata ${avg.toFixed(0)} dB di atas bising${nweak ? `; ${nweak} pita terlalu dekat bising (tidak dinilai)` : ""}${avg < 15 ? ". Naikkan volume pink noise sedikit (hati-hati)." : "."}`));
+  } else res.push(add("info", "Acuan bising ada. Mulai ukur realtime dengan pink noise menyala untuk melihat jaraknya dari bising."));
+  if (liveOn && rmsHist.length >= 8) {
+    const m = rmsHist.reduce((s, v) => s + v, 0) / rmsHist.length, sd = Math.sqrt(rmsHist.reduce((s, v) => s + (v - m) * (v - m), 0) / rmsHist.length);
+    res.push(add(sd < 1.5 ? "ok" : "warn", sd < 1.5 ? "Level stabil." : `Level berubah-ubah (±${sd.toFixed(1)} dB): tunggu ruangan tenang sebelum mengubah EQ.`));
+  }
+  const ok = res.length >= 4 && res.every((x) => x === "ok");
+  box.prepend(Object.assign(text("div", ok ? "ok" : "info"), {})); box.firstChild.append(text("span", "i", ok ? "✓" : "·"), text("b", null, ok ? "Siap ukur." : "Belum semua siap."));
+}
+
+// ---------- versi program dan fitur ----------
+async function showVersion() {
+  const el = $("verLine");
+  try {
+    const s = await lrApi("/api/status");
+    el.replaceChildren(document.createTextNode("Versi program: "), text("b", null, s.version || "?"), document.createTextNode(" · fitur di versi ini: "));
+    for (const [k, v] of Object.entries(s.fitur || {})) el.append(text("span", "ok", "✓ " + v));
+    if (!s.fitur) el.append(text("span", null, "daftar fitur tidak tersedia (versi lama)"));
+  } catch (e) { el.textContent = "Halaman dibuka tanpa server: versi program tidak diketahui. Buka lewat AI-Sound-Engineer.bat."; }
+}
+
 // ---------- ukur realtime dari mic ----------
 let liveOn = false, liveTimer = null, liveFrames = [], liveBands = null, liveN = 0, livePeak = -120, liveRms = -120;
+let noiseBands = null, liveWeak = null, liveSnr = null, rmsHist = [];
 const liveBuf = new Float32Array(C.FFT_N);
 function liveStep() {
   if (!analyser) { stopLive("Mic tidak aktif."); return; }
@@ -548,14 +683,17 @@ function liveStep() {
   while (liveFrames.length > maxN) liveFrames.shift();
   liveBands = C.CENTERS.map((_, i) => 10 * Math.log10(liveFrames.reduce((s, f) => s + f[i], 0) / liveFrames.length));
   livePeak = av.peakDb(); liveRms = av.rmsDb(); liveN++;
+  rmsHist.push(liveRms); if (rmsHist.length > 24) rmsHist.shift();
+  if (noiseBands) { const sn = C.snrBands(liveBands, noiseBands, 10); liveSnr = sn.snr; liveWeak = sn.lemah; } else { liveSnr = liveWeak = null; }
   $("btnLiveSave").disabled = liveFrames.length < Math.min(maxN, 8);
   $("liveMsg").textContent = `Realtime: ${liveFrames.length} dari ${maxN} cuplikan terkumpul · level ${liveRms.toFixed(0)} dBFS (puncak ${livePeak.toFixed(0)})` +
     (livePeak > -1 ? " · CLIPPING: kecilkan gain mic atau volume" : liveRms < -65 ? " · sinyal sangat kecil: nyalakan pink noise atau naikkan gain" : "");
   renderResults(liveN % 4 !== 1);              // grafik hasil tiap 250 ms; usulan dan daftar tiap 1 detik
+  if (liveN % 4 === 1) renderReady();
 }
 function startLive() {
   if (!analyser || liveOn) return;
-  liveOn = true; liveFrames = []; liveBands = null; liveN = 0;
+  liveOn = true; liveFrames = []; liveBands = null; liveN = 0; rmsHist = [];
   $("btnLive").textContent = "■ Hentikan ukur realtime"; $("btnLive").classList.remove("primary");
   liveTimer = setInterval(liveStep, 250);
 }
@@ -563,7 +701,7 @@ function stopLive(msg) {
   clearInterval(liveTimer); liveTimer = null;
   if (!liveOn) return;
   liveOn = false;
-  $("btnLive").textContent = "▶ Mulai ukur realtime"; $("btnLive").classList.add("primary"); $("btnLiveSave").disabled = !liveBands;
+  $("btnLive").textContent = "▶ Mulai ukur realtime"; $("btnLive").classList.add("primary"); $("btnLiveSave").disabled = !liveBands; renderReady();
   if (msg) $("liveMsg").textContent = msg;
   renderResults();
 }
@@ -659,7 +797,7 @@ function renderLR() {
   for (const n of bul) box.append(text("p", "note", n));
   box.append(refresh);
 }
-renderPositions(); renderResults(); listOutputs(); loadLR();
+renderPositions(); renderResults(); listOutputs(); loadLR(); showVersion(); initMixCh(); renderMicChk(); renderReady();
 window.__room = { store, renderResults };
 </script>
 </body>

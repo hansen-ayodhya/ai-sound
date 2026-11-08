@@ -91,6 +91,14 @@ button{{width:100%;margin-top:12px;padding:10px;font:inherit;font-weight:700;bor
 <button type="submit">Masuk</button>{err}</form></body></html>"""
 
 
+# Fitur yang ada di versi ini (ditampilkan di halaman supaya operator tahu exe yang dipakai sudah memuatnya).
+FITUR = {
+    "ukur_realtime": "Ukur Ruangan realtime", "tampilan_bar": "Tampilan bar per frekuensi", "eq_lr": "Perbandingan EQ Main L/R",
+    "pra_cek_mic": "Pra-cek mic lewat mixer", "kesiapan": "Analisis kesiapan pengukuran", "cek_balance": "Cek balance terpandu",
+    "siaran": "Siaran YouTube", "mode_kontrol": "Mode kontrol (slider)", "memori_ai": "Memori AI",
+}
+
+
 class Busy(RuntimeError):
     pass
 
@@ -636,6 +644,30 @@ class App:
                                "bandingkan dengan Bus siaran di mixer, dan apa penyebabnya.",
                                audio=[{"peran": "youtube", "wav": s["wav"], "detik": s["detik"], "spektrum": s["spektrum"], "angka": s["angka"]}])
 
+    def mic_check(self, ch) -> dict:
+        """Setting channel mic ukur di mixer + level meter live, untuk pra-cek sebelum mengukur ruangan."""
+        if not isinstance(ch, int) or isinstance(ch, bool) or not 1 <= ch <= 16:
+            raise ValueError("Channel harus 1-16.")
+        v = self._values
+        def first(a):
+            x = v.get(a)
+            return x[0] if x else None
+        c, h = f"/ch/{ch:02d}", f"/headamp/{ch:02d}"
+        gain, fad = first(h + "/gain"), first(c + "/mix/fader")
+        buses = []
+        for b in range(1, 7):
+            lv = first(f"{c}/mix/{b:02d}/level")
+            if lv is not None and convert.fader_db(lv) > -60:
+                buses.append({"bus": b, "db": round(convert.fader_db(lv), 1)})
+        lv = self.live.levels if self.live and self.live.running else []
+        pk = self.live.peaks if self.live and self.live.running else []
+        return {"ch": ch, "nama": channels.clean_name(first(c + "/config/name")), "ada_data": gain is not None or fad is not None,
+                "phantom": first(h + "/phantom"), "gain_db": None if gain is None else round(convert.gain_db(gain), 1),
+                "fader_db": None if fad is None else round(convert.fader_db(fad), 1), "mix_on": first(c + "/mix/on"), "lr": first(c + "/mix/lr"),
+                "hpf_on": first(c + "/preamp/hpon"), "eq_on": first(c + "/eq/on"), "gate_on": first(c + "/gate/on"), "dyn_on": first(c + "/dyn/on"),
+                "bus": buses, "live": bool(lv), "level_db": round(lv[ch - 1], 1) if len(lv) >= ch else None,
+                "puncak_db": round(pk[ch - 1], 1) if len(pk) >= ch else None}
+
     def lr_eq(self) -> dict:
         """EQ Main L/R (6 band) dari setting mixer terbaru, dalam satuan manusia (perkiraan)."""
         _, dump = self.latest_dump()
@@ -1120,7 +1152,7 @@ def make_handler(app: App, http_port: int):
                     local = self._is_local()
                     return self._json(200, {"ip": load_ip(app.data / "mixer-ip.txt"), "default_port": DEFAULT_PORT,
                                             "port": app.load_port(), "job": app.job, "latest": app.latest(),
-                                            "live": bool(app.live and app.live.running), "weak_alerts": app.prefs().get("weak_alerts", False), "stream_bus": app.stream_bus(),
+                                            "live": bool(app.live and app.live.running), "weak_alerts": app.prefs().get("weak_alerts", False), "stream_bus": app.stream_bus(), "fitur": FITUR,
                                             "is_local": local, "lan": app.lan, "version": app.version, "frozen": app.frozen,
                                             "needs_restart": app.disk_version().split(" ")[0] != app.version.split(" ")[0],
                                             "lan_url": app.lan_url if local else None,
@@ -1147,6 +1179,15 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, app.balance_view())
                 if path == "/api/lr-eq":
                     return self._json(200, app.lr_eq())
+                if path == "/api/mic-check":
+                    try:
+                        ch = int(parse_qs(urlparse(self.path).query).get("ch", [""])[0])
+                    except ValueError:
+                        return self._json(400, {"error": "Channel harus 1-16."})
+                    try:
+                        return self._json(200, app.mic_check(ch))
+                    except ValueError as exc:
+                        return self._json(400, {"error": str(exc)})
                 if path == "/api/memori":
                     return self._json(200, {"profil": app.memori.profil(), "catatan": app.memori.semua(n=60)[::-1]})
                 if path == "/api/live/eq-problems":

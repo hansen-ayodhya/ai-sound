@@ -99,3 +99,30 @@ class LrEq(test_memori.MemoriServer):
         self.assertEqual((r["band"][1]["hz"], r["band"][1]["db"], r["band"][0]["type"]), (200, 3.0, 0))
         self.assertIn("/lr/eq/6/g", addresses.main_addresses())
         self.assertNotIn("/lr/eq/7/g", addresses.main_addresses())
+
+
+class MicCheck(test_memori.MemoriServer):
+    test_flow_records_rates_and_clears = None
+
+    def test_mic_check_reads_channel_setup_and_features_listed(self):
+        from aise import convert as cv
+        from aise.live import LiveMonitor
+        self.app._values = {"/ch/12/config/name": ["md_27"], "/headamp/12/gain": [cv.gain_raw(24)], "/headamp/12/phantom": [1],
+                            "/ch/12/mix/fader": [cv.fader_raw(-6)], "/ch/12/mix/on": [1], "/ch/12/mix/lr": [1], "/ch/12/eq/on": [1],
+                            "/ch/12/preamp/hpon": [0], "/ch/12/mix/03/level": [cv.fader_raw(-5)], "/ch/12/mix/01/level": [0.0]}
+        self.app.live = LiveMonitor("127.0.0.1", 1, "/meters/1", {}, self.data / "live.jsonl")
+        self.app.live.running = True
+        self.app.live.levels = [-90.0] * 11 + [-28.0] + [-90.0] * 4
+        self.app.live.peaks = [-90.0] * 11 + [-12.0] + [-90.0] * 4
+        code, m = self.call("/api/mic-check?ch=12")
+        self.assertEqual(code, 200)
+        self.assertEqual((m["nama"], m["phantom"], m["lr"], m["eq_on"], m["hpf_on"], m["ada_data"]), ("md", 1, 1, 1, 0, True))
+        self.assertAlmostEqual(m["gain_db"], 24, delta=0.2)
+        self.assertEqual([b["bus"] for b in m["bus"]], [3])                             # kiriman -∞ ke Bus 1 diabaikan
+        self.assertEqual((m["level_db"], m["puncak_db"], m["live"]), (-28.0, -12.0, True))
+        self.assertFalse(self.call("/api/mic-check?ch=5")[1]["ada_data"])               # channel tanpa data terbaca
+        self.assertEqual(self.call("/api/mic-check?ch=0")[0], 400)
+        self.assertEqual(self.call("/api/mic-check?ch=abc")[0], 400)
+        fitur = self.call("/api/status")[1]["fitur"]
+        for k in ("ukur_realtime", "tampilan_bar", "pra_cek_mic", "kesiapan", "cek_balance"):
+            self.assertIn(k, fitur)
