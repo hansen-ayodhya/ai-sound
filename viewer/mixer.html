@@ -833,6 +833,17 @@ function closeDrawer() {
   document.querySelectorAll(".strip.sel").forEach((s) => s.classList.remove("sel"));
 }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+// Klik di luar panel rekomendasi menutupnya. Fase capture: panel tertutup dulu, lalu tombol yang diklik (mis. strip lain) bisa membukanya lagi.
+// Klik yang dimulai di dalam panel (mis. menggeser slider sampai keluar panel) tidak menutupnya.
+let pressInDrawer = false;
+document.addEventListener("pointerdown", (e) => { pressInDrawer = e.composedPath().includes($("drawer")); }, true);
+document.addEventListener("click", (e) => {
+  const d = $("drawer");
+  if (d.hidden || pressInDrawer) return;
+  const path = e.composedPath();
+  if (path.includes(d) || path.some((n) => n.classList && n.classList.contains("modal"))) return;
+  closeDrawer();
+}, true);
 
 // Segarkan panel channel yang sedang terbuka (mis. grafik EQ) tanpa menggeser posisi gulir.
 function refreshOpenChannel() {

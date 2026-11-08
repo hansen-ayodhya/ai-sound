@@ -270,6 +270,10 @@
 - Panel detail kini mulai di bawah header dan header di atas panel, supaya menu ⋯ tetap bisa dipakai saat panel terbuka.
 - Tes: tests/test_alerts_ignore.py; uji browser.
 
+## Update 2026-11-08: klik di luar panel menutup panel rekomendasi
+
+- Klik di luar panel detail menutupnya (fase capture, jadi klik pada strip lain langsung membuka panel channel itu, dan menu ⋯ tetap bisa membuka panel "Rekomendasi diabaikan"). Klik yang dimulai di dalam panel (mis. menggeser slider sampai keluar panel) tidak menutupnya; kotak konfirmasi Mode kontrol dikecualikan. Esc tetap menutup.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
