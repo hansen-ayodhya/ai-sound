@@ -280,6 +280,13 @@
 - Grafik kompresor/gate: bila ON tetapi threshold/rasio tidak terbaca, kurva "sekarang" tidak digambar (teks "nilai sekarang tidak terbaca") dan baris keterangan menyarankan ↻. Baris usulan menulis hanya bagian yang benar-benar diusulkan (mis. "Gemini mengusulkan: threshold -22 dB (sudah sama dengan mixer). Bagian lain tidak diubah."); di grafik usulan, bagian yang tidak diusulkan mengikuti nilai mixer sekarang. Karena itu grafik usulan ikut bergeser bila Anda mengubah bagian lain di mixer.
 - Tes: tests/test_refresh_keep.py.
 
+## Update 2026-11-08: fader yang tidak terbaca dan pemulihan otomatis
+
+- Channel yang fader/gain/statusnya tidak terbaca (mis. DRUM L/R) kini menampilkan tanda tempat fader putus-putus "?" (bukan kosong) dan nilai "—", dengan tooltip penjelasan.
+- Pemulihan otomatis: bila ada fader/gain/status channel yang tampil bernilai kosong, tampilan meminta pembacaan ulang setting (dicek tiap 5 detik, maks 1x per 15 detik). Tombol ↻ (dan permintaan itu) juga menghapus daftar alamat yang sempat dilewati, sehingga semuanya ditanyakan lagi.
+- Akar masalahnya sama dengan perbaikan sebelumnya (balasan UDP yang hilang saat pembacaan ulang menghapus nilai dan memangkas alamat); exe lama masih punya bug itu.
+- Tes: tests/test_refresh_keep.py (tambahan); uji browser fader yang terbaca belakangan.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

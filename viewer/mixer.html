@@ -112,6 +112,8 @@
   .alerts li.res { opacity: .6; } .alerts li.res .lb { color: var(--muted); } .alerts .why { color: var(--ok); font-size: 12px; margin-left: auto; }
   #alertRes { text-transform: none; letter-spacing: 0; cursor: pointer; text-decoration: underline; }
   button.ign { font: inherit; font-size: 12px; padding: 3px 9px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; margin-top: 6px; }
+  .cap.unk { background: none; border: 1px dashed #6a768b; box-shadow: none; display: grid; place-items: center; color: #8a97ad; font-size: 12px; font-weight: 700; }
+  .cap.unk::after { display: none; }
   .gk { position: absolute; left: 50%; width: 46px; height: 0; border-top: 2px dashed; transform: translate(-50%, 50%); pointer-events: none; z-index: 2; }
   .gk.rule { border-color: #b48cff; } .gk.gem { border-color: #3cc9f0; }
   .mcol { display: flex; flex-direction: column; gap: 2px; width: 14px; flex: 0 0 14px; }
@@ -708,7 +710,8 @@ function faderBody(f, ghosts, meter) {
     el("div", { class: "ticks" }, ...FADER_MARKS.map(([k]) => el("i", { class: k === 6 ? "zero" : "", style: at(k) }))),
     el("div", { class: "fader" }, el("div", { class: "track" }),
       ...(ghosts || []).map((g) => el("div", { class: "gk " + g.src, style: `bottom:${Math.max(0, Math.min(1, g.pos)) * 100}%` })),
-      f == null ? null : el("div", { class: "cap", style: `bottom:${pos * 100}%` })),
+      f == null ? el("div", { class: "cap unk", style: "bottom:0", text: "?", title: "Nilai tidak terbaca dari mixer. Klik ↻ untuk membaca ulang." })
+        : el("div", { class: "cap", style: `bottom:${pos * 100}%` })),
     el("div", { class: "ticks" }, ...FADER_MARKS.map(([k]) => el("i", { class: k === 6 ? "zero" : "", style: at(k) }))),
     meter));
 }
@@ -974,6 +977,15 @@ function renderNotes(list) {
     ...sorted.map(findingCard));
   box.replaceChildren(d);
 }
+// Bila fader/gain/status channel yang tampil tidak terbaca, minta pembacaan ulang (dibatasi 1x per 15 detik, dicek tiap 5 detik).
+function healMissing() {
+  if (!TOKEN || !state.dump || (state.healAt && Date.now() - state.healAt < 15000)) return;
+  const miss = channels().some((n) => !isHidden("ch" + n) && ["/ch/" + pad2(n) + "/mix/fader", "/headamp/" + pad2(n) + "/gain", "/ch/" + pad2(n) + "/mix/on"].some((a) => raw(a) == null));
+  if (!miss) return;
+  state.healAt = Date.now();
+  api("/api/settings/refresh", {}).catch(() => { /* abaikan */ });
+}
+setInterval(() => { if (!document.hidden) healMissing(); }, 5000);
 function render() {
   state.meters = [];
   state.stripEls = {};
@@ -999,6 +1011,7 @@ function render() {
   if (!parts.length) parts.push(el("div", { class: "empty", text: "Semua strip disembunyikan. Klik “Pilih channel” untuk menampilkan." }));
   desk.replaceChildren(...parts);
   applyZoom();
+  healMissing();
   const m = location.hash.match(/^#ch=(\d{1,2})$/);
   if (m && !state.keepDrawer && channels().includes(+m[1])) {
     history.replaceState(null, "", location.pathname);

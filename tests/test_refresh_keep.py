@@ -38,3 +38,19 @@ class RefreshKeepsKnownValues(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ManualRefreshRetriesSkipped(unittest.TestCase):
+    def test_refresh_settings_clears_skipped_addresses(self):
+        with tempfile.TemporaryDirectory() as tmp, FakeMixer({RAT: (3,)}) as mixer:
+            app = App(root=ROOT, data=Path(tmp) / "data", addresses=[THR, RAT])
+            (app.data).mkdir(parents=True, exist_ok=True)
+            (app.data / "mixer-ip.txt").write_text("127.0.0.1")
+            app.save_port(mixer.port)
+            for _ in range(3):
+                app._read_settings("127.0.0.1", mixer.port, None)
+            self.assertEqual(app._fails[THR], 3)
+            mixer.state[THR] = (0.4,)                                     # mixer akhirnya menjawab
+            d = app.refresh_settings()
+            self.assertEqual(d["mode"], "sekarang")
+            self.assertAlmostEqual(app._values[THR][0], 0.4, places=5)

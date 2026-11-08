@@ -312,6 +312,7 @@ class App:
 
     def refresh_settings(self) -> dict:
         """Tombol '↻ Baca setting': saat live -> percepat jadwal; bila tidak live -> baca sekali sekarang."""
+        self._fails.clear()               # permintaan operator: tanyakan lagi semua alamat, termasuk yang sempat dilewati
         if self.live and self.live.running:
             self._refresh_now.set()
             return {"mode": "live"}
