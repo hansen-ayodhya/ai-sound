@@ -992,6 +992,19 @@ def make_handler(app: App, http_port: int):
                     return self._send(200, data, ctype)
             self._send(404, b"Tidak ditemukan", "text/plain; charset=utf-8")
 
+        def _reject(self, code: int, msg: str) -> None:
+            """Tolak permintaan POST setelah membuang isinya; menjawab sebelum isi dibaca bisa memutus koneksi (terutama di Windows)."""
+            try:
+                n = min(int(self.headers.get("Content-Length") or 0), 10_000_000)
+                while n > 0:
+                    chunk = self.rfile.read(min(n, 65536))
+                    if not chunk:
+                        break
+                    n -= len(chunk)
+            except (OSError, ValueError):
+                pass
+            self._json(code, {"error": msg})
+
         def _body(self, limit: int = MAX_BODY) -> dict:
             n = int(self.headers.get("Content-Length") or 0)
             if n > limit:
@@ -1076,16 +1089,16 @@ def make_handler(app: App, http_port: int):
         # ---------- POST ----------
         def do_POST(self):
             if not self._host_ok():
-                return self._json(403, {"error": "Host tidak diizinkan."})
+                return self._reject(403, "Host tidak diizinkan.")
             path = urlparse(self.path).path
             if path == "/login":
                 return self._do_login()
             if not self._authed():
-                return self._json(401, {"error": "Perlu masuk dengan PIN."})
+                return self._reject(401, "Perlu masuk dengan PIN.")
             if not self._token_ok():
-                return self._json(403, {"error": "Token tidak valid. Buka lewat AI-Sound-Engineer.bat."})
+                return self._reject(403, "Token tidak valid. Buka lewat AI-Sound-Engineer.bat.")
             if path in LOCAL_ONLY and not self._is_local():
-                return self._json(403, {"error": "Tombol ini hanya bisa dipakai dari laptop yang menjalankan aplikasi."})
+                return self._reject(403, "Tombol ini hanya bisa dipakai dari laptop yang menjalankan aplikasi.")
             try:
                 body = self._body(BIG_BODY.get(path, MAX_BODY))
                 if path == "/api/ip":

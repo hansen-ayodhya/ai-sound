@@ -316,6 +316,11 @@
 - `find_tool` mencari di `tools/`, folder exe, `data/tools`, lokasi winget (`%LOCALAPPDATA%\Microsoft\WinGet`), lalu PATH. Pesan "belum terpasang" kini menyebut folder `tools` yang dicari (juga di panel).
 - BELUM terbukti: skrip .bat belum dijalankan di Windows sungguhan (tidak ada Windows/PowerShell di lingkungan pengembangan); logika pencarian alat diuji dengan tes.
 
+## Update 2026-11-08: build exe gagal karena tes jaringan Windows
+
+- Build #36 gagal di tes `test_lan.test_cookie_without_token_rejected` (ConnectionAbortedError WinError 10053 di runner Windows; lulus di build sebelumnya, jadi tidak stabil). Akar: POST yang ditolak lebih awal (host, PIN, token, tombol khusus laptop) dijawab dan ditutup sebelum isi permintaan dibaca; Windows kadang memutus koneksi seperti itu, dan browser bisa melihat error yang sama. Kini `_reject` membuang isi permintaan (maks 10 MB) sebelum menjawab.
+- Tes baru: `RejectedPostBodyIsDrained` (POST 300 KB tanpa token harus selalu mendapat 403 bersih).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

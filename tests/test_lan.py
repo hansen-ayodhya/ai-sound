@@ -148,3 +148,29 @@ class Pin(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RejectedPostBodyIsDrained(unittest.TestCase):
+    def test_large_rejected_post_gets_clean_403(self):
+        import http.client
+        import tempfile
+        import threading
+        from pathlib import Path as P
+        from aise.server import ROOT, App, serve
+        with tempfile.TemporaryDirectory() as tmp:
+            probe = serve(App(root=ROOT, data=P(tmp) / "data"), 0)
+            port = probe.server_address[1]
+            probe.server_close()
+            httpd = serve(App(root=ROOT, data=P(tmp) / "data"), port)
+            threading.Thread(target=httpd.serve_forever, daemon=True).start()
+            try:
+                for _ in range(5):
+                    c = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                    c.request("POST", "/api/probe", body=b"x" * 300_000, headers={"Content-Type": "application/json"})   # tanpa token
+                    r = c.getresponse()
+                    self.assertEqual(r.status, 403)
+                    r.read()
+                    c.close()
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
