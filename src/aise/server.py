@@ -45,6 +45,7 @@ from .dump import run_dump
 from .guard import ReadOnlyViolation, check
 from .guard import ALLOWED_PREFIXES
 from .live import LiveMonitor, analyze_eq_problems, inactive_from_dump, labels_from_dump, make_gain_findings
+from . import siaran as siaranmod
 from .writer import spec_for
 from .report import findings_json, render
 from .menu import load_ip, save_ip, valid_ip
@@ -218,7 +219,7 @@ class App:
 
     def _read_settings(self, ip: str, port: int, addresses: list[str] | None) -> dict:
         """Baca setting sekali (hanya query), simpan sebagai 'setting terbaru' dan jadikan acuan tampilan."""
-        todo = [a for a in (addresses or self.addresses or all_addresses()) if self._fails.get(a, 0) < 3]
+        todo = [a for a in (addresses or self.addresses or all_addresses(self.stream_bus())) if self._fails.get(a, 0) < 3]
         with ReadOnlyClient(ip, port, timeout=0.3, retries=1, log_path=self.data / "osc_log.jsonl") as c:
             d = run_dump(c, todo)
         if not d["answered"]:
@@ -238,7 +239,7 @@ class App:
         folder.mkdir(parents=True, exist_ok=True)
         profile = self.profile()
         (folder / "dump1.json").write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
-        (folder / "findings.json").write_text(json.dumps(findings_json(d, profile), indent=2, ensure_ascii=False), encoding="utf-8")
+        (folder / "findings.json").write_text(json.dumps(self.rule_findings(d, profile), indent=2, ensure_ascii=False), encoding="utf-8")
         (folder / "report.md").write_text(render(d, "live-setting/dump1.json", profile), encoding="utf-8")
         latest = {"dump": "data/live-setting/dump1.json", "findings": "data/live-setting/findings.json",
                   "report": "data/live-setting/report.md", "created": d["created"], "live": True}
@@ -443,7 +444,7 @@ class App:
             rec, wav = self.clips.get(cid)
             _, dump = self.latest_dump()
             profile = self.profile()
-            findings = findings_json(dump, profile) if dump else []
+            findings = self.rule_findings(dump, profile) if dump else []
             res = ai.analyze_clip(ai.load_config(self.ai_cfg_path), rec, wav, dump, profile, findings, base=self.ai_base,
                                   dsp=self.dsp_data())
             self._track_gemini(res, dump)
@@ -536,6 +537,37 @@ class App:
         elif event == "konflik":
             self.memori.catat("perubahan", alamat=kw.get("alamat"), aksi="diubah_operator", akhir=recs.fmt_value(kw.get("alamat", ""), kw.get("nilai_mixer")))
 
+    def stream_bus(self) -> int:
+        """Bus untuk siaran (mis. YouTube lewat USB); 0 = tidak ada. Bawaan Bus 3 sesuai keterangan operator."""
+        b = self.prefs().get("stream_bus", 3)
+        return b if isinstance(b, int) and not isinstance(b, bool) and 0 <= b <= siaranmod.N_BUSES else 3
+
+    def rule_findings(self, dump: dict, profile: dict | None) -> list[dict]:
+        out = findings_json(dump, profile)
+        b = self.stream_bus()
+        return out + (siaranmod.findings(dump, b, profile) if b else [])
+
+    def siaran_view(self) -> dict:
+        b = self.stream_bus()
+        _, dump = self.latest_dump()
+        profile = self.profile()
+        return {"bus": b, "ringkasan": siaranmod.summary(dump, b, profile) if b and dump else None,
+                "temuan": siaranmod.findings(dump, b, profile) if b and dump else []}
+
+    def siaran_routing(self) -> dict:
+        """Tanyakan alamat kandidat routing USB (hanya membaca). Kebanyakan mungkin tidak dijawab: itu informasi."""
+        ip, port = load_ip(self.data / "mixer-ip.txt"), self.load_port()
+        if not valid_ip(ip):
+            raise ValueError("IP mixer belum diisi. Isi di Beranda dulu.")
+        probes = siaranmod.probe_addresses()
+        got = {}
+        with ReadOnlyClient(ip, port, timeout=0.25, retries=0, log_path=self.data / "osc_log.jsonl") as c:
+            for a in probes:
+                r = c.query(a)
+                if r is not None:
+                    got[a] = list(r)
+        return {"ditanya": len(probes), "dijawab": got}
+
     def prefs(self) -> dict:
         try:
             d = json.loads(self.prefs_path.read_text(encoding="utf-8"))
@@ -545,6 +577,11 @@ class App:
 
     def set_prefs(self, body: dict) -> dict:
         p = self.prefs()
+        if "stream_bus" in body:
+            sb = body["stream_bus"]
+            if not isinstance(sb, int) or isinstance(sb, bool) or not 0 <= sb <= siaranmod.N_BUSES:
+                raise ValueError("Bus siaran harus 0 (tidak ada) sampai 6.")
+            p["stream_bus"] = sb
         if "weak_alerts" in body:
             if not isinstance(body["weak_alerts"], bool):
                 raise ValueError("Pilihan tidak valid.")
@@ -553,7 +590,7 @@ class App:
                 self.live.rules.weak_enabled = p["weak_alerts"]
         self.prefs_path.parent.mkdir(parents=True, exist_ok=True)
         self.prefs_path.write_text(json.dumps(p), encoding="utf-8")
-        return {"weak_alerts": p.get("weak_alerts", False)}
+        return {"weak_alerts": p.get("weak_alerts", False), "stream_bus": self.stream_bus()}
 
     def _state_of(self, index: int) -> dict:
         ch = index + 1
@@ -674,11 +711,12 @@ class App:
         try:
             _, dump = self.latest_dump()
             profile = self.profile()
-            findings = findings_json(dump, profile) if dump else []
+            findings = self.rule_findings(dump, profile) if dump else []
             live = self.live.snapshot() if self.live else None
             res = ai.analyze(ai.load_config(self.ai_cfg_path), dump, profile, findings, live,
                              situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base, dsp=self.dsp_data(),
-                             riwayat=self.memori.profil(), audio=audio)
+                             riwayat=self.memori.profil(), audio=audio,
+                             siaran=siaranmod.summary(dump, self.stream_bus(), profile) if self.stream_bus() else None)
             if audio:
                 res["audio"] = [{"peran": a["peran"], "detik": a["detik"]} for a in audio]
             self._track_gemini(res, dump)
@@ -951,7 +989,7 @@ def make_handler(app: App, http_port: int):
                     local = self._is_local()
                     return self._json(200, {"ip": load_ip(app.data / "mixer-ip.txt"), "default_port": DEFAULT_PORT,
                                             "port": app.load_port(), "job": app.job, "latest": app.latest(),
-                                            "live": bool(app.live and app.live.running), "weak_alerts": app.prefs().get("weak_alerts", False),
+                                            "live": bool(app.live and app.live.running), "weak_alerts": app.prefs().get("weak_alerts", False), "stream_bus": app.stream_bus(),
                                             "is_local": local, "lan": app.lan, "version": app.version, "frozen": app.frozen,
                                             "needs_restart": app.disk_version().split(" ")[0] != app.version.split(" ")[0],
                                             "lan_url": app.lan_url if local else None,
@@ -969,6 +1007,8 @@ def make_handler(app: App, http_port: int):
                                             **app.params_since(since), "findings": app.live_findings() if want else None})
                 if path == "/api/control":
                     return self._json(200, app.control_status())
+                if path == "/api/siaran":
+                    return self._json(200, app.siaran_view())
                 if path == "/api/memori":
                     return self._json(200, {"profil": app.memori.profil(), "catatan": app.memori.semua(n=60)[::-1]})
                 if path == "/api/live/eq-problems":
@@ -1063,6 +1103,8 @@ def make_handler(app: App, http_port: int):
                     if situasi not in ai.SITUASI:
                         raise ValueError("Situasi tidak dikenal.")
                     return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", "")), _clean_audio(body.get("audio"), body.get("izin"))))
+                if path == "/api/siaran/routing":
+                    return self._json(200, app.siaran_routing())
                 if path == "/api/prefs":
                     return self._json(200, app.set_prefs(body))
                 if path == "/api/ignore":

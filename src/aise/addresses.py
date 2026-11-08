@@ -65,12 +65,15 @@ def fx_addresses(n: int) -> list[str]:
     return [f"/fx/{n}/type"]
 
 
-def all_addresses() -> list[str]:
+def all_addresses(stream_bus: int | None = None) -> list[str]:
     out = global_addresses()
     for n in range(1, N_CHANNELS + 1):
         out += channel_addresses(n)
     for n in range(1, N_BUSES + 1):
         out += bus_addresses(n)
+    if stream_bus:
+        from .siaran import bus_detail_addresses
+        out += bus_detail_addresses(stream_bus)
     out += main_addresses()
     for n in range(1, N_FX + 1):
         out += fx_addresses(n)

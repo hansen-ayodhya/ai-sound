@@ -195,6 +195,7 @@ Aturan menjawab:
    Kosongkan usulan hanya bila benar-benar tidak ada dasar; jelaskan kekurangannya di 'butuh_data'.
 5. Ingat: perubahan dilakukan operator sendiri; jangan menyarankan perubahan routing, master, atau limiter tanpa data DSP.
 6. Bahasa Indonesia yang sederhana dan praktis untuk operator gereja.
+8. Bila ada 'siaran_youtube', bus itu dikirim ke siaran YouTube lewat USB: nilai keseimbangan antar sumber (kiriman channel), risiko clipping, dan kompresor/EQ bus. Kiriman bukan level sinyal.
 7. Bila ada 'riwayat' (saran, perubahan, dan penilaian operator sebelumnya), pakai sebagai petunjuk karakter ruangan dan pendengar.
    Itu bukti terbatas dari satu ruangan, bukan kepastian: jangan mengulang usulan yang dinilai 'kurang', pertimbangkan yang dinilai 'bagus',
    jangan mengusulkan lagi hal yang tercantum di 'diabaikan_operator', dan bila 'cukup_data' false sebutkan bahwa datanya belum cukup."""
@@ -293,7 +294,7 @@ SITUASI = {"umum": "ibadah umum", "lagu": "sesi pujian/lagu", "khotbah": "khotba
 
 
 def build_prompt(dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
-                 situasi: str, pertanyaan: str, dsp: dict | None = None, riwayat: dict | None = None, audio: list[dict] | None = None) -> str:
+                 situasi: str, pertanyaan: str, dsp: dict | None = None, riwayat: dict | None = None, audio: list[dict] | None = None, siaran: dict | None = None) -> str:
     ctx = {
         "dsp": dspmod.summary(dsp) or None,
         "temuan_dsp": [{"masalah": f["masalah"], "usulan": [u["teks"] for u in f["usulan"]]} for f in dspmod.analyze(dsp)],
@@ -316,6 +317,8 @@ def build_prompt(dump: dict | None, profile: dict | None, findings: list[dict], 
         if audio and live.get("levels"):
             ctx["pantau_live"]["level_meter_saat_kirim_db"] = {
                 (live.get("labels") or {}).get(str(i), f"meter {i}"): v for i, v in enumerate(live["levels"][:16])}
+    if siaran:
+        ctx["siaran_youtube"] = {**siaran, "catatan": f"Bus {siaran['bus']} dikirim lewat USB ke komputer streaming YouTube. Pertimbangkan keseimbangan dan clipping bus ini; level sinyal bus belum terukur."}
     if audio:
         ctx["rekaman"] = [{"peran": a["peran"], "durasi_detik": a["detik"],
                            "spektrum_relatif_db": a.get("spektrum")} for a in audio]
@@ -467,9 +470,9 @@ def _generate(cfg: dict, parts: list, schema: dict, base: str) -> dict:
 
 def analyze(cfg: dict, dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
             situasi: str = "umum", pertanyaan: str = "", base: str = API_BASE, dsp: dict | None = None,
-            riwayat: dict | None = None, audio: list[dict] | None = None) -> dict:
+            riwayat: dict | None = None, audio: list[dict] | None = None, siaran: dict | None = None) -> dict:
     import base64
-    parts = [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan, dsp, riwayat, audio)}]
+    parts = [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan, dsp, riwayat, audio, siaran)}]
     for a in audio or []:
         parts.append({"text": f"Rekaman peran={a['peran']} ({'direkam HP di ruangan' if a['peran'] == 'ruangan_hp' else 'direkam dari mixer'}):"})
         parts.append({"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(a["wav"]).decode("ascii")}})

@@ -114,6 +114,7 @@
   button.ign { font: inherit; font-size: 12px; padding: 3px 9px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; margin-top: 6px; }
   .cap.unk { background: none; border: 1px dashed #6a768b; box-shadow: none; display: grid; place-items: center; color: #8a97ad; font-size: 12px; font-weight: 700; }
   .cap.unk::after { display: none; }
+  .sendbar .now.over { background: var(--bad); }
   .gk { position: absolute; left: 50%; width: 46px; height: 0; border-top: 2px dashed; transform: translate(-50%, 50%); pointer-events: none; z-index: 2; }
   .gk.rule { border-color: #b48cff; } .gk.gem { border-color: #3cc9f0; }
   .mcol { display: flex; flex-direction: column; gap: 2px; width: 14px; flex: 0 0 14px; }
@@ -278,6 +279,7 @@
         <button type="button" id="btnRestoreAll" hidden>↩ Kembalikan semua perubahan</button>
         <h5>Peringatan</h5>
         <label class="zrow" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="ckWeak"> <span>Peringatan "sinyal sangat kecil" (untuk sumber yang memang tidak dipakai, sebaiknya mati)</span></label>
+        <button type="button" id="btnSiaran" hidden>📡 Siaran YouTube (bus USB)…</button>
         <h5>Saran AI</h5>
         <button type="button" id="btnIgnored" hidden>🚫 Rekomendasi diabaikan (0)…</button>
         <button type="button" id="btnReanalyze" hidden>✦ Analisis ulang sekarang</button>
@@ -1220,6 +1222,51 @@ function ignoreBtn(f) {
   });
   return b;
 }
+// ---------- Siaran (mis. YouTube lewat USB): setting bus, kiriman tiap channel, temuan, cek routing ----------
+async function openSiaran() {
+  let v;
+  try { v = await api("/api/siaran"); } catch (e) { alert(e.message); return; }
+  const sel = el("select", { "aria-label": "Bus untuk siaran" }, ...[0, 1, 2, 3, 4, 5, 6].map((n) => el("option", { value: String(n), text: n ? "Bus " + n : "Tidak ada" })));
+  sel.value = String(v.bus);
+  sel.addEventListener("change", async () => {
+    try { await api("/api/prefs", { stream_bus: +sel.value }); await api("/api/settings/refresh", {}); setTimeout(openSiaran, 4000); } catch (e) { alert(e.message); }
+  });
+  const s = v.ringkasan, parts = [];
+  if (!v.bus) parts.push(el("p", { class: "note", text: "Belum ada bus siaran. Pilih bus yang Anda pakai untuk siaran (mis. Bus 3)." }));
+  else if (!s) parts.push(el("p", { class: "note", text: "Belum ada data setting mixer. Tunggu pembacaan live atau klik ↻." }));
+  else {
+    const on = (x) => (x == null ? "?" : x === 1 ? "ON" : "OFF");
+    parts.push(el("p", { class: "note", text: `Bus ${s.bus}${s.nama ? " · " + s.nama : ""}: ${s.on === 0 ? "MUTE" : "aktif"} · fader ${s.fader_db == null ? "?" : s.fader_db + " dB"} · EQ ${on(s.eq_on)} · kompresor ${on(s.dyn_on)}` +
+      (s.dyn_thr_db != null ? ` (threshold ${s.dyn_thr_db} dB, rasio ${s.dyn_rasio}:1 ≈)` : "") }));
+    parts.push(el("h3", { text: "Kiriman channel ke Bus " + s.bus }));
+    parts.push(el("p", { class: "note", text: "Ini seberapa banyak tiap channel dikirim ke bus (bukan seberapa keras suaranya). Merah = di atas 0 dB." }));
+    const pct = (db) => (db == null ? 0 : Math.max(0, Math.min(100, ((Math.max(-60, Math.min(10, db)) + 60) / 70) * 100)));
+    for (const k of s.kiriman) parts.push(el("div", { class: "sendrow", style: k.aktif ? "" : "opacity:.5" },
+      el("span", { class: "lbl", title: k.peran, text: "CH " + pad2(k.ch) }),
+      el("div", { class: "sendbar" }, el("div", { class: "now" + (k.db > 0 ? " over" : ""), style: `width:${pct(k.db)}%` })),
+      el("span", { class: "val", text: (k.db == null ? "?" : k.db + " dB") + " " + (k.nama || k.peran) + (k.aktif ? "" : " (mute)") })));
+    if (!s.kiriman.length) parts.push(el("p", { class: "note", text: "Kiriman channel ke bus ini belum terbaca." }));
+  }
+  const out = el("div");
+  const btn = el("button", { type: "button", text: "Cek routing USB (membaca saja)", style: "font:inherit;padding:6px 12px;border-radius:7px;border:1px solid var(--line);background:var(--strip);color:var(--text);cursor:pointer" });
+  btn.addEventListener("click", async () => {
+    btn.disabled = true; out.replaceChildren(el("p", { class: "note", text: "Menanyakan mixer… (beberapa detik)" }));
+    try {
+      const r = await api("/api/siaran/routing", {}), keys = Object.keys(r.dijawab);
+      out.replaceChildren(...(keys.length
+        ? [el("p", { class: "note", text: `Mixer menjawab ${keys.length} dari ${r.ditanya} alamat. Nilai mentah (arti tiap angka belum diverifikasi):` }),
+           el("table", null, ...keys.map((a) => row(a, JSON.stringify(r.dijawab[a]))))]
+        : [el("p", { class: "msg bad", text: `Mixer tidak menjawab satu pun dari ${r.ditanya} alamat routing USB yang dicoba (alamat ini perkiraan dan belum terbukti untuk MR18).` })]),
+        el("p", { class: "note", text: "Cek manual di M-AIR: cari pengaturan routing USB ('USB sends' atau sejenisnya, nama menu bisa berbeda) dan pastikan sumber USB yang dikirim ke komputer streaming adalah Bus siaran ini, bukan channel langsung atau Main." }));
+    } catch (e) { out.replaceChildren(el("p", { class: "msg bad", text: e.message })); }
+    btn.disabled = false;
+  });
+  showDrawer(null, el("h3", { text: "📡 Siaran YouTube (bus USB)" }),
+    el("p", { class: "note", text: "Level sinyal bus belum bisa dipantau aplikasi ini. Lihat meter Bus di M-AIR dan meter input di software streaming." }),
+    el("label", { class: "f", text: "Bus untuk siaran" }), sel, ...parts,
+    el("h3", { text: "Temuan (" + v.temuan.length + ")" }), ...v.temuan.map(findingCard),
+    el("h3", { text: "Routing USB" }), btn, out);
+}
 function openIgnored() {
   const list = state.ignoredList || [];
   showDrawer(null, el("h3", { text: "🚫 Rekomendasi diabaikan (" + list.length + ")" }),
@@ -1683,6 +1730,7 @@ async function reanalyze(manual) {
     if (/batas pemakaian/i.test(e.message)) { state.view.aiAuto = 0; saveView(); $("aiAuto").value = "0"; }
   } finally { state.aiBusy = false; }
 }
+$("btnSiaran").addEventListener("click", () => { $("more").open = false; openSiaran(); });
 $("btnIgnored").addEventListener("click", () => { $("more").open = false; openIgnored(); });
 $("ckWeak").addEventListener("change", async () => { try { await api("/api/prefs", { weak_alerts: $("ckWeak").checked }); } catch (e) { alert(e.message); $("ckWeak").checked = !$("ckWeak").checked; } });
 $("btnReanalyze").addEventListener("click", () => { $("more").open = false; reanalyze(true); });
@@ -1911,6 +1959,7 @@ if (TOKEN && location.protocol.startsWith("http")) {
   $("btnControl").hidden = false;
   $("btnReanalyze").hidden = false;
   $("btnIgnored").hidden = false;
+  $("btnSiaran").hidden = false;
   refreshControl();
   $("btnChannels").hidden = false;
   $("btnRefresh").hidden = false;

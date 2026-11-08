@@ -292,6 +292,15 @@
 - Peringatan sinyal sangat kecil (sumber yang memang tidak dipakai) kini mati secara default; saklar ada di menu ⋯ -> Peringatan (tersimpan di data/prefs.json, berlaku langsung tanpa memulai ulang live). Saat dimatikan, peringatan lama jenis ini ikut ditandai teratasi ("dimatikan"). Peringatan clipping, hampir clipping, dan koneksi tidak berubah.
 - Tes: tests/test_alerts_ignore.py (tambahan).
 
+## Update 2026-11-08: Bus siaran (YouTube lewat USB)
+
+- `aise/siaran.py` + menu ⋯ -> "Siaran YouTube (bus USB)": bus siaran dipilih lewat pengaturan (`prefs.json` `stream_bus`, bawaan Bus 3 sesuai keterangan operator, 0 = tidak ada). Panel menampilkan setting bus (mute, fader, EQ, kompresor), batang kiriman tiap channel ke bus itu, temuan, dan tombol "Cek routing USB".
+- Temuan aturan (read-only, juga masuk daftar catatan umum dan prompt Gemini sebagai `siaran_youtube`): bus di-mute, fader di atas 0 dB, boost EQ bus > 4 dB, bus tanpa kompresor/pembatas, kiriman channel di atas 0 dB, vokal/khotbah jauh lebih pelan dari musik/drum (selisih kiriman >= 6 dB, memakai Daftar Channel), dan daftar cek sisi komputer streaming (meter, sample rate 48 kHz, matikan peredam bising/AGC, sumber USB = bus yang benar, target sekitar -14 LUFS).
+- Pembacaan rutin menambah alamat detail bus siaran saja (kompresor threshold/rasio, EQ 4 band) supaya pembacaan tetap cepat.
+- Cek routing USB: menanyakan ~20 alamat kandidat (`/routing/usb/..`, `/outputs/usb/../src`, dst.), hanya membaca. Alamat ini DUGAAN dan belum terbukti untuk MR18; bila tidak ada jawaban, panel menunjukkan langkah cek manual di M-AIR.
+- Batas: level sinyal bus belum bisa dipantau (pemetaan meter bus belum terbukti); kiriman channel bukan level sinyal. Tidak ada penulisan ke bus (daftar putih Mode kontrol tidak memuat bus).
+- Tes: tests/test_siaran.py.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

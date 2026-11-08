@@ -147,7 +147,7 @@ class WeakPrefServer(test_memori.MemoriServer):
     def test_default_off_persists_and_applies_to_live(self):
         self.assertFalse(self.call("/api/status")[1]["weak_alerts"])                  # default: mati
         self.app.live = LiveMonitor("127.0.0.1", 1, "/meters/1", {}, self.data / "live.jsonl")
-        self.assertEqual(self.call("/api/prefs", {"weak_alerts": True})[1], {"weak_alerts": True})
+        self.assertTrue(self.call("/api/prefs", {"weak_alerts": True})[1]["weak_alerts"])
         self.assertTrue(self.app.live.rules.weak_enabled)
         self.assertTrue(self.call("/api/status")[1]["weak_alerts"])
         self.assertEqual(self.call("/api/prefs", {"weak_alerts": "ya"})[0], 400)
