@@ -262,6 +262,14 @@
 - Belum terbukti: kualitas perbandingan HP vs mixer pada ruangan nyata, dan perekaman dari input USB MR18 di Windows (butuh driver).
 - Tes: tests/test_ai_audio.py; uji browser dua slot dengan file rekaman.
 
+## Update 2026-11-08: peringatan live dinilai realtime + abaikan rekomendasi
+
+- Peringatan live tidak lagi hilang karena timer. Server menilai tiap peringatan terhadap kondisi sekarang dan menandainya `resolved` (dengan `reason`): clip/hot teratasi bila level tidak mendekati clipping selama 15 dtk, atau gain sudah turun >= 3 dB dari saat peringatan, atau channel di-mute; sinyal lemah teratasi bila sinyal sudah normal, gain naik >= 3 dB, atau di-mute; "data meter berhenti" teratasi saat data kembali. Sekali teratasi tidak hidup lagi (kejadian baru = peringatan baru).
+- Tampilan: hanya yang aktif ditampilkan ("N aktif · M teratasi"); tautan "tampilkan yang teratasi" menunjukkan sisanya dengan tanda ✓ dan alasannya.
+- Tombol "🚫 Abaikan rekomendasi ini" pada kartu rekomendasi (termasuk kartu EQ di panel channel). Yang diabaikan tidak ditampilkan dan tidak dilacak (`data/diabaikan.json`, kunci = channel + himpunan alamat usulan, jadi usulan serupa dari aturan maupun Gemini ikut tersaring). Menu ⋯ -> "Rekomendasi diabaikan (N)" untuk melihat dan mengembalikan. Pengabaian dicatat di memori AI dan disebut di prompt Gemini (`diabaikan_operator`).
+- Panel detail kini mulai di bawah header dan header di atas panel, supaya menu ⋯ tetap bisa dipakai saat panel terbuka.
+- Tes: tests/test_alerts_ignore.py; uji browser.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

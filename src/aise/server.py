@@ -48,6 +48,7 @@ from .live import LiveMonitor, analyze_eq_problems, inactive_from_dump, labels_f
 from .writer import spec_for
 from .report import findings_json, render
 from .menu import load_ip, save_ip, valid_ip
+from .ignored import Ignored, key_for
 from .memori import Memori
 from .writer import Controller, WriteRefused
 from .paths import BUILD_VERSION_FILE, BUNDLE, FROZEN
@@ -123,6 +124,8 @@ class App:
         self._flush_pending = False
         # Mode kontrol (jalur tulis terpisah; mati sampai operator menyalakannya)
         self.memori = Memori(self.data / "memori")
+        self.ignored = Ignored(self.data / "diabaikan.json")
+        self._values: dict = {}           # nilai setting terbaru (untuk menilai peringatan live secara realtime)
         self.control = Controller(self.data / "changes.jsonl", self._read_one, on_event=self._memori_event)
 
     # ---------- pekerjaan ----------
@@ -199,7 +202,7 @@ class App:
 
         log = self.data / f"live-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
         self.live = LiveMonitor(ip, port, path, labels_from_dump(dump, self.profile()), log, on_stop=on_stop,
-                                on_param=self._on_param, inactive=inactive_from_dump(dump), on_alert=self._memori_alert)
+                                on_param=self._on_param, inactive=inactive_from_dump(dump), on_alert=self._memori_alert, state_of=self._state_of)
         try:
             self.live.start()
         except Exception:
@@ -230,6 +233,7 @@ class App:
         latest = {"dump": "data/live-setting/dump1.json", "findings": "data/live-setting/findings.json",
                   "report": "data/live-setting/report.md", "created": d["created"], "live": True}
         (self.data / "latest.json").write_text(json.dumps(latest, indent=2), encoding="utf-8")
+        self._values = d.get("values", {})
         if mark:
             self.live_settings_at = d["created"]
 
@@ -241,6 +245,7 @@ class App:
         val = [a for a in args if isinstance(a, (int, float, str)) and not isinstance(a, bool)]
         if not val:
             return
+        self._values[addr] = val
         with self._param_lock:
             self.param_seq += 1
             self.param_log.append((self.param_seq, addr, val))
@@ -469,11 +474,12 @@ class App:
                 now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
                 eqp = analyze_eq_problems(dump)
                 before = {k: bool(t.get("done_at")) for k, t in state.get("tracked", {}).items()}
-                recs.register(state, fnd + eqp + self.live_findings(dump), dump, now)
+                ign = self.ignored.keys()
+                recs.register(state, [f for f in fnd + eqp + self.live_findings(dump) if key_for(f) not in ign], dump, now)
                 recs.evaluate(state, dump, now, {f["id"] for f in fnd + eqp})
                 self._memori_recs(state, before)
                 recs.save(self.recs_path, state)
-            return recs.view(state)
+            return {**recs.view(state), "diabaikan": self.ignored.listing()}
 
     def _memori_recs(self, state: dict, before: dict) -> None:
         """Catat saran baru dan saran yang baru terverifikasi selesai ke memori belajar."""
@@ -488,6 +494,20 @@ class App:
                     self.memori.catat("selesai", unik_id=fid + "@" + str(t["done_at"]), id=fid, ch=t.get("ch"), masalah=t.get("masalah", "")[:120], items=ch)
         except Exception:
             pass
+
+    def ignore(self, body: dict) -> dict:
+        us = body.get("alamat") if isinstance(body.get("alamat"), list) else []
+        if len(us) > 12 or not all(isinstance(a, str) and a.startswith("/") and len(a) < 80 for a in us):
+            raise ValueError("Data rekomendasi tidak valid.")
+        ch = body.get("ch")
+        if ch is not None and (not isinstance(ch, int) or isinstance(ch, bool)):
+            raise ValueError("Channel tidak valid.")
+        f = {"id": str(body.get("id", ""))[:80], "ch": ch, "masalah": str(body.get("masalah", ""))[:160], "usulan": [{"alamat": a} for a in us]}
+        if not f["id"]:
+            raise ValueError("Rekomendasi tidak dikenal.")
+        key = self.ignored.add(f)
+        self.memori.catat("abaikan", unik_id=key, ch=ch, masalah=f["masalah"])
+        return {"key": key}
 
     def memori_nilai(self, rid: str, nilai: str) -> dict:
         if nilai not in ("bagus", "kurang"):
@@ -504,6 +524,13 @@ class App:
                               awal=recs.fmt_value(kw.get("alamat", ""), kw.get("awal")), akhir=recs.fmt_value(kw.get("alamat", ""), kw.get("akhir")))
         elif event == "konflik":
             self.memori.catat("perubahan", alamat=kw.get("alamat"), aksi="diubah_operator", akhir=recs.fmt_value(kw.get("alamat", ""), kw.get("nilai_mixer")))
+
+    def _state_of(self, index: int) -> dict:
+        ch = index + 1
+        def first(a):
+            v = self._values.get(a)
+            return v[0] if v else None
+        return {"gain": first(f"/headamp/{ch:02d}/gain"), "on": first(f"/ch/{ch:02d}/mix/on")}
 
     def _memori_alert(self, a) -> None:
         self.memori.catat("masalah", ch=a.index + 1, jenis_masalah=a.kind, level_db=a.level_db)
@@ -1006,6 +1033,10 @@ def make_handler(app: App, http_port: int):
                     if situasi not in ai.SITUASI:
                         raise ValueError("Situasi tidak dikenal.")
                     return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", "")), _clean_audio(body.get("audio"), body.get("izin"))))
+                if path == "/api/ignore":
+                    return self._json(200, app.ignore(body))
+                if path == "/api/ignore/restore":
+                    return self._json(200, {"dikembalikan": app.ignored.restore(str(body.get("key", "")))})
                 if path == "/api/memori/nilai":
                     return self._json(200, app.memori_nilai(str(body.get("id", "")), str(body.get("nilai", ""))))
                 if path == "/api/memori/ukur":

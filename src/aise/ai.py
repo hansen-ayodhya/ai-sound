@@ -197,7 +197,7 @@ Aturan menjawab:
 6. Bahasa Indonesia yang sederhana dan praktis untuk operator gereja.
 7. Bila ada 'riwayat' (saran, perubahan, dan penilaian operator sebelumnya), pakai sebagai petunjuk karakter ruangan dan pendengar.
    Itu bukti terbatas dari satu ruangan, bukan kepastian: jangan mengulang usulan yang dinilai 'kurang', pertimbangkan yang dinilai 'bagus',
-   dan bila 'cukup_data' false sebutkan bahwa datanya belum cukup."""
+   jangan mengusulkan lagi hal yang tercantum di 'diabaikan_operator', dan bila 'cukup_data' false sebutkan bahwa datanya belum cukup."""
 
 PARAMS = (["hpf_on", "hpf_hz", "eq_on", "comp_on", "comp_thr_db", "comp_ratio", "gate_on", "gate_thr_db", "fader_db", "gain_db"]
           + [f"eq{b}_{k}" for b in range(1, 5) for k in ("hz", "db", "q")]

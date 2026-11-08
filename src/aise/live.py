@@ -26,6 +26,8 @@ from . import convert
 from .client import ReadOnlyClient
 from .meters import MeterError, parse_blob
 
+QUIET_S = 15.0         # peringatan clip/hot dianggap teratasi bila level tidak mendekati clipping selama ini
+GAIN_FIX_DB = 3.0       # gain diubah sebesar ini ke arah yang benar = dianggap sudah dikoreksi
 CLIP_DB = -1.0          # di atas ini dianggap clipping
 HOT_DB = -3.0           # di atas ini dianggap "panas"
 HOT_FRAMES = 3          # berapa kali panas ...
@@ -49,6 +51,9 @@ class Alert:
     label: str
     level_db: float
     message: str
+    gain0: float | None = None   # gain (nilai mentah) saat peringatan muncul, untuk mendeteksi koreksi
+    resolved: bool = False       # kondisi sudah tidak berlaku lagi (dinilai realtime)
+    reason: str = ""
 
 
 def channel_for_index(i: int) -> int | None:
@@ -329,7 +334,10 @@ class LiveRules:
 
 class LiveMonitor:
     def __init__(self, ip: str, port: int, path: str, labels: dict[int, str],
-                 log_path: Path, on_stop=None, on_param=None, inactive: set[int] | None = None, on_alert=None):
+                 log_path: Path, on_stop=None, on_param=None, inactive: set[int] | None = None, on_alert=None, state_of=None):
+        self.state_of = state_of          # (indeks meter) -> {'gain': nilai mentah, 'on': 0/1}; untuk menilai peringatan secara realtime
+        self._last_over: dict[int, float] = {}
+        self._last_loud: dict[int, float] = {}
         self.on_alert = on_alert
         self.ip, self.port, self.path = ip, port, path
         self.on_param = on_param          # dipanggil (alamat, argumen) untuk perubahan dari M-AIR
@@ -380,6 +388,10 @@ class LiveMonitor:
     def _record(self, alerts: list[Alert]) -> None:
         if not alerts:
             return
+        for a in alerts:
+            if a.index >= 0 and self.state_of:
+                st = self.state_of(a.index) or {}
+                a.gain0 = st.get("gain")
         self.alerts.extend(alerts)
         now = time.monotonic()
         for a in alerts:
@@ -412,7 +424,40 @@ class LiveMonitor:
             self.levels = levels
             self.frames += 1
             self.last_frame = t
+            for i, lvl in enumerate(levels[:N_MAPPED_CHANNELS]):
+                if lvl >= HOT_DB:
+                    self._last_over[i] = t
+                if lvl > WEAK_MAX:
+                    self._last_loud[i] = t
             self._record(self.rules.feed(levels, t))
+
+    def _resolve(self, now: float) -> None:
+        """Tandai peringatan yang kondisinya sudah tidak berlaku (berdasarkan keadaan realtime, bukan timer)."""
+        fresh = self.last_frame is not None and now - self.last_frame <= STALE_S
+        for a in self.alerts:
+            if a.resolved:
+                continue
+            why = None
+            if a.index < 0:
+                if fresh:
+                    why = "data meter sudah kembali"
+            else:
+                st = (self.state_of(a.index) if self.state_of else None) or {}
+                if st.get("on") == 0:
+                    why = "channel di-mute"
+                elif a.gain0 is not None and st.get("gain") is not None:
+                    d = convert.gain_db(st["gain"]) - convert.gain_db(a.gain0)
+                    if a.kind in ("clip", "hot") and d <= -GAIN_FIX_DB:
+                        why = f"gain sudah diturunkan {-d:.0f} dB"
+                    elif a.kind == "weak" and d >= GAIN_FIX_DB:
+                        why = f"gain sudah dinaikkan {d:.0f} dB"
+                if why is None:
+                    if a.kind in ("clip", "hot") and now - self._last_over.get(a.index, a.t) >= QUIET_S:
+                        why = f"tidak mendekati clipping lagi selama {QUIET_S:.0f} dtk"
+                    elif a.kind == "weak" and now - self._last_loud.get(a.index, -1e9) <= 5.0:
+                        why = "sinyal sudah normal"
+            if why:
+                a.resolved, a.reason = True, why
 
     def snapshot(self, include_alerts: bool = True) -> dict:
         now = time.monotonic()
@@ -421,6 +466,7 @@ class LiveMonitor:
                 self._record(self.rules.stale(now, now - self.last_frame))
             elif self.running and self.last_frame is None and now - self.started > STALE_S:
                 self._record(self.rules.stale(now, now - self.started))
+            self._resolve(now)
             alerts = [{**asdict(a), "ago": round(now - a.t, 1)} for a in self.alerts]
             elapsed = max(now - self.started, 1e-6)
             return {

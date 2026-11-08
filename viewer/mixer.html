@@ -18,7 +18,7 @@
     font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   button { font: inherit; }
   .top { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; background: var(--desk);
-    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 8; }
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 12; }
   .brand { font-weight: 700; font-size: 13px; letter-spacing: .02em; white-space: nowrap; }
   .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0; flex: 1 1 auto;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -109,6 +109,9 @@
   .audslot .abtns { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; align-items: center; }
   .audslot button, .audslot .fbtn, .audslot select { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--strip); color: var(--text); cursor: pointer; }
   .audslot .fbtn input { display: none; }
+  .alerts li.res { opacity: .6; } .alerts li.res .lb { color: var(--muted); } .alerts .why { color: var(--ok); font-size: 12px; margin-left: auto; }
+  #alertRes { text-transform: none; letter-spacing: 0; cursor: pointer; text-decoration: underline; }
+  button.ign { font: inherit; font-size: 12px; padding: 3px 9px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; margin-top: 6px; }
   .gk { position: absolute; left: 50%; width: 46px; height: 0; border-top: 2px dashed; transform: translate(-50%, 50%); pointer-events: none; z-index: 2; }
   .gk.rule { border-color: #b48cff; } .gk.gem { border-color: #3cc9f0; }
   .mcol { display: flex; flex-direction: column; gap: 2px; width: 14px; flex: 0 0 14px; }
@@ -129,7 +132,7 @@
   .lab .name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lab .name.empty { color: var(--dim); font-weight: 400; }
   .lab .role { color: #7d8aa1; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 13px; }
-  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); background: var(--desk);
+  .drawer { position: fixed; top: 38px; right: 0; bottom: 0; width: min(440px, 100%); background: var(--desk);
     border-left: 1px solid var(--line); overflow-y: auto; padding: 14px 16px 24px; z-index: 10; box-shadow: -8px 0 24px #0008; }
   .drawer h3 { margin: 0 0 2px; font-size: 16px; }
   .drawer .close { float: right; background: none; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
@@ -272,6 +275,7 @@
         <button type="button" id="btnControl" hidden>✎ Nyalakan mode kontrol…</button>
         <button type="button" id="btnRestoreAll" hidden>↩ Kembalikan semua perubahan</button>
         <h5>Saran AI</h5>
+        <button type="button" id="btnIgnored" hidden>🚫 Rekomendasi diabaikan (0)…</button>
         <button type="button" id="btnReanalyze" hidden>✦ Analisis ulang sekarang</button>
         <label class="zrow" for="aiAuto" style="display:flex">Otomatis&nbsp;<select id="aiAuto"><option value="0">Mati</option><option value="5">tiap 5 menit</option><option value="10">tiap 10 menit</option></select></label>
         <p class="info">Tiap analisis memakai token Gemini Anda. Otomatis dilewati bila setting mixer tidak berubah sejak analisis terakhir, dan mati sendiri bila batas pemakaian tercapai.</p>
@@ -295,7 +299,7 @@
 <div id="banner"></div>
 <div id="general" class="general"></div>
 <section class="alerts" id="alerts" hidden>
-  <h2 id="alertHead" title="Klik untuk meringkas/membuka">Peringatan live <span id="alertCount"></span> <span id="alertToggle">▾ ringkas</span></h2>
+  <h2 id="alertHead" title="Klik untuk meringkas/membuka">Peringatan live <span id="alertCount"></span><span id="alertRes" title="Tampilkan atau sembunyikan peringatan yang sudah teratasi"></span> <span id="alertToggle">▾ ringkas</span></h2>
   <ul id="alertList"><li class="empty">Belum ada peringatan.</li></ul>
 </section>
 <div class="picker" id="picker" hidden>
@@ -812,7 +816,8 @@ function findingCard(f) {
       el("li", null, el("b", { text: "Rekomendasi: " }), f.rekomendasi),
       el("li", null, el("b", { text: "Risiko perubahan: " }), f.risiko)),
     (f.usulan && f.usulan.length) ? el("ul", { class: "usulan" }, ...f.usulan.map((u) => el("li", { text: u.teks }))) : null,
-    controlBox(f));
+    controlBox(f),
+    rs && rs.status === "selesai" ? null : ignoreBtn(f));
 }
 function showDrawer(strip, ...content) {
   state.openCh = null;      // openChannel mengisinya lagi setelah memanggil showDrawer
@@ -876,7 +881,7 @@ async function openChannel(n, strip) {
   let eqProblems = [];
   try {
     const res = await api("/api/live/eq-problems");
-    eqProblems = (res.findings || []).filter((f) => f.ch === n);
+    eqProblems = (res.findings || []).filter((f) => f.ch === n && !state.ignored.has(ignKey(f)));
   } catch (e) { /* abaikan jika tidak bisa fetch */ }
 
   showDrawer(strip,
@@ -899,7 +904,7 @@ async function openChannel(n, strip) {
       el("h4", { text: "⚠ " + f.masalah }),
       el("p", { style: "margin: 0; font-size: 12px;", text: f.penyebab }),
       el("p", { style: "margin: 4px 0 0; font-size: 12px; color: var(--ok);", text: "→ " + f.rekomendasi }),
-      controlBox(f))),
+      controlBox(f), ignoreBtn(f))),
     ...dynSection(n),
     ...levelSection(n),
     ...sendSection(n),
@@ -1135,10 +1140,14 @@ if (location.protocol.startsWith("http")) {
 
 // ---------- TEMUAN: aturan lokal + (opsional) Gemini ----------
 state.baseFindings = []; state.aiFindings = []; state.showAI = true;
-state.recs = {}; state.recsDone = [];   // status pelaksanaan rekomendasi (diverifikasi server dari setting mixer)
+state.recs = {}; state.recsDone = []; state.ignored = new Set(); state.ignoredList = [];   // status pelaksanaan rekomendasi (diverifikasi server dari setting mixer)
 async function refreshRecs() {
   if (!TOKEN) return;
-  try { const v = await api("/api/recs"); state.recs = v.recs || {}; state.recsDone = v.selesai || []; } catch (e) { /* abaikan */ }
+  try {
+    const v = await api("/api/recs"); state.recs = v.recs || {}; state.recsDone = v.selesai || [];
+    state.ignoredList = v.diabaikan || []; state.ignored = new Set(state.ignoredList.map((i) => i.key));
+    $("btnIgnored").textContent = "🚫 Rekomendasi diabaikan (" + state.ignoredList.length + ")…";
+  } catch (e) { /* abaikan */ }
 }
 const hhmm = (iso) => String(iso || "").slice(11, 16);
 // Usulan gain dari clipping live: berlaku sebentar setelah kejadian, lalu hilang sendiri.
@@ -1152,10 +1161,38 @@ async function setLiveFindings(list) {
   try { render(); refreshOpenChannel(); } finally { state.keepDrawer = false; }
 }
 function setBaseFindings(list) { state.baseFindings = list; mergeFindings(); }
+// Kunci yang sama dengan server (aise/ignored.py): channel + himpunan alamat usulan; tanpa usulan: id.
+function ignKey(f) {
+  const a = (f.usulan || []).map((u) => u.alamat).filter((x) => typeof x === "string").sort();
+  return a.length ? (f.ch == null ? "-" : f.ch) + "|" + a.join("+") : "id:" + f.id;
+}
+function ignoreBtn(f) {
+  const b = el("button", { type: "button", class: "ign", text: "🚫 Abaikan rekomendasi ini", title: "Tidak ditampilkan lagi sampai dikembalikan lewat menu ⋯" });
+  b.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (!confirm("Abaikan rekomendasi ini? Tidak akan ditampilkan lagi (bisa dikembalikan dari menu ⋯).")) return;
+    try {
+      await api("/api/ignore", { id: f.id, ch: f.ch == null ? null : f.ch, masalah: f.masalah, alamat: (f.usulan || []).map((u) => u.alamat) });
+      await refreshRecs(); mergeFindings();
+      state.keepDrawer = true; try { render(); refreshOpenChannel(); } finally { state.keepDrawer = false; }
+    } catch (err) { alert(err.message); }
+  });
+  return b;
+}
+function openIgnored() {
+  const list = state.ignoredList || [];
+  showDrawer(null, el("h3", { text: "🚫 Rekomendasi diabaikan (" + list.length + ")" }),
+    el("p", { class: "note", text: "Rekomendasi ini tidak ditampilkan dan tidak dilacak. Kembalikan bila ingin melihatnya lagi." }),
+    ...(list.length ? list.map((i) => {
+      const b = el("button", { type: "button", text: "Kembalikan", style: "font:inherit;font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid var(--line);background:var(--strip);color:var(--text);cursor:pointer" });
+      b.addEventListener("click", async () => { try { await api("/api/ignore/restore", { key: i.key }); await refreshRecs(); mergeFindings(); state.keepDrawer = true; try { render(); } finally { state.keepDrawer = false; } openIgnored(); } catch (err) { alert(err.message); } });
+      return el("div", { class: "donebox", style: "border-color:var(--line);background:var(--strip)" }, el("b", { text: (i.ch != null ? "CH " + String(i.ch).padStart(2, "0") + " · " : "") + (i.masalah || i.id) }), el("div", { class: "note", text: "Diabaikan " + String(i.ts).slice(0, 16).replace("T", " ") }), b);
+    }) : [el("p", { class: "note", text: "Belum ada." })]));
+}
 function mergeFindings() {
   // Rekomendasi yang sudah terverifikasi dilakukan tidak lagi dihitung sebagai saran aktif (tidak jadi bayangan/lencana).
   const all = state.baseFindings.concat(state.liveFindings || [], state.showAI ? state.aiFindings : []);
-  state.findings = all.filter((f) => !(state.recs[f.id] && state.recs[f.id].status === "selesai"));
+  state.findings = all.filter((f) => !(state.recs[f.id] && state.recs[f.id].status === "selesai") && !state.ignored.has(ignKey(f)));
 }
 
 // ---------- ANALISIS AI (Gemini; dipanggil hanya saat diminta) ----------
@@ -1516,20 +1553,25 @@ function applyAlertsMin() {
   $("alerts").classList.toggle("min", !!state.view.alertsMin);
   $("alertToggle").textContent = state.view.alertsMin ? "▸ buka semua" : "▾ ringkas";
 }
+$("alertRes").addEventListener("click", (e) => { e.stopPropagation(); state.view.showResolved = !state.view.showResolved; saveView(); if (state.lastAlerts) showAlerts(state.lastAlerts); });
 $("alertHead").addEventListener("click", () => { state.view.alertsMin = !state.view.alertsMin; saveView(); applyAlertsMin(); });
 function showAlerts(list) {
   $("alerts").hidden = false;
   applyAlertsMin();
   for (const a of list.slice(state.seenAlerts)) if (a.index >= 0) flash(a.index, a.severity);
   state.seenAlerts = list.length;
-  const fresh = list.filter((a) => a.ago == null || a.ago <= 300), hidden = list.length - fresh.length;   // yang lama tetap ada di log
-  $("alertCount").textContent = "(" + fresh.length + (hidden ? " · " + hidden + " lama disembunyikan" : "") + ")";
+  state.lastAlerts = list;
+  const act = list.filter((a) => !a.resolved), done = list.length - act.length;   // teratasi = kondisi realtime sudah tidak berlaku
+  $("alertCount").textContent = "(" + act.length + " aktif" + (done ? " · " + done + " teratasi" : "") + ")";
+  $("alertRes").textContent = done ? (state.view.showResolved ? " · sembunyikan yang teratasi" : " · tampilkan yang teratasi") : "";
+  const shown = state.view.showResolved ? list : act;
   const ul = $("alertList");
-  if (!fresh.length) { ul.replaceChildren(el("li", { class: "empty", text: list.length ? "Tidak ada peringatan dalam 5 menit terakhir (yang lama ada di log)." : "Belum ada peringatan." })); return; }
-  ul.replaceChildren(...fresh.slice().reverse().slice(0, 60).map((a) =>
-    el("li", { class: a.severity }, el("span", { class: "tm", text: a.time }),
+  if (!shown.length) { ul.replaceChildren(el("li", { class: "empty", text: list.length ? "Tidak ada peringatan aktif. Semua sudah teratasi." : "Belum ada peringatan." })); return; }
+  ul.replaceChildren(...shown.slice().reverse().slice(0, 60).map((a) =>
+    el("li", { class: a.resolved ? "res" : a.severity }, el("span", { class: "tm", text: a.time }),
       el("span", { class: "lb", text: a.index >= 0 ? a.label : "Koneksi" }),
-      el("span", { text: a.index >= 0 && a.message.startsWith(a.label + " ") ? a.message.slice(a.label.length + 1) : a.message }))));
+      el("span", { text: a.index >= 0 && a.message.startsWith(a.label + " ") ? a.message.slice(a.label.length + 1) : a.message }),
+      a.resolved ? el("span", { class: "why", text: "✓ teratasi: " + a.reason }) : null)));
 }
 function setLiveUi(on) {
   state.live = on;
@@ -1600,6 +1642,7 @@ async function reanalyze(manual) {
     if (/batas pemakaian/i.test(e.message)) { state.view.aiAuto = 0; saveView(); $("aiAuto").value = "0"; }
   } finally { state.aiBusy = false; }
 }
+$("btnIgnored").addEventListener("click", () => { $("more").open = false; openIgnored(); });
 $("btnReanalyze").addEventListener("click", () => { $("more").open = false; reanalyze(true); });
 $("aiAuto").value = String(state.view.aiAuto || 0);
 $("aiAuto").addEventListener("change", () => { state.view.aiAuto = +$("aiAuto").value; saveView(); state.aiAt = Date.now(); });
@@ -1824,6 +1867,7 @@ if (TOKEN && location.protocol.startsWith("http")) {
   $("btnLive").hidden = false;
   $("btnControl").hidden = false;
   $("btnReanalyze").hidden = false;
+  $("btnIgnored").hidden = false;
   refreshControl();
   $("btnChannels").hidden = false;
   $("btnRefresh").hidden = false;
