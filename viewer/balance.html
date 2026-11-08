@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cek Balance</title>
+<style>
+  :root { --bg:#0f1216; --panel:#171c22; --panel-2:#1e252d; --line:#2c3540; --text:#e6eaf0; --muted:#8c97a6; --accent:#5aa2ff; --ok:#3fcf7f; --warn:#f5b041; --bad:#ff6b6b; --prog:#b48cff; }
+  * { box-sizing: border-box; } [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .brand { font-weight: 700; } nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; } nav a.cur { color: var(--text); background: var(--panel-2); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  h2 { margin: 0 0 6px; font-size: 16px; } .note { color: var(--muted); font-size: 13px; margin: 6px 0; }
+  .box { border: 1px solid var(--warn); background: #2a2210; color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin: 8px 0; }
+  .box.bad { border-color: var(--bad); background: #2a1313; color: var(--bad); } .box.ok { border-color: var(--ok); background: #10261a; color: var(--ok); }
+  select, button, label.chk { font: inherit; }
+  select { padding: 8px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--text); width: 100%; }
+  button { padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #0b1a2e; font-weight: 700; } button:disabled { opacity: .45; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  .steps { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .step { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .step.now { border-color: var(--accent); color: var(--accent); font-weight: 700; } .step.done { border-color: var(--ok); color: var(--ok); }
+  .big { font-size: 20px; font-weight: 700; margin: 6px 0; } .count { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .bar { height: 10px; background: #0b0e11; border-radius: 5px; overflow: hidden; margin: 6px 0; } .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+  .lv { display: grid; grid-template-columns: 90px 1fr 70px; gap: 8px; align-items: center; margin: 5px 0; font-size: 13px; }
+  .lv .b { height: 14px; background: #0b0e11; border-radius: 4px; overflow: hidden; } .lv .b i { display: block; height: 100%; }
+  .verd { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
+  ul { margin: 6px 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<header class="top"><div class="brand">AI Sound Engineer</div>
+  <nav><a href="home.html">Beranda</a><a href="mixer.html">Tampilan Mixer</a><a href="room.html">Ukur Ruangan</a><a href="balance.html" class="cur">Cek Balance</a><a href="memori.html">Memori AI</a></nav></header>
+<main class="wrap">
+  <section class="card"><h2>Cek balance vokal dan musik di ruangan</h2>
+    <p class="note">Memakai mic di bangku jemaat sebagai alat banding: level vokal saja dibandingkan dengan musik saja, lalu Anda menilai dengan telinga. Yang dibaca hanya level meter (bukan frekuensi), dan mic vokal meredam bass, jadi angkanya untuk membandingkan, bukan ukuran mutlak. Mixer tidak diubah; usulan muncul sebagai rekomendasi yang bisa diterapkan lewat slider.</p>
+    <div class="box bad" id="warn" hidden></div>
+  </section>
+  <section class="card" id="setup">
+    <h2>1. Persiapan</h2>
+    <label class="note" for="mic">Channel mic ruangan</label><select id="mic"></select>
+    <label class="note" style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="skipMap"> Lewati tes ketuk (pemetaan meter channel ini sudah terbukti)</label>
+    <p class="note">Syarat: gain, fader, EQ, dan kompresor channel mic tidak diubah selama pengukuran; channel itu tidak diteruskan ke speaker utama atau Bus siaran. Fader channel vokal dan musik juga jangan disentuh.</p>
+    <div class="row"><button class="primary" id="btnStart">Mulai sesi</button></div>
+  </section>
+  <section class="card" id="run" hidden>
+    <h2>2. Pengukuran</h2>
+    <div class="steps" id="steps"></div>
+    <div class="big" id="instr"></div><div class="count" id="count"></div><div class="bar"><i id="prog"></i></div>
+    <div class="box" id="msg" hidden></div>
+    <div class="row"><button class="primary" id="btnGo">Mulai tahap ini</button><button id="btnRetry" hidden>Ulangi tahap ini</button><button id="btnAbort">Batalkan sesi</button></div>
+  </section>
+  <section class="card" id="res" hidden>
+    <h2>3. Hasil</h2><div id="levels"></div><div class="big" id="diff"></div><ul id="warns"></ul>
+    <div id="verdBox"><p class="note">Bagaimana balance saat <b>musik dan vokal bersama</b> tadi, menurut telinga Anda di posisi mic?</p>
+      <div class="verd"><button data-v="musik_keras">Musik terlalu keras</button><button data-v="pas" class="primary">Pas</button><button data-v="vokal_keras">Vokal terlalu keras</button></div></div>
+    <div id="recBox" hidden></div>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const TOKEN = (document.querySelector('meta[name="aise-token"]') || {}).content;
+async function api(path, body) {
+  const r = await fetch(path, { method: body ? "POST" : "GET", headers: { "X-AISE-Token": TOKEN || "", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j;
+}
+const LABEL = { peta: "Ketuk mic", hening: "Hening", vokal: "Vokal saja", musik: "Musik saja", bersama: "Bersama" };
+const INSTR = {
+  peta: "Ketuk mic ruangan 3–4 kali (atau tepuk dekat mic). Jangan menyentuh mic lain.",
+  hening: "Semua diam: tanpa musik dan tanpa suara orang. Duduk tenang.",
+  vokal: "Vokal atau pengkhotbah berbicara/bernyanyi seperti biasa. Musik berhenti.",
+  musik: "Musik bermain seperti saat ibadah. Vokal diam.",
+  bersama: "Musik dan vokal bersama seperti saat ibadah.",
+};
+const MAPKEY = "aise.balance.mapok";
+let info = null, busy = false;
+const fmt = (x) => (x == null ? "—" : (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x).toFixed(1).replace(".", ","));
+function warn(t) { $("warn").hidden = !t; $("warn").textContent = t || ""; }
+
+async function refresh() {
+  let v;
+  try { v = await api("/api/balance"); } catch (e) { warn("Tidak bisa menghubungi aplikasi: " + e.message + ". Buka lewat AI-Sound-Engineer.bat."); return; }
+  info = v;
+  if (!$("mic").options.length) {
+    for (const k of v.kanal) $("mic").append(new Option(`CH ${String(k.ch).padStart(2, "0")}${k.nama ? " · " + k.nama : ""}`, String(k.ch)));
+    if (v.saran_mic) $("mic").value = String(v.saran_mic);
+    $("skipMap").checked = localStorage.getItem(MAPKEY) === $("mic").value;
+    $("mic").addEventListener("change", () => { $("skipMap").checked = localStorage.getItem(MAPKEY) === $("mic").value; });
+  }
+  warn(!v.live ? "Pantau live belum berjalan. Buka Tampilan Mixer dulu, tunggu sampai status LIVE, lalu kembali ke sini."
+    : !v.profil_ok ? "Daftar Channel belum lengkap: isi minimal satu sumber vokal/khotbah dan satu sumber musik (Tampilan Mixer > Daftar Channel)." : "");
+  const s = v.sesi, active = s && s.status !== "batal";
+  $("setup").hidden = !!active;
+  $("run").hidden = !active || s.status === "selesai";
+  $("res").hidden = !(active && s.status === "selesai");
+  if (!active) return;
+  if (s.status === "selesai") return paintResult(s);
+  const order = (s.ada_peta ? ["peta"] : []).concat(["hening", "vokal", "musik", "bersama"]);
+  $("steps").replaceChildren(...order.map((f) => { const d = document.createElement("span"); d.className = "step" + (f === s.fase ? " now" : (s.tahap_selesai.includes(f) || (f === "peta" && s.fase !== "peta")) ? " done" : ""); d.textContent = LABEL[f]; return d; }));
+  $("instr").textContent = INSTR[s.fase] || "";
+  const dur = s.durasi[s.fase] || 10;
+  $("count").textContent = s.status === "hitung_mundur" ? "Bersiap… " + Math.ceil(s.sisa) : s.status === "merekam" ? "Merekam… " + Math.ceil(s.sisa) + " dtk" : "";
+  $("prog").style.width = s.status === "merekam" ? Math.round((1 - s.sisa / dur) * 100) + "%" : "0%";
+  $("btnGo").disabled = s.status !== "menunggu"; $("btnGo").textContent = s.status === "menunggu" ? "Mulai tahap ini" : "Sedang berjalan…";
+  $("btnRetry").hidden = s.status !== "galat";
+  $("msg").hidden = !s.pesan; $("msg").textContent = s.pesan || "";
+  if (s.fase !== "peta" && s.peta && s.peta.ch === s.mic_ch) localStorage.setItem(MAPKEY, String(s.mic_ch));
+}
+function paintResult(s) {
+  const h = s.hasil || {}, noise = h.noise;
+  const bars = [["Hening", noise, "#5b6573"], ["Vokal", h.vokal, "#5aa2ff"], ["Musik", h.musik, "#f5b041"], ["Bersama", h.bersama, "#3fcf7f"]];
+  $("levels").replaceChildren(...bars.filter((b) => b[1] != null).map(([n, val, c]) => {
+    const d = document.createElement("div"); d.className = "lv";
+    const above = Math.max(0, val - noise);
+    d.innerHTML = `<span>${n}</span><div class="b"><i style="width:${Math.min(100, above / 60 * 100)}%;background:${c}"></i></div><span>${val.toFixed(0)} dB</span>`;
+    return d;
+  }));
+  $("diff").textContent = h.selisih == null ? "" : h.selisih < -0.5 ? `Vokal ${Math.abs(h.selisih).toFixed(1).replace(".", ",")} dB lebih pelan dari musik di mic`
+    : h.selisih > 0.5 ? `Vokal ${h.selisih.toFixed(1).replace(".", ",")} dB lebih keras dari musik di mic` : "Vokal dan musik hampir sama keras di mic";
+  $("warns").replaceChildren(...(h.peringatan || []).map((w) => { const li = document.createElement("li"); li.textContent = w; return li; }));
+  const rated = !!s.penilaian;
+  $("verdBox").hidden = rated; $("recBox").hidden = !rated;
+  if (rated) {
+    const r = s.rekomendasi || {};
+    $("recBox").className = "box ok";
+    $("recBox").textContent = r.turunkan ? `Rekomendasi: turunkan ${r.turunkan} sekitar ${r.db} dB (${r.dasar}). Usulan fader tiap sumber muncul di Tampilan Mixer sebagai rekomendasi, dengan tombol Terapkan (slider). Setelah menerapkannya, ulangi cek balance.`
+      : "Balance sudah pas menurut telinga Anda. Selisih ini dicatat sebagai acuan pribadi ruangan Anda di Memori AI.";
+    const a = document.createElement("div"); a.className = "row";
+    a.innerHTML = '<button class="primary" onclick="location.href=\'mixer.html\'">Buka Tampilan Mixer</button><button id="again">Ulangi cek balance</button>';
+    $("recBox").append(a); $("again").addEventListener("click", async () => { try { await api("/api/balance/start", { mic_ch: s.mic_ch, lewati_peta: true }); } catch (e) { warn(e.message); } });
+  }
+}
+$("btnStart").addEventListener("click", async () => {
+  try { await api("/api/balance/start", { mic_ch: +$("mic").value, lewati_peta: $("skipMap").checked }); } catch (e) { warn(e.message); return; }
+  refresh();
+});
+$("btnGo").addEventListener("click", async () => { try { await api("/api/balance/mulai", {}); } catch (e) { warn(e.message); } refresh(); });
+$("btnRetry").addEventListener("click", async () => { try { await api("/api/balance/ulangi", {}); } catch (e) { warn(e.message); } refresh(); });
+$("btnAbort").addEventListener("click", async () => { if (confirm("Batalkan sesi ini?")) { try { await api("/api/balance/batal", {}); } catch (e) { warn(e.message); } refresh(); } });
+document.querySelectorAll("[data-v]").forEach((b) => b.addEventListener("click", async () => {
+  try { await api("/api/balance/nilai", { penilaian: b.dataset.v }); } catch (e) { warn(e.message); } refresh();
+}));
+refresh(); setInterval(() => { if (!document.hidden) refresh(); }, 500);
+</script>
+</body>
+</html>

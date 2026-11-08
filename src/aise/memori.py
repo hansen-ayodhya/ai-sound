@@ -8,13 +8,14 @@ Operator bisa melihat dan menghapusnya (halaman Memori AI).
 from __future__ import annotations
 
 import json
+import statistics
 import threading
 import time
 from collections import Counter
 from pathlib import Path
 
 MAX_LINES = 2000
-JENIS = ("saran", "selesai", "perubahan", "masalah", "ukur", "nilai", "abaikan")
+JENIS = ("saran", "selesai", "perubahan", "masalah", "ukur", "nilai", "abaikan", "balance")
 MIN_RATED = 5            # kurang dari ini: data belum cukup untuk dianggap pola
 PROFILE_ITEMS = 20
 
@@ -110,6 +111,10 @@ class Memori:
             dinilai.append({"ch": r.get("ch"), "masalah": _s(r.get("masalah"), 90), "perubahan": r.get("items", [])[:4],
                             "nilai": nilai.get(r.get("id", "")) or "belum dinilai"})
         diabaikan = [{"ch": r.get("ch"), "masalah": _s(r.get("masalah"), 90)} for r in rows if r["jenis"] == "abaikan"][-10:]
+        bal = [r for r in rows if r["jenis"] == "balance"]
+        pas = [r["selisih"] for r in bal if r.get("verdict") == "pas" and isinstance(r.get("selisih"), (int, float))]
+        balance = {"jumlah": len(bal), "terakhir": {k: bal[-1].get(k) for k in ("ts", "selisih", "noise", "verdict")} if bal else None,
+                   "target_pas_db": round(statistics.median(pas), 1) if pas else None}
         ukur = next((r for r in reversed(rows) if r["jenis"] == "ukur"), None)
         n_bagus = sum(1 for v in nilai.values() if v == "bagus")
         n_kurang = sum(1 for v in nilai.values() if v == "kurang")
@@ -119,6 +124,7 @@ class Memori:
             "perubahan_dinilai": dinilai,
             "penilaian": {"bagus": n_bagus, "kurang": n_kurang},
             "diabaikan_operator": diabaikan,
+            "balance_vokal_vs_musik": balance,
             "ukur_ruangan_terakhir": {k: ukur.get(k) for k in ("ts", "mic", "target", "titik", "band")} if ukur else None,
             "cukup_data": n_bagus + n_kurang >= MIN_RATED,
             "catatan": ("Data penilaian belum cukup untuk menyimpulkan pola; perlakukan hanya sebagai petunjuk."

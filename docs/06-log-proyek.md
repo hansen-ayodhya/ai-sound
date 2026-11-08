@@ -332,6 +332,14 @@
 
 - Menu ⋯ di Tampilan Mixer terlalu panjang untuk layar kecil dan bagian bawahnya (termasuk Beranda) tidak terjangkau. Kini tingginya dibatasi sesuai layar dan bisa digulir (`overflow-y: auto`), dan bagian "Halaman" (Beranda, Klip Suara, dst.) dipindah ke paling atas. Diuji di laptop kecil, HP tegak, dan HP mendatar.
 
+## Update 2026-11-08: cek balance terpandu (vokal vs musik di mic ruangan)
+
+- `aise/balance.py` + halaman `balance.html` (menu "Cek Balance"): mic di bangku jemaat dipakai sebagai alat banding lewat METER live (tanpa USB). Tahap: tes ketuk mic (membuktikan pemetaan meter: channel yang paling naik harus sama dengan channel yang dipilih), hening, vokal saja, musik saja, bersama; tiap tahap hitung mundur 3 dtk lalu merekam 6-12 dtk. Level aktif = rata-rata daya 50% frame tertinggi (mengabaikan jeda); bising = median.
+- Hasil: selisih vokal - musik (dB), bising ruangan, jarak ke bising (SNR). Peringatan: mic clipping, SNR < 6 dB, fader/gain berubah selama tahap, musik masih terdengar saat tahap vokal (atau sebaliknya, dari meter channel menurut Daftar Channel), tahap bersama lebih pelan dari tahap tunggal.
+- Penilaian telinga operator ("musik terlalu keras / pas / vokal terlalu keras") menjadi dasar rekomendasi: turunkan fader semua channel musik (atau vokal) sebesar 3 dB, atau sebesar yang diperlukan untuk mencapai target pribadi bila ada penilaian "pas" sebelumnya (maks 9 dB). Usulan jadi rekomendasi program (`balance-musik-chN`) yang bisa diterapkan lewat slider Mode kontrol dan dilepas setelah tercapai (berlaku 4 jam). Penilaian disimpan di Memori AI (`balance_vokal_vs_musik`, target "pas" = median) dan ikut ke prompt Gemini.
+- Batas: hanya level (bukan frekuensi); mic vokal meredam bass sehingga bass musik terbaca lebih pelan; hanya satu titik. Pemetaan meter ke channel belum terbukti di MR18 sampai tes ketuk dijalankan.
+- Tes: tests/test_balance.py (logika, sesi, alur server).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

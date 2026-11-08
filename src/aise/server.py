@@ -46,6 +46,7 @@ from .guard import ReadOnlyViolation, check
 from .guard import ALLOWED_PREFIXES
 from .live import LiveMonitor, analyze_eq_problems, inactive_from_dump, labels_from_dump, make_gain_findings
 from . import convert
+from . import balance as balancemod
 from . import siaran as siaranmod
 from . import stream as streammod
 from .writer import spec_for
@@ -129,6 +130,9 @@ class App:
         self.memori = Memori(self.data / "memori")
         self.ignored = Ignored(self.data / "diabaikan.json")
         self.prefs_path = self.data / "prefs.json"
+        self.balance: balancemod.Session | None = None
+        self.balance_scale = 1.0           # hanya diubah tes (mempercepat durasi tahap)
+        self._balance_findings: tuple[float, list] | None = None
         self.stream = streammod.Checker(self.data / "stream-checks.jsonl", self.stream_cfg)
         self._fails: dict[str, int] = {}   # berapa kali berturut-turut alamat tidak dijawab (dilewati setelah 3x)
         self._values: dict = {}           # nilai setting terbaru (untuk menilai peringatan live secara realtime)
@@ -550,6 +554,65 @@ class App:
         b = self.stream_bus()
         return out + (siaranmod.findings(dump, b, profile) if b else [])
 
+    # ---------- Cek balance terpandu ----------
+    def balance_view(self) -> dict:
+        voc, mus = balancemod.groups(self.profile())
+        names = {n: channels.clean_name((self._values.get(f"/ch/{n:02d}/config/name") or [""])[0]) for n in range(1, 17)}
+        guess = next((n for n, nm in names.items() if "md" in nm.lower().replace("_", " ").split()), None)
+        bal = self.memori.profil()["balance_vokal_vs_musik"]
+        return {"live": bool(self.live and self.live.running), "kanal": [{"ch": n, "nama": names[n]} for n in range(1, 17)], "saran_mic": guess,
+                "profil_ok": bool(voc and mus), "vokal": voc, "musik": mus, "target_pas": bal["target_pas_db"], "jumlah_sesi": bal["jumlah"],
+                "sesi": self.balance.view() if self.balance else None}
+
+    def balance_start(self, mic_ch, lewati_peta: bool) -> dict:
+        if not (self.live and self.live.running):
+            raise ValueError("Pantau live harus berjalan dulu (buka Tampilan Mixer).")
+        if not isinstance(mic_ch, int) or isinstance(mic_ch, bool) or not 1 <= mic_ch <= 16:
+            raise ValueError("Pilih channel mic ruangan (1-16).")
+        profile = self.profile()
+        voc, mus = balancemod.groups(profile)
+        if not voc or not mus:
+            raise ValueError("Isi Daftar Channel dulu: minimal satu sumber vokal/khotbah dan satu sumber musik (bass, gitar, keyboard, drum, playback).")
+        if self.balance and self.balance.status in ("hitung_mundur", "merekam"):
+            raise ValueError("Sesi sebelumnya masih berjalan.")
+        live = self.live
+        self.balance = balancemod.Session(lambda: list(live.levels), lambda: self._values, profile, mic_ch, check_map=not lewati_peta, scale=self.balance_scale)
+        self._balance_findings = None
+        return self.balance.view()
+
+    def balance_do(self, action: str, body: dict) -> dict:
+        s = self.balance
+        if s is None:
+            raise ValueError("Belum ada sesi cek balance.")
+        if action == "mulai":
+            s.mulai()
+        elif action == "batal":
+            s.batal()
+        elif action == "ulangi":
+            s.ulangi_tahap()
+        elif action == "nilai":
+            target = self.memori.profil()["balance_vokal_vs_musik"]["target_pas_db"]
+            rec = s.nilai(str(body.get("penilaian", "")), target)
+            h = s.hasil or {}
+            self.memori.catat("balance", selisih=h.get("selisih"), noise=h.get("noise"), verdict=s.verdict, mic_ch=s.mic_ch)
+            self._balance_findings = (time.monotonic(), balancemod.findings(h, rec, self.profile(), self._values))
+        else:
+            raise ValueError("Aksi tidak dikenal.")
+        return self.balance_view()
+
+    def balance_findings(self) -> list[dict]:
+        """Usulan dari cek balance terakhir (berlaku 4 jam); yang nilainya sudah mencapai usulan dilepas."""
+        if not self._balance_findings or time.monotonic() - self._balance_findings[0] > 4 * 3600:
+            return []
+        out = []
+        for f in self._balance_findings[1]:
+            u = f["usulan"][0]
+            cur = (self._values.get(u["alamat"]) or [None])[0]
+            if cur is not None and recs.item_state(u["alamat"], u["sekarang"], u["usulan"], cur) == "selesai":
+                continue
+            out.append(f)
+        return out
+
     def stream_cfg(self) -> tuple[str, int]:
         p = self.prefs()
         url = p.get("youtube_url") if isinstance(p.get("youtube_url"), str) else ""
@@ -706,11 +769,12 @@ class App:
         if not self.live:
             return []
         events = self.live.recent_events()
-        if not events:
-            return []
-        if dump is None:
-            _, dump = self.latest_dump()
-        return make_gain_findings(events, dump, self.live.labels)
+        gain = []
+        if events:
+            if dump is None:
+                _, dump = self.latest_dump()
+            gain = make_gain_findings(events, dump, self.live.labels)
+        return gain + self.balance_findings()
 
     def eq_problems(self) -> list[dict]:
         """Analisis setting EQ mixer dan deteksi masalah: boomy, harsh, dll."""
@@ -1079,6 +1143,8 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, app.siaran_view())
                 if path == "/api/stream":
                     return self._json(200, app.stream_view())
+                if path == "/api/balance":
+                    return self._json(200, app.balance_view())
                 if path == "/api/lr-eq":
                     return self._json(200, app.lr_eq())
                 if path == "/api/memori":
@@ -1175,6 +1241,10 @@ def make_handler(app: App, http_port: int):
                     if situasi not in ai.SITUASI:
                         raise ValueError("Situasi tidak dikenal.")
                     return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", "")), _clean_audio(body.get("audio"), body.get("izin"))))
+                if path == "/api/balance/start":
+                    return self._json(200, app.balance_start(body.get("mic_ch"), body.get("lewati_peta") is True))
+                if path in ("/api/balance/mulai", "/api/balance/batal", "/api/balance/ulangi", "/api/balance/nilai"):
+                    return self._json(200, app.balance_do(path.rsplit("/", 1)[1], body))
                 if path == "/api/stream/cek":
                     threading.Thread(target=app.stream.run_check, daemon=True).start()
                     return self._json(202, {"ok": True})
