@@ -305,10 +305,11 @@ async function openMic() {
     let pk = 0, ss = 0;
     for (let i = C.FFT_N - 4096; i < C.FFT_N; i++) { const a = Math.abs(buf[i]); if (a > pk) pk = a; ss += buf[i] * buf[i]; }
     const pdb = 20 * Math.log10(pk + 1e-10), rdb = 10 * Math.log10(ss / 4096 + 1e-20);
-    $("meterFill").style.width = Math.max(0, Math.min(100, (pdb + 70) / 70 * 100)) + "%";
+    // skala -100..0 dBFS (dulu -70..0): sinyal kecil dari mic kondensor/USB tetap terlihat sebagai batang hijau
+    $("meterFill").style.width = Math.max(0, Math.min(100, (pdb + 100) / 100 * 100)) + "%";
     $("meterFill").className = pdb > -3 ? "hot" : "";
     $("meterTxt").textContent = `Level: puncak ${pdb.toFixed(0)} dBFS · rata-rata ${rdb.toFixed(0)} dBFS` +
-      (pdb > -3 ? " — terlalu keras, kecilkan gain/volume" : rdb < -60 ? " — hampir tidak ada sinyal" : rdb < -45 ? " — agak kecil, naikkan volume pink noise" : " — baik");
+      (pdb > -3 ? " — terlalu keras, kecilkan gain/volume" : rdb < -60 ? " — sangat kecil: naikkan gain mic di mixer (pastikan 48V menyala) atau kirim channel ke USB" : rdb < -45 ? " — agak kecil, naikkan volume pink noise" : " — baik");
   }, 150);
   $("btnMeasure").disabled = false; $("btnLive").disabled = false; $("btnNoise").disabled = false;
   $("micMsg").textContent = "Mic aktif: " + (stream.getAudioTracks()[0].label || "input");
