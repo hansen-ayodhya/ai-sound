@@ -45,6 +45,7 @@ from .dump import run_dump
 from .guard import ReadOnlyViolation, check
 from .guard import ALLOWED_PREFIXES
 from .live import LiveMonitor, analyze_eq_problems, inactive_from_dump, labels_from_dump, make_gain_findings
+from . import convert
 from . import siaran as siaranmod
 from . import stream as streammod
 from .writer import spec_for
@@ -572,6 +573,23 @@ class App:
                                "bandingkan dengan Bus siaran di mixer, dan apa penyebabnya.",
                                audio=[{"peran": "youtube", "wav": s["wav"], "detik": s["detik"], "spektrum": s["spektrum"], "angka": s["angka"]}])
 
+    def lr_eq(self) -> dict:
+        """EQ Main L/R (6 band) dari setting mixer terbaru, dalam satuan manusia (perkiraan)."""
+        _, dump = self.latest_dump()
+        v = (dump or {}).get("values", {})
+        def first(a):
+            x = v.get(a)
+            return x[0] if x else None
+        bands = []
+        for b in range(1, 7):
+            f, g = first(f"/lr/eq/{b}/f"), first(f"/lr/eq/{b}/g")
+            if f is None or g is None:
+                continue
+            q, t = first(f"/lr/eq/{b}/q"), first(f"/lr/eq/{b}/type")
+            bands.append({"band": b, "type": t if isinstance(t, int) and not isinstance(t, bool) else None, "hz": round(convert.eq_hz(f)),
+                          "db": round(convert.eq_gain_db(g), 1), "q": round(convert.eq_q(q), 2) if q is not None else 1.0})
+        return {"tersedia": bool(bands), "on": first("/lr/eq/on"), "band": bands}
+
     def siaran_view(self) -> dict:
         b = self.stream_bus()
         _, dump = self.latest_dump()
@@ -1061,6 +1079,8 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, app.siaran_view())
                 if path == "/api/stream":
                     return self._json(200, app.stream_view())
+                if path == "/api/lr-eq":
+                    return self._json(200, app.lr_eq())
                 if path == "/api/memori":
                     return self._json(200, {"profil": app.memori.profil(), "catatan": app.memori.semua(n=60)[::-1]})
                 if path == "/api/live/eq-problems":

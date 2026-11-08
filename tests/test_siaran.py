@@ -77,3 +77,25 @@ class Server(test_memori.MemoriServer):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LrEq(test_memori.MemoriServer):
+    test_flow_records_rates_and_clears = None
+
+    def test_lr_eq_endpoint_reads_six_bands(self):
+        from aise import convert as cv
+        v = self.mixer.state
+        v["/lr/eq/on"] = (1,)
+        for b, (t, hz, db) in enumerate([(0, 80, 0), (2, 200, 3), (2, 1000, 0), (2, 3000, -2), (2, 6000, 0), (4, 10000, 2)], 1):
+            v[f"/lr/eq/{b}/type"], v[f"/lr/eq/{b}/f"] = (t,), (cv.eq_raw_hz(hz),)
+            v[f"/lr/eq/{b}/g"], v[f"/lr/eq/{b}/q"] = (cv.eq_gain_raw(db),), (0.5,)
+        self.assertFalse(self.call("/api/lr-eq")[1]["tersedia"])                   # belum terbaca
+        self.app.addresses = [a for a in addresses.main_addresses()]
+        self.app._read_settings("127.0.0.1", self.mixer.port, None)
+        r = self.call("/api/lr-eq")[1]
+        self.assertTrue(r["tersedia"])
+        self.assertEqual(len(r["band"]), 6)
+        self.assertEqual(r["on"], 1)
+        self.assertEqual((r["band"][1]["hz"], r["band"][1]["db"], r["band"][0]["type"]), (200, 3.0, 0))
+        self.assertIn("/lr/eq/6/g", addresses.main_addresses())
+        self.assertNotIn("/lr/eq/7/g", addresses.main_addresses())

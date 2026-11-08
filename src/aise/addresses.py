@@ -58,7 +58,10 @@ def bus_addresses(n: int) -> list[str]:
 
 
 def main_addresses() -> list[str]:
-    return ["/lr/mix/on", "/lr/mix/fader", "/lr/eq/on", "/lr/dyn/on", "/lr/config/name"]
+    out = ["/lr/mix/on", "/lr/mix/fader", "/lr/eq/on", "/lr/dyn/on", "/lr/config/name"]
+    for band in range(1, 7):                      # EQ Main L/R punya 6 band
+        out += [f"/lr/eq/{band}/{p}" for p in ("type", "f", "g", "q")]
+    return out
 
 
 def fx_addresses(n: int) -> list[str]:

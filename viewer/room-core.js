@@ -240,7 +240,62 @@
     return new Blob([buf], { type: "audio/wav" });
   }
 
-  const api = { NOMINAL, CENTERS, FFT_N, TRUST, TARGETS, REF_RANGE, Averager, fft, normalize, targetCurve, combine, analyze,
+  /* ---------- EQ Main L/R (6 band) dan penggabungan dengan usulan ---------- */
+  const EQ_TYPES = ["LCut", "LShv", "PEQ", "VEQ", "HShv", "HCut"];     // urutan jenis band X Air (PERKIRAAN, belum diverifikasi)
+  function biquadDb(c, f, sr) {
+    const w = 2 * Math.PI * f / sr, cw = Math.cos(w), sw = Math.sin(w), c2 = Math.cos(2 * w), s2 = Math.sin(2 * w);
+    const nr = c.b0 + c.b1 * cw + c.b2 * c2, ni = -(c.b1 * sw + c.b2 * s2), dr = c.a0 + c.a1 * cw + c.a2 * c2, di = -(c.a1 * sw + c.a2 * s2);
+    return 10 * Math.log10((nr * nr + ni * ni) / (dr * dr + di * di));
+  }
+  function rbj(type, f0, gain, q, sr) {
+    const A = Math.pow(10, gain / 40), w0 = 2 * Math.PI * f0 / sr, cs = Math.cos(w0), sn = Math.sin(w0);
+    if (type === 0 || type === 5) {                                     // low cut / high cut (orde 2)
+      const al = sn / (2 * 0.7071);
+      return type === 0 ? { b0: (1 + cs) / 2, b1: -(1 + cs), b2: (1 + cs) / 2, a0: 1 + al, a1: -2 * cs, a2: 1 - al }
+        : { b0: (1 - cs) / 2, b1: 1 - cs, b2: (1 - cs) / 2, a0: 1 + al, a1: -2 * cs, a2: 1 - al };
+    }
+    if (type === 1 || type === 4) {                                     // shelf rendah / tinggi (kemiringan S=1)
+      const al = sn / 2 * Math.sqrt(2), k = 2 * Math.sqrt(A) * al;
+      return type === 1
+        ? { b0: A * ((A + 1) - (A - 1) * cs + k), b1: 2 * A * ((A - 1) - (A + 1) * cs), b2: A * ((A + 1) - (A - 1) * cs - k), a0: (A + 1) + (A - 1) * cs + k, a1: -2 * ((A - 1) + (A + 1) * cs), a2: (A + 1) + (A - 1) * cs - k }
+        : { b0: A * ((A + 1) + (A - 1) * cs + k), b1: -2 * A * ((A - 1) + (A + 1) * cs), b2: A * ((A + 1) + (A - 1) * cs - k), a0: (A + 1) - (A - 1) * cs + k, a1: 2 * ((A - 1) - (A + 1) * cs), a2: (A + 1) - (A - 1) * cs - k };
+    }
+    const al = sn / (2 * q);                                            // PEQ / VEQ (dan jenis tak dikenal)
+    return { b0: 1 + al * A, b1: -2 * cs, b2: 1 - al * A, a0: 1 + al / A, a1: -2 * cs, a2: 1 - al / A };
+  }
+  function lrCurve(bands, freqs, sr) {
+    sr = sr || 48000;
+    return freqs.map((f) => bands.reduce((s, b) => {
+      const cut = b.type === 0 || b.type === 5;
+      if (!cut && Math.abs(b.db) < 0.05) return s;
+      return s + biquadDb(rbj(b.type == null ? 2 : b.type, b.hz, cut ? 0 : b.db, b.q || 1, sr), f, sr);
+    }, 0));
+  }
+  const clamp15 = (x) => Math.max(-15, Math.min(15, x));
+  /* cur: band EQ L/R sekarang [{band,type,hz,db,q}]; recs: usulan ukur ruangan [{hz,db,q,aman}].
+   * Setiap usulan digabung ke band PEQ yang berdekatan (<= 1/3 oktaf), atau ke band yang belum dipakai (gain ~0 dB). */
+  function planLR(cur, recs) {
+    const isPeq = (b) => b.type == null || b.type === 2 || b.type === 3;
+    const plan = cur.map((b) => ({ band: b.band, now: b, next: { hz: b.hz, db: b.db, q: b.q }, aksi: "tetap", catatan: "" }));
+    const used = new Set(), notes = [];
+    const todo = recs.filter((r) => r.aman && r.db).slice().sort((a, b) => Math.abs(b.db) - Math.abs(a.db));
+    for (const r of todo) {
+      const near = plan.filter((p) => !used.has(p.band) && isPeq(p.now) && Math.abs(p.now.db) >= 0.3 && Math.abs(Math.log2(r.hz / p.now.hz)) <= 0.34)
+        .sort((a, b) => Math.abs(Math.log2(r.hz / a.now.hz)) - Math.abs(Math.log2(r.hz / b.now.hz)))[0];
+      const empty = near ? null : plan.find((p) => !used.has(p.band) && isPeq(p.now) && Math.abs(p.now.db) < 0.3);
+      const t = near || empty;
+      if (!t) { notes.push(`Usulan ${fmtHz(r.hz)} ${r.db > 0 ? "+" : "−"}${Math.abs(r.db).toFixed(1).replace(".", ",")} dB belum punya band yang bisa dipakai (semua band terpakai). Gabungkan manual atau pakai EQ di DSP.`); continue; }
+      used.add(t.band);
+      const want = near ? t.now.db + r.db : r.db;
+      t.next = { hz: near ? t.now.hz : r.hz, db: clamp15(want), q: near ? t.now.q : r.q };
+      t.aksi = near ? "gabung" : "band baru";
+      t.catatan = near ? `digabung dengan usulan ${fmtHz(r.hz)} (${r.db > 0 ? "+" : "−"}${Math.abs(r.db).toFixed(1).replace(".", ",")} dB)` : `band kosong dipakai untuk usulan ${fmtHz(r.hz)}`;
+      if (want !== t.next.db) t.catatan += `; dibatasi ${t.next.db > 0 ? "+" : "−"}15 dB (batas EQ)`;
+    }
+    return { plan, notes };
+  }
+
+  const api = { EQ_TYPES, lrCurve, planLR, NOMINAL, CENTERS, FFT_N, TRUST, TARGETS, REF_RANGE, Averager, fft, normalize, targetCurve, combine, analyze,
     eqCurve, peakingDb, pinkNoise, wavBlob, fmtHz, describe };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RoomCore = api;

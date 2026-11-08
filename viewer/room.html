@@ -154,6 +154,8 @@
     <div class="legend" id="eqLegend"></div>
     <div id="recs"></div>
     <div id="notes"></div>
+    <h3>EQ Main L/R: sekarang vs rekomendasi</h3>
+    <div id="lrBox"></div>
     <div class="btns">
       <button type="button" id="btnExport">Simpan hasil (JSON)</button>
       <button type="button" id="btnMem" title="Menyimpan ringkasan usulan ke memori belajar AI (lokal)">Simpan ke memori AI</button>
@@ -412,8 +414,9 @@ function renderResults() {
   const used = store.positions.filter((p) => p.on);
   ["rtaChart", "eqChart", "rtaLegend", "eqLegend", "recs", "notes"].forEach((id) => $(id).replaceChildren());
   $("summary").hidden = true;
-  if (!used.length) { $("rtaChart").append(text("p", "note", "Belum ada titik yang dipakai. Ukur atau centang titik di langkah 4.")); return; }
+  if (!used.length) { $("rtaChart").append(text("p", "note", "Belum ada titik yang dipakai. Ukur atau centang titik di langkah 4.")); window.__lastR = null; renderLR(); return; }
   const r = C.analyze(used.map((p) => p.bands), { mic: store.mic, target: store.target });
+  window.__lastR = r;
   window.__lastRoom = { mic: store.mic, target: store.target, titik: used.length, band: r.bands.map((b) => ({ hz: b.hz, db: b.db, q: b.q, jenis: b.jenis })) };
   const R = 18, a = chartBase($("rtaChart"), R, r.trusted);
   store.positions.forEach((p, i) => { if (p.on) polyline(a.s, a.yOf, C.normalize(p.bands), R, { stroke: COLORS[i % COLORS.length], "stroke-width": 1.2, opacity: .75 }); });
@@ -457,9 +460,86 @@ function renderResults() {
   $("summary").textContent = top.length
     ? `Ditemukan ${top.length} area yang perlu dikoreksi${r.bands.some((b) => !b.aman) ? " dan masalah yang bukan soal EQ" : ""}. Mulai dari nomor 1 pada daftar di bawah grafik.`
     : r.bands.length ? "Tidak ada koreksi EQ yang aman, tetapi ada cekungan sempit yang perlu diatasi dengan penempatan." : "Bentuk suara sudah dekat dengan target pada rentang yang dinilai.";
+  renderLR();
 }
 
-renderPositions(); renderResults(); listOutputs();
+// ---------- EQ Main L/R (6 band): sekarang vs rekomendasi ----------
+let lrData = null, lrErr = "";
+async function lrApi(path, body) {
+  const tk = (document.querySelector('meta[name="aise-token"]') || {}).content;
+  const r = await fetch(path, { method: body ? "POST" : "GET", headers: { "X-AISE-Token": tk || "", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+async function loadLR() {
+  try { lrData = await lrApi("/api/lr-eq"); lrErr = ""; } catch (e) { lrData = null; lrErr = "EQ Main L/R tidak bisa dibaca: buka halaman ini lewat AI-Sound-Engineer.bat."; }
+  renderLR();
+}
+const sg = (x) => (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x).toFixed(1).replace(".", ",");
+function bandTxt(b) {
+  const t = b.type == null ? "?" : C.EQ_TYPES[b.type] || "?";
+  return b.type === 0 || b.type === 5 ? `${t} ${C.fmtHz(b.hz)}` : `${t} · ${C.fmtHz(b.hz)} · ${sg(b.db)} dB · Q ${String(b.q).replace(".", ",")}`;
+}
+function renderLR() {
+  const box = $("lrBox");
+  box.replaceChildren();
+  if (!lrData) { box.append(text("p", "note", lrErr || "Memuat EQ Main L/R…")); return; }
+  const refresh = text("button", null, "↻ Baca EQ L/R dari mixer");
+  refresh.addEventListener("click", async () => {
+    refresh.disabled = true;
+    try { await lrApi("/api/settings/refresh", {}); } catch (e) { /* abaikan */ }
+    setTimeout(() => { refresh.disabled = false; loadLR(); }, 4000);
+  });
+  if (!lrData.tersedia) {
+    box.append(text("p", "note", "Setting EQ Main L/R belum terbaca dari mixer. Buka Tampilan Mixer (live) sebentar atau klik tombol di bawah, lalu muat ulang."), refresh);
+    return;
+  }
+  const cur = lrData.band, r = window.__lastR, recs = r ? r.bands : [];
+  const { plan, notes } = C.planLR(cur, recs);
+  const next = plan.map((p) => ({ ...p.now, hz: p.next.hz, db: p.next.db, q: p.next.q }));
+  const E = 15, e = chartBase(box.appendChild(text("div")), E, null);
+  const fq = Array.from({ length: 160 }, (_, i) => FMIN * Math.pow(FMAX / FMIN, i / 159));
+  const draw = (bands, color, w, dash) => {
+    const cv = C.lrCurve(bands, fq);
+    svg("path", { d: fq.map((f, i) => `${i ? "L" : "M"}${xOf(f).toFixed(1)},${e.yOf(clampDb(cv[i], E)).toFixed(1)}`).join(" "), fill: "none", stroke: color, "stroke-width": w, "stroke-dasharray": dash || "" }, e.s);
+  };
+  draw(cur, "#3fcf7f", 2.5);
+  const changed = plan.some((p) => p.aksi !== "tetap");
+  if (changed) draw(next, "#b48cff", 2.5, "6 4");
+  cur.forEach((b) => {
+    const cut = b.type === 0 || b.type === 5, cy = e.yOf(clampDb(cut ? 0 : b.db, E));
+    svg("circle", { cx: xOf(b.hz), cy, r: 8, fill: "#12161b", stroke: "#3fcf7f", "stroke-width": 2 }, e.s);
+    const t = svg("text", { x: xOf(b.hz), y: cy + 3.5, "text-anchor": "middle", style: "fill:#3fcf7f;font-weight:700;font-size:10px" }, e.s); t.textContent = b.band;
+  });
+  plan.filter((p) => p.aksi !== "tetap").forEach((p) => {
+    const cy = e.yOf(clampDb(p.next.db, E));
+    svg("circle", { cx: xOf(p.next.hz), cy, r: 8, fill: "#b48cff", stroke: "#12161b", "stroke-width": 2 }, e.s);
+    const t = svg("text", { x: xOf(p.next.hz), y: cy + 3.5, "text-anchor": "middle", style: "fill:#1a1030;font-weight:700;font-size:10px" }, e.s); t.textContent = p.band;
+  });
+  const lg = text("div", "legend");
+  box.append(lg);
+  legend(lg, [["#3fcf7f", "EQ L/R sekarang (6 band)"], ...(changed ? [["#b48cff", "EQ L/R setelah usulan ukur ruangan", true]] : [])]);
+  const tb = text("table");
+  tb.append(Object.assign(text("thead"), {}), text("tbody"));
+  tb.firstChild.append((() => { const tr = text("tr"); ["Band", "Sekarang", "Disarankan", "Keterangan"].forEach((h) => tr.append(text("th", null, h))); return tr; })());
+  for (const p of plan) {
+    const tr = text("tr");
+    tr.append(text("td", null, String(p.band)), text("td", null, bandTxt(p.now)),
+      text("td", null, p.aksi === "tetap" ? "tetap" : bandTxt({ ...p.now, hz: p.next.hz, db: p.next.db, q: p.next.q })),
+      text("td", null, p.aksi === "tetap" ? (Math.abs(p.now.db) < 0.3 && (p.now.type === 2 || p.now.type == null) ? "belum dipakai" : "tidak diubah") : p.catatan));
+    tb.lastChild.append(tr);
+  }
+  box.append(tb);
+  const bul = [];
+  if (lrData.on === 0) bul.push("EQ Main L/R sedang OFF di mixer: kurva di atas baru berlaku setelah EQ dinyalakan.");
+  if (!recs.length) bul.push(r ? "Pengukuran tidak menghasilkan koreksi EQ, jadi EQ L/R tidak perlu diubah." : "Ukur minimal satu titik untuk melihat usulan perubahan EQ L/R.");
+  bul.push(...notes);
+  bul.push("Perkiraan: jenis band (shelf/low cut) dan bentuk kurva belum diverifikasi pada MR18 Anda. Usulan hanya ditampilkan; ubah manual di M-AIR atau DSP, satu band, lalu ukur ulang.");
+  for (const n of bul) box.append(text("p", "note", n));
+  box.append(refresh);
+}
+renderPositions(); renderResults(); listOutputs(); loadLR();
 window.__room = { store, renderResults };
 </script>
 </body>

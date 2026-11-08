@@ -321,6 +321,13 @@
 - Build #36 gagal di tes `test_lan.test_cookie_without_token_rejected` (ConnectionAbortedError WinError 10053 di runner Windows; lulus di build sebelumnya, jadi tidak stabil). Akar: POST yang ditolak lebih awal (host, PIN, token, tombol khusus laptop) dijawab dan ditutup sebelum isi permintaan dibaca; Windows kadang memutus koneksi seperti itu, dan browser bisa melihat error yang sama. Kini `_reject` membuang isi permintaan (maks 10 MB) sebelum menjawab.
 - Tes baru: `RejectedPostBodyIsDrained` (POST 300 KB tanpa token harus selalu mendapat 403 bersih).
 
+## Update 2026-11-08: perbandingan EQ Main L/R di Ukur Ruangan
+
+- Pembacaan rutin kini menyertakan EQ Main L/R 6 band (`/lr/eq/1..6/{type,f,g,q}`) dan `GET /api/lr-eq` (satuan manusia, perkiraan).
+- Halaman Ukur Ruangan: bagian "EQ Main L/R: sekarang vs rekomendasi" menampilkan kurva EQ L/R sekarang (hijau) dan setelah usulan ukur ruangan digabungkan (ungu putus-putus), tabel 6 band (jenis, Hz, dB, Q sekarang dan disarankan, keterangan). Aturan penggabungan (`RoomCore.planLR`): usulan masuk ke band PEQ yang berdekatan (<= 1/3 oktaf, gain dijumlahkan, dibatasi +-15 dB), atau ke band yang belum dipakai (gain ~0); bila semua band terpakai, usulan dicatat sebagai belum punya band; low cut/shelf tidak disentuh; usulan yang bukan masalah EQ dilewati.
+- Kurva memakai model biquad (peaking, shelf, low/high cut); urutan jenis band (LCut, LShv, PEQ, VEQ, HShv, HCut) masih perkiraan dan belum diverifikasi pada MR18. Hanya ditampilkan; perubahan dilakukan manual.
+- Tes: tests/test_room_core.py (planLR, lrCurve) dan tests/test_siaran.py (LrEq).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
