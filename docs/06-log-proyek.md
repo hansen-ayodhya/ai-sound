@@ -328,6 +328,10 @@
 - Kurva memakai model biquad (peaking, shelf, low/high cut); urutan jenis band (LCut, LShv, PEQ, VEQ, HShv, HCut) masih perkiraan dan belum diverifikasi pada MR18. Hanya ditampilkan; perubahan dilakukan manual.
 - Tes: tests/test_room_core.py (planLR, lrCurve) dan tests/test_siaran.py (LrEq).
 
+## Update 2026-11-08: menu utama bisa digulir
+
+- Menu ⋯ di Tampilan Mixer terlalu panjang untuk layar kecil dan bagian bawahnya (termasuk Beranda) tidak terjangkau. Kini tingginya dibatasi sesuai layar dan bisa digulir (`overflow-y: auto`), dan bagian "Halaman" (Beranda, Klip Suara, dst.) dipindah ke paling atas. Diuji di laptop kecil, HP tegak, dan HP mendatar.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

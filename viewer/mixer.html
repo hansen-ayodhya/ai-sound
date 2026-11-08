@@ -35,7 +35,7 @@
   .seg button.on { background: var(--accent); border-color: var(--accent); color: #0b1a2e; font-weight: 700; }
   .tools .aiBtn { border-color: #3cc9f0; color: #9be6fa; }
   .more { position: relative; } .more summary { list-style: none; font-weight: 700; padding: 4px 11px; } .more summary::-webkit-details-marker { display: none; }
-  .menu { position: absolute; right: 0; top: 34px; width: 270px; background: var(--desk); border: 1px solid var(--line); border-radius: 10px;
+  .menu { position: absolute; right: 0; top: 34px; width: 270px; max-height: calc(100vh - 52px); overflow-y: auto; overscroll-behavior: contain; background: var(--desk); border: 1px solid var(--line); border-radius: 10px;
     padding: 8px; box-shadow: 0 10px 30px #000a; z-index: 20; display: grid; gap: 2px; }
   .menu h5 { margin: 8px 6px 2px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
   .menu button, .menu a, .menu label { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 6px 8px;
@@ -273,6 +273,8 @@
     <button type="button" id="ctlPill" class="ctl" hidden title="Mode kontrol aktif. Klik untuk mematikan.">✎ Kontrol <span id="ctlLeft"></span></button>
     <details class="more" id="more"><summary title="Menu lain">⋯</summary>
       <div class="menu">
+        <h5>Halaman</h5>
+        <a href="home.html">Beranda</a><a href="clips.html">Klip Suara</a><a href="dsp.html">Data DSP</a><a href="room.html">Ukur Ruangan</a><a href="memori.html">Memori AI</a><a href="index.html">Tabel</a>
         <h5>Pemantauan</h5>
         <button type="button" id="btnLive" class="liveToggle" hidden>■ Hentikan pantau live</button>
         <button type="button" id="btnControl" hidden>✎ Nyalakan mode kontrol…</button>
@@ -293,8 +295,6 @@
         <h5>Tampilan</h5>
         <div class="zrow"><button type="button" id="zOut" aria-label="Perkecil">−</button><span class="zv" id="zVal">100%</span><button type="button" id="zIn" aria-label="Perbesar">+</button><button type="button" id="zFit">Pas layar</button><button type="button" id="zReset">100%</button></div>
         <button type="button" id="btnLand" hidden>↻ Landscape</button>
-        <h5>Halaman</h5>
-        <a href="home.html">Beranda</a><a href="clips.html">Klip Suara</a><a href="dsp.html">Data DSP</a><a href="room.html">Ukur Ruangan</a><a href="memori.html">Memori AI</a><a href="index.html">Tabel</a>
         <h5>Catatan</h5>
         <p class="info">Secara default halaman ini hanya membaca mixer. Mixer baru berubah bila Anda menyalakan Mode kontrol lalu menekan Terapkan pada sebuah rekomendasi. Fader, gain, nama, HPF, dan EQ sudah dicocokkan dengan M-AIR. Angka kompresor, gate, dan kiriman bus masih perkiraan (≈), begitu juga pemetaan meter ke channel.</p>
         <p class="info" id="source"></p>
