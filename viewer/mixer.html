@@ -104,6 +104,11 @@
   .mbox .mbtns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
   .mbox button { font: inherit; padding: 7px 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--strip); color: var(--text); cursor: pointer; }
   .mbox button.go { background: var(--warn); border-color: var(--warn); color: #1a1204; font-weight: 700; } .mbox button:disabled { opacity: .45; cursor: not-allowed; }
+  .audslot { border: 1px dashed #3cc9f0; border-radius: 8px; padding: 8px 10px; margin: 8px 0; background: #11181f; }
+  .audslot h4 { margin: 0 0 2px; font-size: 13px; color: #9be6fa; }
+  .audslot .abtns { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; align-items: center; }
+  .audslot button, .audslot .fbtn, .audslot select { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--strip); color: var(--text); cursor: pointer; }
+  .audslot .fbtn input { display: none; }
   .gk { position: absolute; left: 50%; width: 46px; height: 0; border-top: 2px dashed; transform: translate(-50%, 50%); pointer-events: none; z-index: 2; }
   .gk.rule { border-color: #b48cff; } .gk.gem { border-color: #3cc9f0; }
   .mcol { display: flex; flex-direction: column; gap: 2px; width: 14px; flex: 0 0 14px; }
@@ -314,6 +319,7 @@
   <div class="mbtns"><button type="button" id="ctlCancel">Batal</button><button type="button" id="ctlGo" class="go" disabled>Nyalakan</button></div>
 </div></div>
 
+<script src="room-core.js"></script>
 <script>
 "use strict";
 
@@ -1200,6 +1206,90 @@ function useAIResult(res) {
   state.aiFindings = (res && res.prioritas) || [];
   mergeFindings();
 }
+// ---------- rekaman untuk Gemini: suara ruangan (HP) dan rekaman dari mixer ----------
+async function toWav16kB64(x, sr) {
+  const tmp = new AudioBuffer({ length: x.length, sampleRate: sr, numberOfChannels: 1 });
+  tmp.copyToChannel(x, 0);
+  const off = new OfflineAudioContext(1, Math.ceil(x.length * 16000 / sr), 16000);
+  const src = off.createBufferSource(); src.buffer = tmp; src.connect(off.destination); src.start();
+  const out = (await off.startRendering()).getChannelData(0);
+  const buf = new ArrayBuffer(44 + out.length * 2), v = new DataView(buf);
+  const w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + out.length * 2, true); w(8, "WAVE"); w(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 16000, true);
+  v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, out.length * 2, true);
+  for (let i = 0; i < out.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, out[i])) * 32767, true);
+  let bin = ""; const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+// Rekaman diubah ke mono, maks 20 detik; spektrum 1/3 oktaf dihitung dari rekaman asli (bukan versi 16 kHz).
+async function prepAudio(arrayBuffer) {
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  let ab;
+  try { ab = await ac.decodeAudioData(arrayBuffer); } finally { ac.close(); }
+  const len = Math.min(ab.length, Math.floor(ab.sampleRate * 20)), x = new Float32Array(len);
+  for (let c = 0; c < ab.numberOfChannels; c++) { const d = ab.getChannelData(c); for (let i = 0; i < len; i++) x[i] += d[i] / ab.numberOfChannels; }
+  if (len < ab.sampleRate * 1.5) throw new Error("Rekaman terlalu pendek (minimal sekitar 2 detik).");
+  let pk = 0, ss = 0;
+  for (let i = 0; i < len; i++) { const a = Math.abs(x[i]); if (a > pk) pk = a; ss += x[i] * x[i]; }
+  if (10 * Math.log10(ss / len + 1e-20) < -70) throw new Error("Rekaman hampir senyap. Ulangi dengan suara lebih keras atau mic lebih dekat.");
+  const avg = new RoomCore.Averager(ab.sampleRate);
+  for (let i = 0; i + RoomCore.FFT_N <= len; i += RoomCore.FFT_N / 2) avg.add(x.subarray(i, i + RoomCore.FFT_N));
+  const bands = avg.frames ? RoomCore.normalize(avg.bands()) : null;
+  return { wav_b64: await toWav16kB64(x, ab.sampleRate), spektrum: bands && bands.every((b) => b != null) ? bands.map((b) => Math.round(b * 10) / 10) : null,
+    detik: len / ab.sampleRate, clip: pk >= 0.99 };
+}
+function audioSlot(peran, judul, ket, withDevice) {
+  const slot = { data: null };
+  const stat = el("div", { class: "note", text: "Belum ada rekaman." });
+  const prev = el("audio", { controls: "", hidden: "", style: "width:100%" });
+  const dev = withDevice ? el("select", { "aria-label": "Input suara dari mixer" }, el("option", { value: "", text: "Input bawaan" })) : null;
+  let rec = null, stream = null, timer = null;
+  const done = async (blob) => {
+    stat.textContent = "Memproses…";
+    try {
+      slot.data = await prepAudio(await blob.arrayBuffer());
+      prev.src = URL.createObjectURL(blob); prev.hidden = false;
+      stat.textContent = `Siap: ${slot.data.detik.toFixed(1)} detik` + (slot.data.clip ? " · sempat clipping (terlalu keras), hasil kurang akurat" : "") + (slot.data.spektrum ? "" : " · spektrum tidak terhitung");
+    } catch (e) { slot.data = null; stat.textContent = e.message; }
+  };
+  const canRec = window.isSecureContext && navigator.mediaDevices && window.MediaRecorder;
+  const bRec = el("button", { type: "button", text: "🎤 Rekam" });
+  bRec.addEventListener("click", async () => {
+    if (rec) { rec.stop(); return; }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: dev && dev.value ? { exact: dev.value } : undefined,
+        echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      if (dev) {
+        const ins = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audioinput");
+        const cur = dev.value;
+        dev.replaceChildren(el("option", { value: "", text: "Input bawaan" }), ...ins.map((d) => el("option", { value: d.deviceId, text: d.label || "Input" })));
+        dev.value = cur;
+      }
+      const chunks = [];
+      rec = new MediaRecorder(stream);
+      rec.ondataavailable = (e) => chunks.push(e.data);
+      rec.onstop = () => {
+        clearTimeout(timer); stream.getTracks().forEach((t) => t.stop()); rec = null; bRec.textContent = "🎤 Rekam";
+        done(new Blob(chunks, { type: chunks[0] && chunks[0].type || "audio/webm" }));
+      };
+      rec.start(); bRec.textContent = "■ Berhenti"; stat.textContent = "Merekam… (otomatis berhenti di 20 detik)";
+      timer = setTimeout(() => rec && rec.stop(), 20000);
+    } catch (e) { stat.textContent = "Mic tidak bisa dibuka: " + e.message; }
+  });
+  if (!canRec) { bRec.disabled = true; bRec.title = "Browser memblokir mic di alamat ini. Pakai 'Rekam dengan HP' atau buka lewat http://localhost di laptop."; }
+  const fileBtn = (label, capture) => {
+    const inp = el("input", { type: "file", accept: "audio/*,.wav" });
+    if (capture) inp.setAttribute("capture", "");
+    inp.addEventListener("change", () => { const f = inp.files[0]; inp.value = ""; if (f) done(f); });
+    return el("label", { class: "fbtn" }, label, inp);
+  };
+  const bClear = el("button", { type: "button", text: "Hapus", onclick: () => { slot.data = null; prev.hidden = true; prev.removeAttribute("src"); stat.textContent = "Belum ada rekaman."; } });
+  slot.el = el("div", { class: "audslot" }, el("h4", { text: judul }), el("div", { class: "note", text: ket }),
+    el("div", { class: "abtns" }, ...(dev ? [dev] : []), bRec, fileBtn("📱 Rekam dengan HP", true), fileBtn("Pilih file", false), bClear), stat, prev);
+  return slot;
+}
 async function openAI() {
   let view;
   try { view = await api("/api/ai"); } catch (e) { alert(e.message); return; }
@@ -1211,13 +1301,19 @@ async function openAI() {
   const q = el("textarea", { placeholder: "Opsional. Contoh: Vokal WL tenggelam saat lagu cepat, apa yang perlu dicek dulu?", maxlength: "600" });
   const chips = el("div", { class: "chips" }, ...["Khotbah kurang jelas", "Vokal tenggelam", "Sering feedback", "Bass boomy", "Vokal tajam", "Musik terlalu keras"].map((t) =>
     el("button", { type: "button", text: t, onclick: () => { q.value = t + ". Apa akar masalah dan langkah pertama yang perlu dicek?"; } })));
+  const sHp = audioSlot("ruangan_hp", "1. Suara di ruangan (rekam dengan HP)", "Rekam 10–20 detik di titik duduk jemaat saat ada suara (pujian atau khotbah). Opsional.", false);
+  const sMx = audioSlot("mixer", "2. Rekaman dari mixer (opsional, untuk dibandingkan)", "Rekam dari input mixer (mis. USB MR18) pada momen yang sama, atau pilih file. Gemini membandingkannya dengan rekaman ruangan.", true);
+  const izin = el("input", { type: "checkbox" });
+  const izinRow = el("label", { class: "toggle" }, izin, "Izinkan rekaman dikirim ke Google (Gemini). Tidak disimpan di laptop; dikirim bersama data setting mixer saat ini.");
   const go = el("button", { class: "go", type: "button", text: "Kirim ke Gemini" });
   go.disabled = !view.status.configured;
   go.addEventListener("click", async () => {
     go.disabled = true; go.textContent = "Menunggu Gemini… (bisa 10–60 detik)";
     try {
       state.aiSituasi = sit.value;
-      const res = await api("/api/ai/analyze", { situasi: sit.value, pertanyaan: q.value });
+      const audio = [["ruangan_hp", sHp], ["mixer", sMx]].filter(([, sl]) => sl.data).map(([peran, sl]) => ({ peran, wav_b64: sl.data.wav_b64, spektrum: sl.data.spektrum }));
+      if (audio.length && !izin.checked) throw new Error("Centang izin dulu sebelum rekaman dikirim ke Google.");
+      const res = await api("/api/ai/analyze", { situasi: sit.value, pertanyaan: q.value, ...(audio.length ? { audio, izin: true } : {}) });
       await refreshRecs();
       useAIResult(res);
       state.keepDrawer = true; render(); state.keepDrawer = false;
@@ -1228,13 +1324,14 @@ async function openAI() {
   if (view.last) out.replaceChildren(el("p", { class: "note", text: "Hasil terakhir:" }), ...aiResultView(view.last));
   showDrawer(null,
     el("h3", { text: "✦ Analisis AI (Gemini)" }),
-    el("p", { class: "note", text: "Gemini menerima RINGKASAN angka (peran channel, setting perkiraan, temuan aturan, peringatan live) — bukan audio, IP, PIN, atau API key. " +
-      "Saran AI hanya sebagus datanya: tanpa pengukuran audio, Gemini juga tidak bisa mendengar ruangan. Usulan tidak pernah diterapkan otomatis." }),
+    el("p", { class: "note", text: "Gemini menerima RINGKASAN angka (peran channel, setting perkiraan, temuan aturan, peringatan live), bukan IP, PIN, atau API key. Audio hanya dikirim bila Anda merekam atau memilih file di bawah dan mencentang izin. " +
+      "Saran AI hanya sebagus datanya: tanpa rekaman, Gemini tidak bisa mendengar ruangan. Usulan baru diterapkan bila Anda menekan Terapkan." }),
     view.status.configured ? el("p", { class: "note", text: "Model: " + view.status.model }) :
       el("p", { class: "msg bad", text: "Gemini belum diatur. Isi API key di Beranda (dari laptop/komputer utama)." }),
     el("div", { class: "ai" },
       el("label", { class: "f", text: "Situasi sekarang" }), sit,
-      el("label", { class: "f", text: "Pertanyaan / keluhan (opsional)" }), chips, q, go),
+      el("label", { class: "f", text: "Pertanyaan / keluhan (opsional)" }), chips, q,
+      sHp.el, sMx.el, izinRow, go),
     out);
 }
 $("btnAI").addEventListener("click", openAI);

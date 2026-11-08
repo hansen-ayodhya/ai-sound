@@ -254,6 +254,14 @@
 - Peringatan live disembunyikan setelah 5 menit (sebelumnya 2); tetap ada di log.
 - Akhiran angka otomatis pada nama channel dari mixer (mis. "Lead Keyb_27", "Bass_19") tidak ditampilkan lagi: `channels.clean_name` (Python: label live, laporan, prompt Gemini, isi otomatis Daftar Channel) dan `cleanName` di viewer (strip, panel, pemilih channel, tabel). Hanya `_` + 1-3 angka di akhir yang dibuang. Data mentah di dump tidak diubah.
 
+## Update 2026-11-08: rekaman HP + rekaman mixer ke Gemini (panel ✦ Analisis AI)
+
+- Dua slot rekaman di panel Analisis AI: "Suara di ruangan (HP)" dan "Rekaman dari mixer" (opsional, untuk dibandingkan). Tiap slot: 🎤 Rekam (hanya bila browser mengizinkan mic: localhost; slot mixer punya pilihan input, mis. USB MR18), 📱 Rekam dengan HP (aplikasi perekam HP lewat `capture`), Pilih file, Hapus. Maks 20 detik, diubah ke WAV mono 16 kHz di browser.
+- Yang dikirim ke Gemini: kedua rekaman (diberi peran), data setting mixer seperti analisis biasa, level meter live saat kirim, spektrum 1/3 oktaf relatif tiap rekaman (dihitung di browser dari rekaman asli, 24 pita) dan selisih "ruangan - mixer" bila ada kedua rekaman. Prompt menegaskan: mic HP tidak terkalibrasi, frekuensi dari angka spektrum, bukti terbatas, rekaman mungkin tidak dari momen yang sama.
+- Server (`_clean_audio`): wajib centang izin, maks 2 rekaman dengan peran berbeda, WAV valid 0,5-30 dtk; tidak disimpan di laptop. Hasil memakai jalur analisis yang sama (usulan tercatat, bisa diterapkan lewat Mode kontrol).
+- Belum terbukti: kualitas perbandingan HP vs mixer pada ruangan nyata, dan perekaman dari input USB MR18 di Windows (butuh driver).
+- Tes: tests/test_ai_audio.py; uji browser dua slot dengan file rekaman.
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

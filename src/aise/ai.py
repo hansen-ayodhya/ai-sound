@@ -166,6 +166,16 @@ def pick_model(models: list[str]) -> str | None:
 
 
 # ---------- konteks yang dikirim ----------
+ROOM_BANDS = [63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000,
+              6300, 8000, 10000, 12500]
+AUDIO_NOTE = ("\n\nREKAMAN: audio terlampir ditandai perannya. 'ruangan_hp' = direkam HP di ruangan (mikrofon tidak terkalibrasi, "
+              "hanya bentuk relatif yang berarti). 'mixer' = direkam dari mixer (sinyal sebelum speaker dan ruangan). 'spektrum_relatif_db' "
+              "= level relatif per pita 1/3 oktaf (pita_spektrum_hz), dihitung program dari rekaman yang sama; 'selisih_ruangan_minus_mixer_db' "
+              "= apa yang ruangan dan speaker tambahkan/kurangi dibanding sinyal di mixer. Bandingkan keduanya untuk memisahkan masalah "
+              "di mixer (setting channel) dari masalah di speaker/DSP/ruangan. Pakai angka spektrum untuk frekuensi, jangan menebak dari pendengaran. "
+              "Rekaman mungkin bukan dari momen yang sama; bila hanya satu rekaman, katakan tidak ada pembanding. Jangan menyimpulkan lebih dari bukti."
+              )
+
 SYSTEM = """Anda adalah sound engineer gereja profesional yang membantu operator mixer Midas MR18.
 Konteks tetap:
 - Sistem: Midas MR18 -> speaker management Ashly Protea 4.8SP -> 2 speaker utama aktif (Mickey) + 2 subwoofer aktif; 2 monitor panggung.
@@ -283,7 +293,7 @@ SITUASI = {"umum": "ibadah umum", "lagu": "sesi pujian/lagu", "khotbah": "khotba
 
 
 def build_prompt(dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
-                 situasi: str, pertanyaan: str, dsp: dict | None = None, riwayat: dict | None = None) -> str:
+                 situasi: str, pertanyaan: str, dsp: dict | None = None, riwayat: dict | None = None, audio: list[dict] | None = None) -> str:
     ctx = {
         "dsp": dspmod.summary(dsp) or None,
         "temuan_dsp": [{"masalah": f["masalah"], "usulan": [u["teks"] for u in f["usulan"]]} for f in dspmod.analyze(dsp)],
@@ -303,10 +313,21 @@ def build_prompt(dump: dict | None, profile: dict | None, findings: list[dict], 
                                     for a in (live.get("alerts") or [])[-30:]],
             "catatan": "pemetaan meter ke channel masih perkiraan",
         }
+        if audio and live.get("levels"):
+            ctx["pantau_live"]["level_meter_saat_kirim_db"] = {
+                (live.get("labels") or {}).get(str(i), f"meter {i}"): v for i, v in enumerate(live["levels"][:16])}
+    if audio:
+        ctx["rekaman"] = [{"peran": a["peran"], "durasi_detik": a["detik"],
+                           "spektrum_relatif_db": a.get("spektrum")} for a in audio]
+        ctx["pita_spektrum_hz"] = ROOM_BANDS
+        by = {a["peran"]: a.get("spektrum") for a in audio}
+        if by.get("ruangan_hp") and by.get("mixer"):
+            ctx["selisih_ruangan_minus_mixer_db"] = [round(r - m, 1) for r, m in zip(by["ruangan_hp"], by["mixer"])]
     if riwayat and riwayat.get("jumlah_catatan"):
         ctx["riwayat"] = riwayat
     return ("Data sistem saat ini (JSON):\n" + json.dumps(ctx, ensure_ascii=False)
-            + "\n\nBerikan analisis sesuai aturan. Bila ada pertanyaan operator, jawab di 'jawaban'.")
+            + "\n\nBerikan analisis sesuai aturan. Bila ada pertanyaan operator, jawab di 'jawaban'."
+            + (AUDIO_NOTE if audio else ""))
 
 
 # ---------- memeriksa jawaban ----------
@@ -446,9 +467,13 @@ def _generate(cfg: dict, parts: list, schema: dict, base: str) -> dict:
 
 def analyze(cfg: dict, dump: dict | None, profile: dict | None, findings: list[dict], live: dict | None,
             situasi: str = "umum", pertanyaan: str = "", base: str = API_BASE, dsp: dict | None = None,
-            riwayat: dict | None = None) -> dict:
-    parsed = _generate(cfg, [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan, dsp, riwayat)}],
-                       RESPONSE_SCHEMA, base)
+            riwayat: dict | None = None, audio: list[dict] | None = None) -> dict:
+    import base64
+    parts = [{"text": build_prompt(dump, profile, findings, live, situasi, pertanyaan, dsp, riwayat, audio)}]
+    for a in audio or []:
+        parts.append({"text": f"Rekaman peran={a['peran']} ({'direkam HP di ruangan' if a['peran'] == 'ruangan_hp' else 'direkam dari mixer'}):"})
+        parts.append({"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(a["wav"]).decode("ascii")}})
+    parsed = _generate(cfg, parts, RESPONSE_SCHEMA, base)
     out = sanitize(parsed, dump)
     out.update(model=cfg.get("model"), dibuat=time.strftime("%Y-%m-%dT%H:%M:%S%z"), situasi=situasi,
                pertanyaan=_s(pertanyaan, MAX_QUESTION), ada_data_mixer=bool(dump))

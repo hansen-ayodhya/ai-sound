@@ -37,7 +37,7 @@ from urllib.parse import parse_qs, unquote_plus, urlparse
 
 from . import ai, channels, meters, recs
 from . import dsp as dspmod
-from .clips import ClipError, ClipStore
+from .clips import ClipError, ClipStore, wav_info
 from .addresses import all_addresses
 from .audit import PROBE_ADDRESSES, MixerNotAnswering, run_audit
 from .client import DEFAULT_PORT, ReadOnlyClient
@@ -60,7 +60,7 @@ DEFAULT_HTTP_PORT = 8765
 MAX_BODY = 60_000
 MAX_CLIP_BODY = 3_000_000  # klip ≤30 dtk WAV 16 kHz mono ≈ 1 MB, base64 ≈ 1,3 MB
 MAX_DSP_BODY = 10_000_000  # preset ≤5 MB atau tangkapan layar, dalam base64
-BIG_BODY = {"/api/clips": MAX_CLIP_BODY, "/api/dsp/preset": MAX_DSP_BODY, "/api/dsp/ai-read": MAX_DSP_BODY}
+BIG_BODY = {"/api/ai/analyze": 4_000_000, "/api/clips": MAX_CLIP_BODY, "/api/dsp/preset": MAX_DSP_BODY, "/api/dsp/ai-read": MAX_DSP_BODY}
 IMAGE_MIME = ("image/png", "image/jpeg", "image/webp")
 LIVE_REFRESH_S = 60  # baca ulang setting mixer selama live
 PARAM_FLUSH_S = 1.5  # jeda sebelum kabar perubahan digabung ke setting terbaru
@@ -611,7 +611,7 @@ class App:
         finally:
             self._ai_lock.release()
 
-    def ai_analyze(self, situasi: str, pertanyaan: str) -> dict:
+    def ai_analyze(self, situasi: str, pertanyaan: str, audio: list[dict] | None = None) -> dict:
         if not self._ai_lock.acquire(blocking=False):
             raise Busy("Gemini masih memproses permintaan sebelumnya. Tunggu sebentar.")
         try:
@@ -621,7 +621,9 @@ class App:
             live = self.live.snapshot() if self.live else None
             res = ai.analyze(ai.load_config(self.ai_cfg_path), dump, profile, findings, live,
                              situasi=situasi, pertanyaan=pertanyaan, base=self.ai_base, dsp=self.dsp_data(),
-                             riwayat=self.memori.profil())
+                             riwayat=self.memori.profil(), audio=audio)
+            if audio:
+                res["audio"] = [{"peran": a["peran"], "detik": a["detik"]} for a in audio]
             self._track_gemini(res, dump)
             (self.data / "ai-last.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
             return res
@@ -656,6 +658,34 @@ class App:
             return {"ok": False, "output": "Waktu habis."}
         out = (r.stdout + r.stderr).strip()
         return {"ok": r.returncode == 0, "output": out[-4000:]}
+
+
+def _clean_audio(items, izin) -> list[dict] | None:
+    """Periksa rekaman yang ikut dikirim ke Gemini: maks 2 (HP dan mixer), WAV valid, dan operator sudah memberi izin."""
+    if not items:
+        return None
+    if not isinstance(items, list) or len(items) > 2:
+        raise ValueError("Maksimal 2 rekaman (HP dan mixer).")
+    if izin is not True:
+        raise ValueError("Centang izin dulu sebelum rekaman dikirim ke Google.")
+    out, seen = [], set()
+    for it in items:
+        peran = it.get("peran") if isinstance(it, dict) else None
+        if peran not in ("ruangan_hp", "mixer") or peran in seen:
+            raise ValueError("Peran rekaman harus 'ruangan_hp' atau 'mixer', masing-masing satu.")
+        seen.add(peran)
+        try:
+            wav = base64.b64decode(str(it.get("wav_b64", "")), validate=True)
+        except ValueError as exc:
+            raise ValueError("Rekaman tidak valid.") from exc
+        info = wav_info(wav)
+        spec = it.get("spektrum")
+        if isinstance(spec, list) and len(spec) == 24 and all(isinstance(x, (int, float)) and not isinstance(x, bool) and abs(x) < 200 for x in spec):
+            spec = [round(float(x), 1) for x in spec]
+        else:
+            spec = None
+        out.append({"peran": peran, "wav": wav, "detik": info["seconds"], "spektrum": spec})
+    return out
 
 
 def _remember(app: "App", ip: str, port: int) -> None:
@@ -975,7 +1005,7 @@ def make_handler(app: App, http_port: int):
                     situasi = str(body.get("situasi", "umum"))
                     if situasi not in ai.SITUASI:
                         raise ValueError("Situasi tidak dikenal.")
-                    return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", ""))))
+                    return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", "")), _clean_audio(body.get("audio"), body.get("izin"))))
                 if path == "/api/memori/nilai":
                     return self._json(200, app.memori_nilai(str(body.get("id", "")), str(body.get("nilai", ""))))
                 if path == "/api/memori/ukur":
