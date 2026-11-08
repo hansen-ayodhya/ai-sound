@@ -283,6 +283,7 @@ class LiveRules:
         self._hist: dict[int, deque] = {}
         self._last: dict[tuple[str, int], float] = {}
         self._last_weak_check = 0.0
+        self.weak_enabled = True          # peringatan 'sinyal sangat kecil' (dimatikan operator bila banyak sumber memang tidak dipakai)
 
     def label(self, i: int) -> str:
         return self.labels.get(i, f"Meter {i}")
@@ -317,7 +318,7 @@ class LiveRules:
             h.append((t, lvl))
             while h and t - h[0][0] > WEAK_WINDOW:
                 h.popleft()
-            if check_weak and i not in self.inactive and h and t - h[0][0] >= WEAK_WINDOW * 0.9:
+            if check_weak and self.weak_enabled and i not in self.inactive and h and t - h[0][0] >= WEAK_WINDOW * 0.9:
                 peak = max(v for _, v in h)
                 if WEAK_FLOOR < peak < WEAK_MAX:
                     self._emit(out, "weak", "info", i, peak, t,
@@ -334,7 +335,7 @@ class LiveRules:
 
 class LiveMonitor:
     def __init__(self, ip: str, port: int, path: str, labels: dict[int, str],
-                 log_path: Path, on_stop=None, on_param=None, inactive: set[int] | None = None, on_alert=None, state_of=None):
+                 log_path: Path, on_stop=None, on_param=None, inactive: set[int] | None = None, on_alert=None, state_of=None, weak_alerts: bool = True):
         self.state_of = state_of          # (indeks meter) -> {'gain': nilai mentah, 'on': 0/1}; untuk menilai peringatan secara realtime
         self._last_over: dict[int, float] = {}
         self._last_loud: dict[int, float] = {}
@@ -342,6 +343,7 @@ class LiveMonitor:
         self.ip, self.port, self.path = ip, port, path
         self.on_param = on_param          # dipanggil (alamat, argumen) untuk perubahan dari M-AIR
         self.rules = LiveRules(labels, inactive)
+        self.rules.weak_enabled = weak_alerts
         self.labels = labels
         self.log_path = log_path
         self.on_stop = on_stop
@@ -438,7 +440,9 @@ class LiveMonitor:
             if a.resolved:
                 continue
             why = None
-            if a.index < 0:
+            if a.kind == "weak" and not self.rules.weak_enabled:
+                why = "peringatan sinyal kecil dimatikan"
+            elif a.index < 0:
                 if fresh:
                     why = "data meter sudah kembali"
             else:

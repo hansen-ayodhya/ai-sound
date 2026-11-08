@@ -287,6 +287,11 @@
 - Akar masalahnya sama dengan perbaikan sebelumnya (balasan UDP yang hilang saat pembacaan ulang menghapus nilai dan memangkas alamat); exe lama masih punya bug itu.
 - Tes: tests/test_refresh_keep.py (tambahan); uji browser fader yang terbaca belakangan.
 
+## Update 2026-11-08: peringatan "sinyal sangat kecil" mati secara default
+
+- Peringatan sinyal sangat kecil (sumber yang memang tidak dipakai) kini mati secara default; saklar ada di menu ⋯ -> Peringatan (tersimpan di data/prefs.json, berlaku langsung tanpa memulai ulang live). Saat dimatikan, peringatan lama jenis ini ikut ditandai teratasi ("dimatikan"). Peringatan clipping, hampir clipping, dan koneksi tidak berubah.
+- Tes: tests/test_alerts_ignore.py (tambahan).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

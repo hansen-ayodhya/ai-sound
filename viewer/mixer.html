@@ -276,6 +276,8 @@
         <button type="button" id="btnLive" class="liveToggle" hidden>■ Hentikan pantau live</button>
         <button type="button" id="btnControl" hidden>✎ Nyalakan mode kontrol…</button>
         <button type="button" id="btnRestoreAll" hidden>↩ Kembalikan semua perubahan</button>
+        <h5>Peringatan</h5>
+        <label class="zrow" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="ckWeak"> <span>Peringatan "sinyal sangat kecil" (untuk sumber yang memang tidak dipakai, sebaiknya mati)</span></label>
         <h5>Saran AI</h5>
         <button type="button" id="btnIgnored" hidden>🚫 Rekomendasi diabaikan (0)…</button>
         <button type="button" id="btnReanalyze" hidden>✦ Analisis ulang sekarang</button>
@@ -1682,6 +1684,7 @@ async function reanalyze(manual) {
   } finally { state.aiBusy = false; }
 }
 $("btnIgnored").addEventListener("click", () => { $("more").open = false; openIgnored(); });
+$("ckWeak").addEventListener("change", async () => { try { await api("/api/prefs", { weak_alerts: $("ckWeak").checked }); } catch (e) { alert(e.message); $("ckWeak").checked = !$("ckWeak").checked; } });
 $("btnReanalyze").addEventListener("click", () => { $("more").open = false; reanalyze(true); });
 $("aiAuto").value = String(state.view.aiAuto || 0);
 $("aiAuto").addEventListener("change", () => { state.view.aiAuto = +$("aiAuto").value; saveView(); state.aiAt = Date.now(); });
@@ -1894,6 +1897,7 @@ applyMode();
 async function autoLive() {
   try {
     const st = await api("/api/status");
+    $("ckWeak").checked = !!st.weak_alerts;
     if (st.live) { startPolling(); return; }
     if (!st.ip) { setStatus("warn", "Belum ada IP mixer. Isi di Beranda lalu muat ulang halaman ini."); return; }
     setStatus("wait", "Menghubungkan ke mixer " + st.ip + "…");

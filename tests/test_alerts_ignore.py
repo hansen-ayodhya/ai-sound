@@ -114,3 +114,43 @@ class IgnoreServer(test_memori.MemoriServer):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WeakAlertsOff(unittest.TestCase):
+    def test_rules_skip_weak_when_disabled(self):
+        r = live.LiveRules()
+        r.weak_enabled = False
+        kinds = []
+        for i in range(0, 35):
+            kinds += [x.kind for x in r.feed([-50.0], float(i))]
+        self.assertNotIn("weak", kinds)
+        r2 = live.LiveRules()
+        kinds = []
+        for i in range(0, 35):
+            kinds += [x.kind for x in r2.feed([-50.0], float(i))]
+        self.assertIn("weak", kinds)
+
+    def test_existing_weak_alert_resolved_when_turned_off(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            m = LiveMonitor("127.0.0.1", 1, "/meters/1", {}, Path(tmp) / "l.jsonl")
+            m._record([Alert(time.monotonic(), "t", "weak", "info", 2, "CH 03", -45.0, "x")])
+            self.assertFalse(m.snapshot()["alerts"][0]["resolved"])
+            m.rules.weak_enabled = False
+            s = m.snapshot()["alerts"][0]
+            self.assertTrue(s["resolved"])
+            self.assertIn("dimatikan", s["reason"])
+
+
+class WeakPrefServer(test_memori.MemoriServer):
+    test_flow_records_rates_and_clears = None
+
+    def test_default_off_persists_and_applies_to_live(self):
+        self.assertFalse(self.call("/api/status")[1]["weak_alerts"])                  # default: mati
+        self.app.live = LiveMonitor("127.0.0.1", 1, "/meters/1", {}, self.data / "live.jsonl")
+        self.assertEqual(self.call("/api/prefs", {"weak_alerts": True})[1], {"weak_alerts": True})
+        self.assertTrue(self.app.live.rules.weak_enabled)
+        self.assertTrue(self.call("/api/status")[1]["weak_alerts"])
+        self.assertEqual(self.call("/api/prefs", {"weak_alerts": "ya"})[0], 400)
+        self.call("/api/prefs", {"weak_alerts": False})
+        self.assertFalse(self.app.live.rules.weak_enabled)
+        self.assertFalse(self.app.prefs()["weak_alerts"])

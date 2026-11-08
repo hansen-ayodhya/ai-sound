@@ -125,6 +125,7 @@ class App:
         # Mode kontrol (jalur tulis terpisah; mati sampai operator menyalakannya)
         self.memori = Memori(self.data / "memori")
         self.ignored = Ignored(self.data / "diabaikan.json")
+        self.prefs_path = self.data / "prefs.json"
         self._fails: dict[str, int] = {}   # berapa kali berturut-turut alamat tidak dijawab (dilewati setelah 3x)
         self._values: dict = {}           # nilai setting terbaru (untuk menilai peringatan live secara realtime)
         self.control = Controller(self.data / "changes.jsonl", self._read_one, on_event=self._memori_event)
@@ -203,7 +204,8 @@ class App:
 
         log = self.data / f"live-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
         self.live = LiveMonitor(ip, port, path, labels_from_dump(dump, self.profile()), log, on_stop=on_stop,
-                                on_param=self._on_param, inactive=inactive_from_dump(dump), on_alert=self._memori_alert, state_of=self._state_of)
+                                on_param=self._on_param, inactive=inactive_from_dump(dump), on_alert=self._memori_alert, state_of=self._state_of,
+                                weak_alerts=self.prefs().get("weak_alerts", False))
         try:
             self.live.start()
         except Exception:
@@ -533,6 +535,25 @@ class App:
                               awal=recs.fmt_value(kw.get("alamat", ""), kw.get("awal")), akhir=recs.fmt_value(kw.get("alamat", ""), kw.get("akhir")))
         elif event == "konflik":
             self.memori.catat("perubahan", alamat=kw.get("alamat"), aksi="diubah_operator", akhir=recs.fmt_value(kw.get("alamat", ""), kw.get("nilai_mixer")))
+
+    def prefs(self) -> dict:
+        try:
+            d = json.loads(self.prefs_path.read_text(encoding="utf-8"))
+            return d if isinstance(d, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def set_prefs(self, body: dict) -> dict:
+        p = self.prefs()
+        if "weak_alerts" in body:
+            if not isinstance(body["weak_alerts"], bool):
+                raise ValueError("Pilihan tidak valid.")
+            p["weak_alerts"] = body["weak_alerts"]
+            if self.live:
+                self.live.rules.weak_enabled = p["weak_alerts"]
+        self.prefs_path.parent.mkdir(parents=True, exist_ok=True)
+        self.prefs_path.write_text(json.dumps(p), encoding="utf-8")
+        return {"weak_alerts": p.get("weak_alerts", False)}
 
     def _state_of(self, index: int) -> dict:
         ch = index + 1
@@ -930,7 +951,7 @@ def make_handler(app: App, http_port: int):
                     local = self._is_local()
                     return self._json(200, {"ip": load_ip(app.data / "mixer-ip.txt"), "default_port": DEFAULT_PORT,
                                             "port": app.load_port(), "job": app.job, "latest": app.latest(),
-                                            "live": bool(app.live and app.live.running),
+                                            "live": bool(app.live and app.live.running), "weak_alerts": app.prefs().get("weak_alerts", False),
                                             "is_local": local, "lan": app.lan, "version": app.version, "frozen": app.frozen,
                                             "needs_restart": app.disk_version().split(" ")[0] != app.version.split(" ")[0],
                                             "lan_url": app.lan_url if local else None,
@@ -1042,6 +1063,8 @@ def make_handler(app: App, http_port: int):
                     if situasi not in ai.SITUASI:
                         raise ValueError("Situasi tidak dikenal.")
                     return self._json(200, app.ai_analyze(situasi, str(body.get("pertanyaan", "")), _clean_audio(body.get("audio"), body.get("izin"))))
+                if path == "/api/prefs":
+                    return self._json(200, app.set_prefs(body))
                 if path == "/api/ignore":
                     return self._json(200, app.ignore(body))
                 if path == "/api/ignore/restore":
