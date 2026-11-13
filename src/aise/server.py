@@ -56,6 +56,9 @@ from .menu import load_ip, save_ip, valid_ip
 from .ignored import Ignored, key_for
 from .memori import Memori
 from .writer import Controller, WriteRefused
+from . import engine as enginemod
+from .engine import Engine
+from .otonom import Autopilot
 from .paths import BUILD_VERSION_FILE, BUNDLE, FROZEN
 from .paths import DATA as DATA_DIR
 
@@ -97,6 +100,7 @@ FITUR = {
     "ukur_realtime": "Ukur Ruangan realtime", "tampilan_bar": "Tampilan bar per frekuensi", "eq_lr": "Perbandingan EQ Main L/R",
     "pra_cek_mic": "Pra-cek mic lewat mixer", "kesiapan": "Analisis kesiapan pengukuran", "cek_balance": "Cek balance terpandu",
     "siaran": "Siaran YouTube", "mode_kontrol": "Mode kontrol (slider)", "memori_ai": "Memori AI",
+    "mesin_realtime": "Mesin analisa realtime", "mode_otonom": "Mode semi-otonom dan otonom",
 }
 
 
@@ -146,6 +150,13 @@ class App:
         self._fails: dict[str, int] = {}   # berapa kali berturut-turut alamat tidak dijawab (dilewati setelah 3x)
         self._values: dict = {}           # nilai setting terbaru (untuk menilai peringatan live secara realtime)
         self.control = Controller(self.data / "changes.jsonl", self._read_one, on_event=self._memori_event)
+        # Mesin analisa realtime (hanya membaca meter) dan mode semi/otonom (lewat Controller; mati sampai operator memilihnya)
+        pr = self.prefs()
+        self.engine = Engine(lambda: self._values, self.profile, sens=pr.get("kepekaan", enginemod.DEFAULT_SENS))
+        ref = pr.get("balance_acuan_db")
+        self.engine.acuan_db = float(ref) if isinstance(ref, (int, float)) and not isinstance(ref, bool) else None
+        self.otonom = Autopilot(self.control, self._read_one, self.live_findings, lambda f: key_for(f) in self.ignored.keys(),
+                                self.data / "otonom.jsonl", alive=lambda: bool(self.live and self.live.running))
 
     # ---------- pekerjaan ----------
     def _acquire(self) -> None:
@@ -222,7 +233,8 @@ class App:
         log = self.data / f"live-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
         self.live = LiveMonitor(ip, port, path, labels_from_dump(dump, self.profile()), log, on_stop=on_stop,
                                 on_param=self._on_param, inactive=inactive_from_dump(dump), on_alert=self._memori_alert, state_of=self._state_of,
-                                weak_alerts=self.prefs().get("weak_alerts", False))
+                                weak_alerts=self.prefs().get("weak_alerts", False), on_levels=self.engine.feed)
+        self.engine.reset()
         try:
             self.live.start()
         except Exception:
@@ -267,6 +279,7 @@ class App:
     # ---------- kabar perubahan dari mixer (realtime) ----------
     def _on_param(self, addr: str, args) -> None:
         self.control.on_param(addr, args)
+        self.otonom.on_param(addr, args)
         if not addr.startswith(ALLOWED_PREFIXES) or addr.startswith("/meters"):
             return
         val = [a for a in args if isinstance(a, (int, float, str)) and not isinstance(a, bool)]
@@ -729,6 +742,9 @@ class App:
             if m not in (0, 5, 10, 15, 30) or isinstance(m, bool):
                 raise ValueError("Jeda pengecekan harus 0 (mati), 5, 10, 15, atau 30 menit.")
             p["stream_check_min"] = m
+        if "kepekaan" in body:
+            self.engine.set_sens(body["kepekaan"])
+            p["kepekaan"] = body["kepekaan"]
         if "weak_alerts" in body:
             if not isinstance(body["weak_alerts"], bool):
                 raise ValueError("Pilihan tidak valid.")
@@ -740,7 +756,25 @@ class App:
         if "youtube_url" in body or "stream_check_min" in body:
             self.stream.reschedule()
             self.stream.start()
-        return {"weak_alerts": p.get("weak_alerts", False), "stream_bus": self.stream_bus()}
+        return {"weak_alerts": p.get("weak_alerts", False), "stream_bus": self.stream_bus(), "kepekaan": self.engine.sens}
+
+    def balance_acuan(self, hapus: bool) -> dict:
+        """Tandai perkiraan balance vokal-musik saat ini sebagai 'pas' (acuan mesin), atau hapus acuannya."""
+        if hapus:
+            ref = None
+        else:
+            self.engine.findings()
+            est = self.engine.balance_est
+            if not est:
+                raise ValueError("Belum ada perkiraan balance: vokal dan musik harus sedang berbunyi, dan Daftar Channel harus terisi.")
+            ref = est["selisih"]
+        self.engine.acuan_db = ref
+        p = self.prefs()
+        p["balance_acuan_db"] = ref
+        self.prefs_path.parent.mkdir(parents=True, exist_ok=True)
+        _write_atomic(self.prefs_path, json.dumps(p))
+        self.memori.catat("balance", selisih=ref, verdict="acuan_mesin" if ref is not None else "acuan_dihapus")
+        return self.engine.brief()
 
     def _state_of(self, index: int) -> dict:
         ch = index + 1
@@ -798,7 +832,7 @@ class App:
         return self.control.arm(addr, awal, target, konfirmasi)
 
     def live_findings(self, dump: dict | None = None) -> list[dict]:
-        """Usulan gain dari clipping/hampir clipping yang baru terjadi di meter live (kosong bila tidak live)."""
+        """Temuan dari keadaan live: mesin analisa realtime, usulan gain dari clipping, dan hasil cek balance."""
         if not self.live:
             return []
         events = self.live.recent_events()
@@ -807,7 +841,9 @@ class App:
             if dump is None:
                 _, dump = self.latest_dump()
             gain = make_gain_findings(events, dump, self.live.labels)
-        return gain + self.balance_findings()
+        mesin = self.engine.findings() if self.live.running else []
+        sustained = {f["ch"] for f in mesin if f["id"].startswith("mesin-panas-")}     # kondisi yang terbukti bertahan menggantikan usulan dari satu kejadian
+        return mesin + [f for f in gain if f["ch"] not in sustained] + self.balance_findings()
 
     def eq_problems(self) -> list[dict]:
         """Analisis setting EQ mixer dan deteksi masalah: boomy, harsh, dll."""
@@ -879,6 +915,8 @@ class App:
     def stop_live(self) -> None:
         if self.live:
             self.live.stop()
+        if self.otonom.mode != "manual":
+            self.otonom.set_mode("manual")
 
     def save_port(self, port: int) -> None:
         (self.data / "mixer-port.txt").write_text(str(port), encoding="utf-8")
@@ -1166,7 +1204,7 @@ def make_handler(app: App, http_port: int):
                     local = self._is_local()
                     return self._json(200, {"ip": load_ip(app.data / "mixer-ip.txt"), "default_port": DEFAULT_PORT,
                                             "port": app.load_port(), "job": app.job, "latest": app.latest(),
-                                            "live": bool(app.live and app.live.running), "weak_alerts": app.prefs().get("weak_alerts", False), "stream_bus": app.stream_bus(), "fitur": FITUR,
+                                            "live": bool(app.live and app.live.running), "weak_alerts": app.prefs().get("weak_alerts", False), "stream_bus": app.stream_bus(), "fitur": FITUR, "kepekaan": app.engine.sens,
                                             "is_local": local, "lan": app.lan, "version": app.version, "frozen": app.frozen,
                                             "needs_restart": app.disk_version().split(" ")[0] != app.version.split(" ")[0],
                                             "lan_url": app.lan_url if local else None,
@@ -1182,9 +1220,12 @@ def make_handler(app: App, http_port: int):
                         since = None
                     return self._json(200, {**app.live.snapshot(include_alerts=want), "settings_at": app.live_settings_at,
                                             **app.params_since(since), "findings": app.live_findings() if want else None,
+                                            "mesin": app.engine.brief() if want else None, "otonom": app.otonom.view() if want else None,
                                             "stream": app.stream.brief() if want else None})
                 if path == "/api/control":
                     return self._json(200, app.control_status())
+                if path == "/api/otonom":
+                    return self._json(200, {**app.otonom.view(), "mesin": app.engine.brief()})
                 if path == "/api/siaran":
                     return self._json(200, app.siaran_view())
                 if path == "/api/stream":
@@ -1321,6 +1362,16 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, {"dihapus": app.memori.hapus(body.get("jenis") or None)})
                 if path == "/api/control/enable":
                     return self._json(200, app.control_enable(body))
+                if path == "/api/otonom/mode":
+                    return self._json(200, app.otonom.set_mode(str(body.get("mode", "")), body.get("peta_ok") is True, body.get("hadir") is True))
+                if path == "/api/otonom/setujui":
+                    return self._json(200, app.otonom.approve(str(body.get("id", ""))))
+                if path == "/api/otonom/tolak":
+                    return self._json(200, app.otonom.reject(str(body.get("id", ""))))
+                if path == "/api/otonom/pulihkan":
+                    return self._json(200, app.otonom.restore())
+                if path == "/api/mesin/acuan":
+                    return self._json(200, app.balance_acuan(body.get("hapus") is True))
                 if path == "/api/control/disable":
                     app.control.disable("dimatikan operator")
                     return self._json(200, app.control_status())

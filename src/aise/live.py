@@ -335,7 +335,9 @@ class LiveRules:
 
 class LiveMonitor:
     def __init__(self, ip: str, port: int, path: str, labels: dict[int, str],
-                 log_path: Path, on_stop=None, on_param=None, inactive: set[int] | None = None, on_alert=None, state_of=None, weak_alerts: bool = True):
+                 log_path: Path, on_stop=None, on_param=None, inactive: set[int] | None = None, on_alert=None, state_of=None, weak_alerts: bool = True,
+                 on_levels=None):
+        self.on_levels = on_levels        # dipanggil (levels, waktu) tiap frame: masukan mesin analisa realtime
         self.state_of = state_of          # (indeks meter) -> {'gain': nilai mentah, 'on': 0/1}; untuk menilai peringatan secara realtime
         self._last_over: dict[int, float] = {}
         self._last_loud: dict[int, float] = {}
@@ -432,6 +434,11 @@ class LiveMonitor:
                 if lvl > WEAK_MAX:
                     self._last_loud[i] = t
             self._record(self.rules.feed(levels, t))
+        if self.on_levels:
+            try:
+                self.on_levels(levels, t)
+            except Exception:
+                pass
 
     def _resolve(self, now: float) -> None:
         """Tandai peringatan yang kondisinya sudah tidak berlaku (berdasarkan keadaan realtime, bukan timer)."""

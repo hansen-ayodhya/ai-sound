@@ -31,7 +31,24 @@
     border-radius: 6px; padding: 4px 9px; cursor: pointer; white-space: nowrap; line-height: 1.3; }
   .tools button:hover, .tools summary:hover { border-color: var(--accent); }
   .seg { display: inline-flex; } .seg button { border-radius: 0; } .seg button:first-child { border-radius: 6px 0 0 6px; }
-  .seg button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+  .seg button:last-child { border-radius: 0 6px 6px 0; } .seg button + button { border-left: 0; }
+  .auto { margin: 6px 12px 0; background: var(--desk); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  .auto.semi { border-color: var(--accent); } .auto.otonom { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad) inset; }
+  .auto .arow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .auto .alab { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .auto .ainfo { font-size: 12px; color: var(--muted); flex: 1 1 200px; min-width: 0; }
+  .auto .abtn, .auto select { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--strip); color: var(--text); cursor: pointer; }
+  .auto .abtn:disabled { opacity: .5; cursor: default; }
+  .auto .abtn.yes { border-color: var(--ok); color: var(--ok); font-weight: 700; }
+  .auto .stop { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 700; }
+  .auto .seg button.on.semi { background: var(--accent); } .auto .seg button.on.otonom { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .auto ul { list-style: none; margin: 6px 0 0; padding: 0; }
+  .auto li { padding: 6px 0; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: 13px; }
+  .auto li .lb { font-weight: 700; flex: 0 0 auto; } .auto li .tx { flex: 1 1 240px; min-width: 0; } .auto li .nt { color: var(--muted); font-size: 12px; flex: 1 1 100%; }
+  .auto li.run { color: var(--warn); } .auto li.hist { color: var(--muted); font-size: 12px; } .auto li.hist.bad, .auto li.msg { color: var(--warn); }
+  .auto .tag { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: #3a1414; color: #ffb3b3; flex: 0 0 auto; }
+  .auto #autoBody { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+  .mbox ul { margin: 6px 0; padding-left: 18px; color: var(--muted); font-size: 13px; } .mbox button.danger { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 700; }
   .seg button.on { background: var(--accent); border-color: var(--accent); color: #0b1a2e; font-weight: 700; }
   .tools .aiBtn { border-color: #3cc9f0; color: #9be6fa; }
   .more { position: relative; } .more summary { list-style: none; font-weight: 700; padding: 4px 11px; } .more summary::-webkit-details-marker { display: none; }
@@ -296,7 +313,7 @@
         <div class="zrow"><button type="button" id="zOut" aria-label="Perkecil">−</button><span class="zv" id="zVal">100%</span><button type="button" id="zIn" aria-label="Perbesar">+</button><button type="button" id="zFit">Pas layar</button><button type="button" id="zReset">100%</button></div>
         <button type="button" id="btnLand" hidden>↻ Landscape</button>
         <h5>Catatan</h5>
-        <p class="info">Secara default halaman ini hanya membaca mixer. Mixer baru berubah bila Anda menyalakan Mode kontrol lalu menekan Terapkan pada sebuah rekomendasi. Fader, gain, nama, HPF, dan EQ sudah dicocokkan dengan M-AIR. Angka kompresor, gate, dan kiriman bus masih perkiraan (≈), begitu juga pemetaan meter ke channel.</p>
+        <p class="info">Secara default halaman ini hanya membaca mixer. Mixer baru berubah bila Anda menyalakan Mode kontrol lalu menekan Terapkan pada sebuah rekomendasi, atau memilih mode Semi-otonom/Otonom. Fader, gain, nama, HPF, dan EQ sudah dicocokkan dengan M-AIR. Angka kompresor, gate, dan kiriman bus masih perkiraan (≈), begitu juga pemetaan meter ke channel.</p>
         <p class="info" id="verInfo"></p>
         <p class="info" id="source"></p>
       </div>
@@ -305,6 +322,26 @@
 </header>
 <div id="banner"></div>
 <div id="general" class="general"></div>
+<section class="auto" id="autoBar" hidden aria-label="Mode kerja">
+  <div class="arow">
+    <span class="alab">Mode kerja</span>
+    <div class="seg" role="group" aria-label="Mode kerja"><button type="button" id="amManual" title="Anda sendiri yang menerapkan tiap rekomendasi">Manual</button><button type="button" id="amSemi" title="Aplikasi mengusulkan; Anda menekan Setujui; aplikasi menerapkan perlahan">Semi-otonom</button><button type="button" id="amOtonom" title="Aplikasi menerapkan sendiri tindakan penyelamatan (hanya menurunkan), dalam batas ketat">Otonom</button></div>
+    <span class="ainfo" id="autoInfo"></span>
+    <button type="button" id="autoStop" class="abtn stop" hidden title="Kembali ke manual sekarang. Nilai di mixer dibiarkan.">■ STOP</button>
+    <button type="button" id="autoMore" class="abtn" aria-expanded="false" aria-controls="autoBody" title="Pengaturan mesin analisa">⚙</button>
+  </div>
+  <div id="autoBody" hidden>
+    <div class="arow">
+      <label class="ainfo" style="flex:0 0 auto">Kepekaan mesin <select id="selSens"><option value="rendah">Rendah</option><option value="normal">Normal</option><option value="tinggi">Tinggi</option></select></label>
+      <span class="ainfo" id="balEst"></span>
+      <button type="button" id="btnAcuan" class="abtn" title="Dengar dulu di posisi jemaat. Kalau vokal dan musik sudah pas, tandai: mesin akan memberi tahu bila musik bergeser dari keadaan ini.">Tandai balance sekarang pas</button>
+      <button type="button" id="btnAcuanDel" class="abtn" hidden>Hapus acuan</button>
+      <button type="button" id="autoRestore" class="abtn" hidden>↩ Kembalikan perubahan mode ini</button>
+    </div>
+    <p class="note" style="margin:6px 0 0">Mesin menilai meter dan setting mixer dua kali per detik: sinyal terlalu panas, gain rendah dengan fader dipaksa, kompresor yang tidak bekerja, dugaan feedback, dan musik menutupi vokal. Mesin tidak mendengar isi suara, jadi warna suara tetap dinilai telinga Anda.</p>
+  </div>
+  <ul id="autoList"></ul>
+</section>
 <section class="alerts" id="alerts" hidden>
   <h2 id="alertHead" title="Klik untuk meringkas/membuka">Peringatan live <span id="alertCount"></span><span id="alertRes" title="Tampilkan atau sembunyikan peringatan yang sudah teratasi"></span> <span id="alertToggle">▾ ringkas</span></h2>
   <ul id="alertList"><li class="empty">Belum ada peringatan.</li></ul>
@@ -328,6 +365,20 @@
   <label><input type="checkbox" id="ckParam"> Saya paham perubahan langsung terdengar di speaker, dan akan melakukannya pelan-pelan, sebaiknya di luar ibadah.</label>
   <p class="cmsg bad" id="ctlErr"></p>
   <div class="mbtns"><button type="button" id="ctlCancel">Batal</button><button type="button" id="ctlGo" class="go" disabled>Nyalakan</button></div>
+</div></div>
+<div class="modal" id="otoModal" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="otoTitle">
+  <h3 id="otoTitle">Nyalakan mode otonom</h3>
+  <p>Aplikasi akan bertindak sendiri tanpa menunggu Anda, hanya untuk tiga keadaan, dan hanya dengan menurunkan:</p>
+  <ul>
+    <li>Sinyal terlalu panas selama beberapa detik: gain diturunkan (paling banyak 9 dB dari nilai awal).</li>
+    <li>Dugaan feedback pada mic vokal: fader diturunkan 3 dB (paling banyak 6 dB).</li>
+    <li>Musik menutupi vokal: fader sumber musik terkeras diturunkan 2 dB (paling banyak 6 dB).</li>
+  </ul>
+  <p>Aplikasi tidak pernah menaikkan apa pun dan tidak menyentuh EQ, kompresor, 48V, mute, routing, Main, atau bus. Temuan lain tetap menunggu persetujuan Anda. Channel yang Anda ubah di M-AIR ditinggalkan selama 1 menit. Mode ini belum pernah diuji di mixer asli: coba dulu di luar ibadah.</p>
+  <label><input type="checkbox" id="ckPeta"> Meter di aplikasi sudah saya cocokkan dengan M-AIR (channel yang bergerak sama).</label>
+  <label><input type="checkbox" id="ckHadir"> Saya tetap di dekat mixer dan siap menekan STOP.</label>
+  <p class="cmsg bad" id="otoErr"></p>
+  <div class="mbtns"><button type="button" id="otoCancel">Batal</button><button type="button" id="otoGo" class="danger" disabled>Nyalakan otonom</button></div>
 </div></div>
 
 <script src="room-core.js"></script>
@@ -1729,7 +1780,7 @@ function setLiveUi(on) {
 let pollTimer = null, pollN = 0;
 async function poll() {
   pollN++;
-  const withAlerts = pollN % 7 === 1;
+  const withAlerts = pollN % 4 === 1;        // peringatan, temuan mesin, dan mode kerja: sekitar 2x per detik
   try {
     const snap = await api("/api/live?alerts=" + (withAlerts ? "1" : "0") + (state.paramSeq != null ? "&since=" + state.paramSeq : ""));
     if (state.paramSeq == null) state.paramSeq = snap.param_seq || 0;
@@ -1738,6 +1789,7 @@ async function poll() {
     if (withAlerts && snap.alerts) showAlerts(snap.alerts);
     if (withAlerts && Array.isArray(snap.findings)) setLiveFindings(snap.findings);
     if (withAlerts && state.control.aktif) refreshControl();
+    if (withAlerts && snap.otonom) { state.oto = snap.otonom; state.mesin = snap.mesin; paintAuto(); }
     if (withAlerts && snap.stream) updateStreamBadge(snap.stream);
     if (snap.settings_at && snap.settings_at !== state.settingsAt) {
       state.settingsAt = snap.settings_at;
@@ -1981,10 +2033,12 @@ function openControlModal() {
   $("ctlModal").hidden = false;
 }
 for (const id of ["ckScene", "ckParam"]) $(id).addEventListener("change", () => { $("ctlGo").disabled = !($("ckScene").checked && $("ckParam").checked); });
-$("ctlCancel").addEventListener("click", () => { $("ctlModal").hidden = true; });
+$("ctlCancel").addEventListener("click", () => { $("ctlModal").hidden = true; state.pendingMode = null; });
 $("ctlGo").addEventListener("click", async () => {
   try { state.control = await api("/api/control/enable", { scene_saved: true, paham: true }); $("ctlModal").hidden = true; paintControlUi(); }
-  catch (e) { $("ctlErr").textContent = e.message; }
+  catch (e) { $("ctlErr").textContent = e.message; return; }
+  const m = state.pendingMode; state.pendingMode = null;
+  if (m) chooseMode(m);                       // operator tadi memilih Semi/Otonom: lanjutkan setelah Mode kontrol menyala
 });
 async function disableControl() {
   try { await api("/api/control/disable", {}); } catch (e) { /* abaikan */ }
@@ -1999,6 +2053,93 @@ $("btnRestoreAll").addEventListener("click", async () => {
   refreshControl();
 });
 
+// ---------- MODE KERJA: manual | semi-otonom | otonom ----------
+state.oto = { mode: "manual", pesan: "", usul: [], riwayat: [], jalan: null, bisa_pulih: false, ditahan: [] };
+state.mesin = null;
+const MODE_TXT = {
+  manual: "Anda sendiri yang menerapkan tiap rekomendasi.",
+  semi: "Aplikasi mengusulkan, Anda menyetujui, aplikasi menerapkan perlahan.",
+  otonom: "Aplikasi menurunkan gain/fader sendiri untuk sinyal panas, dugaan feedback, dan musik menutupi vokal.",
+};
+async function setMode(mode, extra) {
+  state.oto = await api("/api/otonom/mode", Object.assign({ mode }, extra || {}));
+  paintAuto(true);
+  refreshControl();
+}
+function chooseMode(mode) {
+  if (mode === state.oto.mode) return;
+  if (mode === "manual") { setMode("manual").catch((e) => alert(e.message)); return; }
+  if (!state.live) { alert("Pantau live harus berjalan dulu."); return; }
+  if (!state.control.aktif) { state.pendingMode = mode; openControlModal(); return; }
+  if (mode === "otonom") {
+    $("ckPeta").checked = false; $("ckHadir").checked = false; $("otoGo").disabled = true; $("otoErr").textContent = ""; $("otoModal").hidden = false;
+    return;
+  }
+  setMode("semi").catch((e) => alert(e.message));
+}
+for (const [id, m] of [["amManual", "manual"], ["amSemi", "semi"], ["amOtonom", "otonom"]]) $(id).addEventListener("click", () => chooseMode(m));
+for (const id of ["ckPeta", "ckHadir"]) $(id).addEventListener("change", () => { $("otoGo").disabled = !($("ckPeta").checked && $("ckHadir").checked); });
+$("otoCancel").addEventListener("click", () => { $("otoModal").hidden = true; });
+$("otoGo").addEventListener("click", async () => {
+  try { await setMode("otonom", { peta_ok: true, hadir: true }); $("otoModal").hidden = true; } catch (e) { $("otoErr").textContent = e.message; }
+});
+$("autoStop").addEventListener("click", () => setMode("manual").catch((e) => alert(e.message)));
+$("autoMore").addEventListener("click", () => { const b = $("autoBody"); b.hidden = !b.hidden; $("autoMore").setAttribute("aria-expanded", String(!b.hidden)); });
+$("autoRestore").addEventListener("click", async () => {
+  if (!confirm("Kembalikan semua parameter yang diubah mode semi/otonom ke nilai awalnya? Mode kembali ke manual.")) return;
+  try { state.oto = await api("/api/otonom/pulihkan", {}); paintAuto(true); } catch (e) { alert(e.message); }
+});
+$("selSens").addEventListener("change", async () => { try { await api("/api/prefs", { kepekaan: $("selSens").value }); } catch (e) { alert(e.message); } });
+$("btnAcuan").addEventListener("click", async () => { try { state.mesin = await api("/api/mesin/acuan", {}); paintAuto(true); } catch (e) { alert(e.message); } });
+$("btnAcuanDel").addEventListener("click", async () => { try { state.mesin = await api("/api/mesin/acuan", { hapus: true }); paintAuto(true); } catch (e) { alert(e.message); } });
+async function decide(id, ok) {
+  try { state.oto = await api(ok ? "/api/otonom/setujui" : "/api/otonom/tolak", { id }); paintAuto(true); } catch (e) { alert(e.message); }
+}
+function paintAuto(force) {
+  const o = state.oto, m = state.mesin;
+  const sig = JSON.stringify([o, m]);
+  if (!force && sig === state.autoSig) return;        // tidak menggambar ulang bila tidak ada yang berubah (tombol tidak "melompat" saat mau ditekan)
+  state.autoSig = sig;
+  $("autoBar").className = "auto " + o.mode;
+  for (const [id, md] of [["amManual", "manual"], ["amSemi", "semi"], ["amOtonom", "otonom"]]) {
+    $(id).className = o.mode === md ? "on " + md : ""; $(id).setAttribute("aria-pressed", String(o.mode === md));
+  }
+  $("autoStop").hidden = o.mode === "manual";
+  $("autoRestore").hidden = !o.bisa_pulih;
+  let info = MODE_TXT[o.mode];
+  if (o.mode !== "manual") {
+    const wait = o.usul.filter((u) => !u.otomatis).length;
+    info = (o.mode === "otonom" ? "OTONOM AKTIF" : "Semi-otonom") + " · " + (wait ? wait + " usulan menunggu Anda" : "tidak ada usulan menunggu") +
+      (o.ditahan.length ? " · CH " + o.ditahan.join(", ") + " sedang Anda pegang" : "");
+  }
+  if (m && m.umur != null && m.umur < 3) info += " · mesin: " + m.aktif + " channel bersuara";
+  $("autoInfo").textContent = info;
+  if (m) {
+    if (document.activeElement !== $("selSens")) $("selSens").value = m.kepekaan;
+    const b = m.balance;
+    $("balEst").textContent = (b ? "Perkiraan vokal − musik: " + (b.selisih > 0 ? "+" : "") + b.selisih.toFixed(1) + " dB" : "Perkiraan balance: belum ada (vokal dan musik harus berbunyi)") +
+      (m.acuan != null ? " · acuan pas: " + (m.acuan > 0 ? "+" : "") + m.acuan.toFixed(1) + " dB" : " · belum ada acuan");
+    $("btnAcuan").disabled = !b; $("btnAcuanDel").hidden = m.acuan == null;
+  }
+  const rows = [];
+  if (o.pesan) rows.push(el("li", { class: "msg", text: o.pesan }));
+  if (o.jalan) rows.push(el("li", { class: "run" }, el("span", { class: "tx", text: "⏳ Sedang menerapkan" + (o.jalan.otomatis ? " (otomatis)" : "") + ": " + o.jalan.masalah })));
+  for (const u of o.usul) {
+    const yes = el("button", { type: "button", class: "abtn yes", text: u.status === "antre" ? "Antre…" : "✓ Setujui" });
+    yes.disabled = u.status === "antre";
+    yes.addEventListener("click", () => decide(u.id, true));
+    const no = el("button", { type: "button", class: "abtn", text: "Tolak", title: "Tidak diusulkan lagi selama 10 menit" });
+    no.addEventListener("click", () => decide(u.id, false));
+    rows.push(el("li", null, u.ch != null ? el("span", { class: "lb", text: "CH " + pad2(u.ch) }) : null,
+      el("span", { class: "tx", text: u.masalah.replace(/^CH \d\d[^:]*:\s*/, "") + " → " + u.teks.join("; ") }),
+      u.otomatis ? el("span", { class: "tag", text: "otomatis" }) : yes, u.otomatis ? null : no,
+      u.pesan || u.catatan ? el("span", { class: "nt", text: u.pesan ? "Gagal: " + u.pesan : u.catatan }) : null));
+  }
+  for (const h of o.riwayat.slice(0, 4)) rows.push(el("li", { class: "hist" + (h.ok ? "" : " bad") },
+    el("span", { text: h.waktu + " " + (h.ok ? "✓" : "⚠") + (h.pulih ? " dipulihkan" : h.otomatis ? " otomatis" : " disetujui") + " · " + (h.ch != null ? "CH " + pad2(h.ch) + " · " : "") + h.teks.join("; ") + (h.ok ? " · terbaca di mixer" : " · " + h.pesan) })));
+  $("autoList").replaceChildren(...rows);
+}
+
 applyMode();
 // Tampilan mixer langsung masuk ke live: sambung ke mixer begitu halaman dibuka.
 async function autoLive() {
@@ -2006,6 +2147,7 @@ async function autoLive() {
     const st = await api("/api/status");
     $("verInfo").textContent = "Versi program: " + (st.version || "?") + " · fitur: " + Object.values(st.fitur || {}).join(", ");
     $("ckWeak").checked = !!st.weak_alerts;
+    if (st.kepekaan) $("selSens").value = st.kepekaan;
     if (st.live) { startPolling(); return; }
     if (!st.ip) { setStatus("warn", "Belum ada IP mixer. Isi di Beranda lalu muat ulang halaman ini."); return; }
     setStatus("wait", "Menghubungkan ke mixer " + st.ip + "…");
@@ -2020,6 +2162,8 @@ if (TOKEN && location.protocol.startsWith("http")) {
   $("btnReanalyze").hidden = false;
   $("btnIgnored").hidden = false;
   $("btnSiaran").hidden = false;
+  $("autoBar").hidden = false;
+  paintAuto(true);
   refreshControl();
   $("btnChannels").hidden = false;
   $("btnRefresh").hidden = false;

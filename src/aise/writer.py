@@ -198,6 +198,12 @@ class Controller:
     def _touch(self) -> None:
         self._expires = self._clock() + IDLE_S
 
+    def keep_alive(self) -> None:
+        """Dipanggil mode semi/otonom selama aktif, supaya Mode kontrol tidak mati karena dianggap menganggur."""
+        with self._lock:
+            if self.enabled:
+                self._touch()
+
     def _require(self) -> None:
         if not self.enabled:
             raise WriteRefused("Mode kontrol belum dinyalakan.")
