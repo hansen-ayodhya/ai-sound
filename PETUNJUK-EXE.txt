@@ -24,7 +24,18 @@ PENTING
 - Bila hanya ingin dibuka dari komputer ini saja (tanpa HP/tablet):
   buat shortcut exe, lalu di Properties > Target tambahkan  --lokal  di akhir.
 
-UPDATE KE VERSI BARU (di luar jam ibadah)
+UPDATE KE VERSI BARU DARI DALAM APLIKASI (di luar jam ibadah)
+1. Beranda > 4. Perawatan > "Cek versi baru". Bila ada, tekan "Perbarui sekarang".
+2. Aplikasi mengunduh, menutup sekitar 1 menit, lalu membuka lagi sendiri. Folder data tetap aman.
+3. Exe lama disimpan sebagai AI-Sound-Engineer.lama.exe. Bila versi baru bermasalah, tutup aplikasi lalu jalankan file itu.
+- Repo proyek private: pertama kali, isi token GitHub baca-saja di bagian yang sama (petunjuknya ada di sana).
+- Cara ini baru bisa dipakai mulai dari exe yang sudah memuat tombol tersebut; exe yang lebih lama diganti manual sekali (cara di bawah).
+
+MULAI OTOMATIS SAAT KOMPUTER DINYALAKAN
+- Beranda > 4. Perawatan > centang "Jalankan aplikasi otomatis saat komputer dinyalakan".
+- Berlaku untuk akun Windows yang sedang dipakai. Bila exe dipindah ke folder lain, matikan lalu nyalakan lagi pilihan ini.
+
+UPDATE MANUAL (cadangan, di luar jam ibadah)
 1. Tutup jendela hitam aplikasi.
 2. Unduh exe terbaru dari GitHub: repo ai-sound > tab Actions > "AI Sound Engineer EXE"
    > build teratas yang centang hijau > bagian Artifacts > AI-Sound-Engineer-exe (file zip).

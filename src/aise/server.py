@@ -59,6 +59,9 @@ from .writer import Controller, WriteRefused
 from . import engine as enginemod
 from .engine import Engine
 from .otonom import Autopilot
+from . import autostart as autostartmod
+from . import pembaruan as pembaruanmod
+from .paths import APP_DIR
 from .paths import BUILD_VERSION_FILE, BUNDLE, FROZEN
 from .paths import DATA as DATA_DIR
 
@@ -76,7 +79,7 @@ PARAM_FLUSH_S = 1.5  # jeda sebelum kabar perubahan digabung ke setting terbaru
 MAX_PIN_FAILS = 5
 PIN_LOCK_S = 300
 # Kunci Gemini boleh DITULIS dari perangkat yang sudah masuk (PIN); kunci tidak pernah dikirim balik.
-LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown"}
+LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown", "/api/pembaruan/cek", "/api/pembaruan/token", "/api/pembaruan/pasang", "/api/autostart"}
 
 LOGIN_PAGE = """<!doctype html><html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Masuk</title>
@@ -101,6 +104,7 @@ FITUR = {
     "pra_cek_mic": "Pra-cek mic lewat mixer", "kesiapan": "Analisis kesiapan pengukuran", "cek_balance": "Cek balance terpandu",
     "siaran": "Siaran YouTube", "mode_kontrol": "Mode kontrol (slider)", "memori_ai": "Memori AI",
     "mesin_realtime": "Mesin analisa realtime", "mode_otonom": "Mode semi-otonom dan otonom",
+    "pembaruan": "Perbarui dari aplikasi", "mulai_otomatis": "Mulai otomatis saat komputer dinyalakan",
 }
 
 
@@ -111,8 +115,9 @@ class Busy(RuntimeError):
 class App:
     def __init__(self, root: Path = ROOT, data: Path | None = None, addresses: list[str] | None = None,
                  lan: bool = False, pin: str | None = None, trust_loopback: bool = True,
-                 ai_base: str = ai.API_BASE):
+                 ai_base: str = ai.API_BASE, update_base: str = pembaruanmod.API_BASE):
         self.ai_base = ai_base
+        self.http_port = DEFAULT_HTTP_PORT   # diisi main(); dipakai untuk membuka ulang setelah pembaruan dan mulai otomatis
         self._ai_lock = threading.Lock()
         self.lan = lan
         self.pin = pin
@@ -155,6 +160,7 @@ class App:
         self.engine = Engine(lambda: self._values, self.profile, sens=pr.get("kepekaan", enginemod.DEFAULT_SENS))
         ref = pr.get("balance_acuan_db")
         self.engine.acuan_db = float(ref) if isinstance(ref, (int, float)) and not isinstance(ref, bool) else None
+        self.updater = pembaruanmod.Updater(self.data, APP_DIR, self.version, self.frozen, base=update_base)
         self.otonom = Autopilot(self.control, self._read_one, self.live_findings, lambda f: key_for(f) in self.ignored.keys(),
                                 self.data / "otonom.jsonl", alive=lambda: bool(self.live and self.live.running))
 
@@ -912,6 +918,34 @@ class App:
         finally:
             self._ai_lock.release()
 
+    # ---------- pembaruan dan mulai otomatis (hanya dari komputer ini) ----------
+    def update_install(self) -> dict:
+        if self.control.enabled or self.otonom.mode != "manual":
+            raise ValueError("Matikan Mode kontrol / mode otonom dulu: aplikasi akan tertutup sebentar saat memasang versi baru.")
+        args = ([] if self.lan else ["--lokal"]) + ["--port", str(self.http_port), "--no-browser"]   # halaman yang terbuka memuat ulang sendiri
+
+        def close():
+            time.sleep(1.5)                      # beri waktu halaman membaca status "mulai ulang"
+            self.stop_live()
+            if self.shutdown_cb:
+                self.shutdown_cb()
+        return self.updater.install(args, os.getpid(), close)
+
+    def _autostart_cmd(self, browser: bool) -> str:
+        return autostartmod.command(self.frozen, APP_DIR, self.lan, self.http_port, DEFAULT_HTTP_PORT, browser)
+
+    def autostart_view(self) -> dict:
+        return autostartmod.view(self._autostart_cmd(True))
+
+    def autostart_set(self, body: dict) -> dict:
+        if not isinstance(body.get("aktif"), bool):
+            raise ValueError("Pilihan tidak valid.")
+        try:
+            autostartmod.write(self._autostart_cmd(body.get("browser") is not False) if body["aktif"] else None)
+        except OSError as exc:
+            raise ValueError(f"Windows menolak menyimpan pilihan ini: {exc}") from exc
+        return self.autostart_view()
+
     def stop_live(self) -> None:
         if self.live:
             self.live.stop()
@@ -1204,7 +1238,7 @@ def make_handler(app: App, http_port: int):
                     local = self._is_local()
                     return self._json(200, {"ip": load_ip(app.data / "mixer-ip.txt"), "default_port": DEFAULT_PORT,
                                             "port": app.load_port(), "job": app.job, "latest": app.latest(),
-                                            "live": bool(app.live and app.live.running), "weak_alerts": app.prefs().get("weak_alerts", False), "stream_bus": app.stream_bus(), "fitur": FITUR, "kepekaan": app.engine.sens,
+                                            "live": bool(app.live and app.live.running), "weak_alerts": app.prefs().get("weak_alerts", False), "stream_bus": app.stream_bus(), "fitur": FITUR, "kepekaan": app.engine.sens, "pembaruan_tersedia": app.updater.available(),
                                             "is_local": local, "lan": app.lan, "version": app.version, "frozen": app.frozen,
                                             "needs_restart": app.disk_version().split(" ")[0] != app.version.split(" ")[0],
                                             "lan_url": app.lan_url if local else None,
@@ -1224,6 +1258,10 @@ def make_handler(app: App, http_port: int):
                                             "stream": app.stream.brief() if want else None})
                 if path == "/api/control":
                     return self._json(200, app.control_status())
+                if path in ("/api/pembaruan", "/api/autostart"):
+                    if not self._is_local():
+                        return self._json(403, {"error": "Hanya bisa dilihat dari komputer yang menjalankan aplikasi."})
+                    return self._json(200, app.updater.check() if path == "/api/pembaruan" else app.autostart_view())
                 if path == "/api/otonom":
                     return self._json(200, {**app.otonom.view(), "mesin": app.engine.brief()})
                 if path == "/api/siaran":
@@ -1362,6 +1400,15 @@ def make_handler(app: App, http_port: int):
                     return self._json(200, {"dihapus": app.memori.hapus(body.get("jenis") or None)})
                 if path == "/api/control/enable":
                     return self._json(200, app.control_enable(body))
+                if path == "/api/pembaruan/cek":
+                    return self._json(200, app.updater.check(force=True))
+                if path == "/api/pembaruan/token":
+                    app.updater.set_token(None if body.get("hapus") is True else str(body.get("token", "")))
+                    return self._json(200, app.updater.check(force=True))
+                if path == "/api/pembaruan/pasang":
+                    return self._json(200, app.update_install())
+                if path == "/api/autostart":
+                    return self._json(200, app.autostart_set(body))
                 if path == "/api/otonom/mode":
                     return self._json(200, app.otonom.set_mode(str(body.get("mode", "")), body.get("peta_ok") is True, body.get("hadir") is True))
                 if path == "/api/otonom/setujui":
@@ -1389,8 +1436,7 @@ def make_handler(app: App, http_port: int):
                     app.stop_live()
                     return self._json(200, {"ok": True})
                 if path in ("/api/update", "/api/tests") and app.frozen:
-                    return self._json(200, {"ok": False, "output": "Ini versi .exe. Untuk update: unduh exe terbaru dari GitHub "
-                                            "(tab Actions, build terakhir, bagian Artifacts), lalu ganti file exe saat tidak ibadah."})
+                    return self._json(200, {"ok": False, "output": "Ini versi .exe. Pakai tombol Perbarui di bagian Perawatan."})
                 if path == "/api/update":
                     return self._json(200, app.run_cmd(["git", "pull"], 90))
                 if path == "/api/tests":
@@ -1445,6 +1491,7 @@ def main(argv: list[str] | None = None) -> int:
         webbrowser.open(url)
         return 0
     app = App(lan=args.lan)
+    app.http_port = args.port
     if args.lan:
         app.pin = load_or_create_pin(app.data / "pin.txt")
         ip = lan_ip()

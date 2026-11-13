@@ -376,6 +376,16 @@
 - Batas yang diketahui: mesin tidak mendengar isi suara (tanpa spektrum per channel), jadi warna suara, masking antar-instrumen, dan frekuensi feedback tidak dinilai. BELUM diuji di MR18 asli: penulisan OSC, pemetaan meter ke channel, titik ambil meter (dianggap sebelum fader), konversi fader dan threshold kompresor.
 - Tes: tests/test_engine.py (17), tests/test_otonom.py (13, termasuk alur meter sampai mixer lewat server); uji browser (Semi → Setujui → Otonom → STOP → Kembalikan) dengan mixer tiruan.
 
+## Update 2026-11-13: perbarui dari dalam aplikasi, mulai otomatis saat komputer dinyalakan
+
+- Build (`.github/workflows/build-exe.yml`): menulis `versi.json` (versi, sha256, ukuran, judul commit) dan, untuk push ke main, job `rilis` mengunggah `AI-Sound-Engineer.exe` + `versi.json` ke rilis GitHub bertanda `terbaru` (hanya job itu yang punya izin tulis).
+- `src/aise/pembaruan.py`: cek rilis (paling sering tiap 6 jam, atau tombol), bandingkan commit dan waktu build, unduh exe ke samping exe lama, cocokkan ukuran + sha256 + tanda program Windows, tulis `pasang-pembaruan.bat` (menunggu aplikasi tertutup, exe lama menjadi `AI-Sound-Engineer.lama.exe`, exe baru dipasang, aplikasi dibuka lagi dengan mode/port yang sama; bila gagal exe lama dikembalikan), lalu aplikasi menutup diri. Hasil ditulis ke `data/pembaruan-hasil.txt` dan ditampilkan sekali. Ditolak saat Mode kontrol/otonom aktif. Hanya versi .exe di Windows.
+- Repo ini private, jadi GitHub menolak unduhan tanpa izin. Pilihan operator: isi token baca-saja (fine-grained, Contents: Read-only, hanya repo ini; disimpan di `data/github-token.txt`, tidak pernah dikembalikan ke halaman, hanya dikirim ke alamat API, tidak ikut ke pengalihan unduhan), atau jadikan repo public.
+- `src/aise/autostart.py`: pilihan "jalankan otomatis saat komputer dinyalakan" lewat nilai `AI-Sound-Engineer` di `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (tanpa hak admin; hanya akun Windows itu), dengan pilihan membuka browser atau tidak.
+- Endpoint (hanya dari komputer itu sendiri): `GET /api/pembaruan`, `POST /api/pembaruan/{cek,token,pasang}`, `GET|POST /api/autostart`. Beranda → Perawatan menampilkan keduanya; menu Tampilan Mixer menandai bila ada versi baru.
+- BELUM terbukti: pemasangan dari exe sungguhan (exe menutup, ditukar, terbuka lagi) baru teruji lewat skrip penukar di runner Windows dengan file tiruan, bukan dengan exe PyInstaller yang sedang berjalan. Pembaruan pertama oleh operator adalah uji nyatanya; exe lama tetap ada sebagai cadangan.
+- Tes: tests/test_pembaruan.py (GitHub tiruan: repo private, token, pengalihan tanpa token, unduhan rusak, skrip; khusus Windows: penukaran file sungguhan dan registry).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

@@ -168,6 +168,27 @@
       <button id="btnShutdown">Matikan aplikasi</button>
     </div>
     <div class="out" id="maintOut"></div>
+    <div id="updBox" hidden style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px">
+      <p class="sub" style="margin-bottom:6px"><b>Pembaruan aplikasi.</b> <span id="updTxt">Memeriksa…</span></p>
+      <div class="btns">
+        <button id="btnUpdInstall" class="primary" hidden>Perbarui sekarang</button>
+        <button id="btnUpdCheck">Cek versi baru</button>
+      </div>
+      <details class="advanced" id="updTokenBox" style="margin-top:8px"><summary>Token GitHub (hanya perlu bila repo proyek private)</summary>
+        <p class="sub" style="margin:8px 0">GitHub tidak mengizinkan unduhan dari repo private tanpa izin. Buat token baca-saja: GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token; Repository access: hanya repo <b>ai-sound</b>; Permissions → Contents: <b>Read-only</b>. Token disimpan di folder data komputer ini, tidak ditampilkan lagi, dan hanya dikirim ke GitHub. (Nama menu di GitHub bisa berubah.)</p>
+        <div class="row">
+          <div><input type="password" id="updToken" autocomplete="off" spellcheck="false" placeholder="tempel token di sini" aria-label="Token GitHub"></div>
+          <button id="btnUpdToken" class="narrow">Simpan</button>
+          <button id="btnUpdTokenDel" class="narrow" hidden>Hapus token</button>
+        </div>
+      </details>
+      <div class="out" id="updOut"></div>
+    </div>
+    <div id="autoBox" hidden style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px">
+      <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="ckAuto"> <span><b>Jalankan aplikasi otomatis saat komputer dinyalakan</b> (saat akun Windows ini masuk)</span></label>
+      <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;margin-top:6px"><input type="checkbox" id="ckAutoBrowser" checked> <span>Sekaligus buka halaman Beranda di browser</span></label>
+      <p class="sub" id="autoTxt" style="margin:6px 0 0"></p>
+    </div>
   </section>
 
   <section class="card wide" id="reportCard">
@@ -323,6 +344,85 @@ $("btnTests").addEventListener("click", async () => {
   } catch (e) { say("maintOut", e.message, "bad"); }
   setBusy(false);
 });
+// Pembaruan dari dalam aplikasi: satu tombol mengunduh, mencocokkan, menukar exe, lalu membuka aplikasi lagi.
+let updTimer = null;
+const mb = (n) => (n / 1048576).toFixed(0) + " MB";
+function showUpdate(u) {
+  $("updBox").hidden = false;
+  $("btnUpdTokenDel").hidden = !u.token_ada;
+  $("updToken").placeholder = u.token_ada ? "token sudah tersimpan (tempel yang baru untuk mengganti)" : "tempel token di sini";
+  const busy = u.tahap === "unduh" || u.tahap === "mulai_ulang";
+  $("btnUpdInstall").hidden = !(u.tersedia && u.bisa_pasang) || busy;
+  $("btnUpdCheck").disabled = busy;
+  let t;
+  if (u.tahap === "unduh") t = "Mengunduh versi baru… " + (u.persen || 0) + "%";
+  else if (u.tahap === "mulai_ulang") t = "Versi baru terpasang. Aplikasi membuka lagi sendiri; halaman ini akan memuat ulang.";
+  else if (u.galat) t = u.galat;
+  else if (u.tersedia) t = "Versi baru tersedia: " + u.rilis.versi + " (" + mb(u.rilis.ukuran) + ")" + (u.rilis.catatan ? " · " + u.rilis.catatan : "") + ". Terpasang: " + u.sekarang + "." +
+    (u.bisa_pasang ? "" : " Pasang otomatis hanya untuk versi .exe di Windows.");
+  else if (u.rilis) t = "Sudah versi terbaru (" + u.sekarang + "). Dicek " + u.diperiksa + ".";
+  else t = "Belum diperiksa.";
+  $("updTxt").textContent = t;
+  $("updTxt").className = u.galat && u.tahap !== "unduh" ? "warn" : u.tersedia ? "ok" : "";
+  if (u.galat && !u.token_ada && /private/.test(u.galat)) $("updTokenBox").open = true;
+  if (u.tahap === "gagal") say("updOut", "Pembaruan gagal: " + u.pesan + "\nAplikasi tetap memakai versi sekarang.", "bad");
+  else if (u.hasil_terakhir === "ok") say("updOut", "Pembaruan terakhir berhasil. Exe lama disimpan sebagai AI-Sound-Engineer.lama.exe (boleh dihapus bila versi ini sudah terbukti baik).", "ok");
+  else if (u.hasil_terakhir === "gagal") say("updOut", "Pembaruan terakhir tidak terpasang; aplikasi dibuka lagi dengan versi lama. Coba lagi, atau ganti exe secara manual.", "bad");
+}
+async function loadUpdate(force) {
+  try { showUpdate(await api("/api/pembaruan" + (force ? "/cek" : ""), force ? {} : undefined)); } catch (e) { $("updBox").hidden = false; $("updTxt").textContent = e.message; }
+}
+$("btnUpdCheck").addEventListener("click", async () => { $("updTxt").textContent = "Memeriksa…"; say("updOut", ""); await loadUpdate(true); });
+$("btnUpdToken").addEventListener("click", async () => {
+  const t = $("updToken").value.trim();
+  if (!t) return;
+  $("updTxt").textContent = "Menyimpan token dan memeriksa…";
+  try { showUpdate(await api("/api/pembaruan/token", { token: t })); $("updToken").value = ""; } catch (e) { say("updOut", e.message, "bad"); }
+});
+$("btnUpdTokenDel").addEventListener("click", async () => {
+  if (!confirm("Hapus token GitHub dari komputer ini?")) return;
+  try { showUpdate(await api("/api/pembaruan/token", { hapus: true })); } catch (e) { say("updOut", e.message, "bad"); }
+});
+$("btnUpdInstall").addEventListener("click", async () => {
+  if (!confirm("Pasang versi baru sekarang?\n\nAplikasi akan tertutup sekitar 1 menit (pantau live berhenti), lalu membuka lagi sendiri. Jangan lakukan saat ibadah berlangsung.")) return;
+  say("updOut", "");
+  let v0;
+  try { v0 = (await api("/api/status")).version; showUpdate(await api("/api/pembaruan/pasang", {})); } catch (e) { say("updOut", e.message, "bad"); return; }
+  clearInterval(updTimer);
+  let down = 0;
+  updTimer = setInterval(async () => {
+    let st = null;
+    try { st = await api("/api/status"); } catch (e) { st = null; }
+    if (st && st.version === v0) {                       // aplikasi lama masih berjalan: tampilkan kemajuan unduhan
+      try { const u = await api("/api/pembaruan"); showUpdate(u); if (u.tahap === "gagal") clearInterval(updTimer); } catch (e) { /* coba lagi */ }
+      return;
+    }
+    // Aplikasi lama sudah tertutup (atau aplikasi baru menolak token halaman lama). Muat ulang hanya bila halaman sudah bisa diambil lagi.
+    down++;
+    $("updTxt").textContent = "Aplikasi sedang berganti ke versi baru… (" + down * 2 + " dtk)";
+    try {
+      const r = await fetch("/viewer/home.html", { cache: "no-store" });
+      if (r.ok && down > 1) { clearInterval(updTimer); location.reload(); return; }
+    } catch (e) { /* belum hidup lagi */ }
+    if (down > 90) { clearInterval(updTimer); say("updOut", "Aplikasi belum terbuka lagi. Klik dua kali AI-Sound-Engineer.exe; bila bermasalah, pakai AI-Sound-Engineer.lama.exe.", "bad"); }
+  }, 2000);
+});
+// Mulai otomatis saat komputer dinyalakan (kunci Run milik pengguna Windows ini).
+function showAuto(a) {
+  $("autoBox").hidden = !a.didukung;
+  $("ckAuto").checked = a.aktif; $("ckAutoBrowser").disabled = !a.aktif;
+  if (a.aktif) $("ckAutoBrowser").checked = a.browser;
+  $("autoTxt").textContent = !a.aktif ? "Mati: aplikasi hanya berjalan bila Anda membukanya." :
+    a.cocok ? "Aktif: aplikasi berjalan sendiri setelah Windows masuk. Jendela hitam aplikasi akan muncul; jangan ditutup." :
+    "Aktif, tetapi menunjuk ke lokasi program yang berbeda (mungkin exe dipindah). Matikan lalu nyalakan lagi pilihan ini.";
+  $("autoTxt").className = "sub" + (a.aktif && !a.cocok ? " warn" : "");
+}
+async function saveAuto() {
+  try { showAuto(await api("/api/autostart", { aktif: $("ckAuto").checked, browser: $("ckAutoBrowser").checked })); }
+  catch (e) { alert(e.message); try { showAuto(await api("/api/autostart")); } catch (e2) { /* abaikan */ } }
+}
+$("ckAuto").addEventListener("change", saveAuto);
+$("ckAutoBrowser").addEventListener("change", saveAuto);
 $("btnShutdown").addEventListener("click", async () => {
   if (!confirm("Matikan aplikasi? Halaman ini akan berhenti bekerja.")) return;
   try { await api("/api/shutdown", {}); } catch (e) { /* server berhenti */ }
@@ -432,9 +532,10 @@ $("aiModel").addEventListener("change", async () => {
     showLan(s);
     $("needRestart").hidden = !s.needs_restart;
     loadAI(s.is_local);
-    if (s.frozen) {
-      $("btnUpdate").hidden = true; $("btnTests").hidden = true;
-      say("maintOut", "Ini versi .exe. Untuk update: unduh exe terbaru dari GitHub (tab Actions → build terakhir → Artifacts), lalu ganti file exe saat tidak ibadah. Folder data di samping exe tetap aman.");
+    if (s.frozen) { $("btnUpdate").hidden = true; $("btnTests").hidden = true; }
+    if (s.is_local) {
+      loadUpdate(false);
+      api("/api/autostart").then(showAuto).catch(() => {});
     }
     $("versionLine").textContent = "Versi program: " + (s.version || "?") +
       " · Mode: " + (s.lan ? "JARINGAN (HP/tablet bisa masuk dengan PIN)" : "hanya laptop ini");

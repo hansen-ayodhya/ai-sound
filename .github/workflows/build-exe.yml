@@ -1,4 +1,5 @@
 # Membuat AI-Sound-Engineer.exe (Windows). Hasil diunduh dari tab Actions > run > Artifacts.
+# Untuk push ke main, exe juga diterbitkan ke rilis "terbaru" supaya aplikasi bisa memperbarui dirinya.
 name: AI Sound Engineer EXE
 
 on:
@@ -62,6 +63,12 @@ jobs:
         shell: bash
         run: cp PETUNJUK-EXE.txt Pasang-Alat-Siaran.bat dist/
 
+      - name: Tulis versi.json (versi, sha256, ukuran exe)
+        shell: bash
+        env:
+          CATATAN: ${{ github.event.head_commit.message }}
+        run: python tools/versi_json.py dist/AI-Sound-Engineer.exe src/aise/_build_version.txt dist/versi.json "$(printf '%s' "$CATATAN" | head -n 1)"
+
       - uses: actions/upload-artifact@v4
         with:
           name: AI-Sound-Engineer-exe
@@ -69,5 +76,29 @@ jobs:
             dist/AI-Sound-Engineer.exe
             dist/PETUNJUK-EXE.txt
             dist/Pasang-Alat-Siaran.bat
+            dist/versi.json
           retention-days: 90
           if-no-files-found: error
+
+  # Rilis "terbaru": sumber tombol Perbarui di aplikasi. Hanya untuk push ke main, dan hanya job ini yang boleh menulis.
+  rilis:
+    needs: build-exe
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: AI-Sound-Engineer-exe
+          path: dist
+
+      - name: Unggah ke rilis "terbaru"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view terbaru >/dev/null 2>&1 || gh release create terbaru --target "$GITHUB_SHA" --title "Versi terbaru" --notes "Diisi otomatis oleh build. Dipakai tombol Perbarui di aplikasi."
+          gh release upload terbaru dist/AI-Sound-Engineer.exe --clobber
+          gh release upload terbaru dist/versi.json --clobber

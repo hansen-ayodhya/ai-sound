@@ -2145,7 +2145,7 @@ applyMode();
 async function autoLive() {
   try {
     const st = await api("/api/status");
-    $("verInfo").textContent = "Versi program: " + (st.version || "?") + " · fitur: " + Object.values(st.fitur || {}).join(", ");
+    $("verInfo").textContent = "Versi program: " + (st.version || "?") + (st.pembaruan_tersedia ? " · VERSI BARU TERSEDIA (pasang dari Beranda → Perawatan)" : "") + " · fitur: " + Object.values(st.fitur || {}).join(", ");
     $("ckWeak").checked = !!st.weak_alerts;
     if (st.kepekaan) $("selSens").value = st.kepekaan;
     if (st.live) { startPolling(); return; }
