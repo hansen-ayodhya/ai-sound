@@ -161,7 +161,8 @@ class App:
         ref = pr.get("balance_acuan_db")
         self.engine.acuan_db = float(ref) if isinstance(ref, (int, float)) and not isinstance(ref, bool) else None
         self.updater = pembaruanmod.Updater(self.data, APP_DIR, self.version, self.frozen, base=update_base)
-        self.otonom = Autopilot(self.control, self._read_one, self.live_findings, lambda f: key_for(f) in self.ignored.keys(),
+        self._static_findings: tuple[float, list] | None = None
+        self.otonom = Autopilot(self.control, self._read_one, self.autopilot_findings, lambda f: key_for(f) in self.ignored.keys(),
                                 self.data / "otonom.jsonl", alive=lambda: bool(self.live and self.live.running))
 
     # ---------- pekerjaan ----------
@@ -850,6 +851,46 @@ class App:
         mesin = self.engine.findings() if self.live.running else []
         sustained = {f["ch"] for f in mesin if f["id"].startswith("mesin-panas-")}     # kondisi yang terbukti bertahan menggantikan usulan dari satu kejadian
         return mesin + [f for f in gain if f["ch"] not in sustained] + self.balance_findings()
+
+    def _gemini_findings(self) -> list[dict]:
+        """Saran Gemini yang belum selesai, dalam bentuk temuan (alamat DSP ikut sebagai langkah manual)."""
+        out = []
+        for fid, t in recs.load(self.recs_path).get("tracked", {}).items():
+            if t.get("sumber") != "gemini" or t.get("done_at"):
+                continue
+            out.append({"id": fid, "ch": t.get("ch"), "sumber": "gemini", "severity": "info", "masalah": t.get("masalah", ""),
+                        "usulan": [{"alamat": i["alamat"], "sekarang": i.get("base"), "usulan": i["target"], "teks": i.get("teks", "")} for i in t.get("items", [])]})
+        return out
+
+    def autopilot_findings(self) -> list[dict]:
+        """SEMUA temuan untuk mode semi/otonom: aturan konfigurasi, analisis EQ, siaran, saran Gemini, mesin realtime, cek balance.
+
+        Yang nilainya sudah sama dengan usulan dibuang. Bagian yang berasal dari setting (bukan meter) dihitung ulang tiap 3 detik saja."""
+        now = time.monotonic()
+        _, dump = self.latest_dump()
+        if not dump:
+            return []
+        if self._static_findings is None or now - self._static_findings[0] > 3.0:
+            try:
+                base = self.rule_findings(dump, self.profile()) + analyze_eq_problems(dump) + self._gemini_findings()
+            except Exception:
+                base = []
+            self._static_findings = (now, base)
+        vals = self._values or dump.get("values", {})
+        out = []
+        for f in self._static_findings[1] + self.live_findings(dump):
+            items = [u for u in f.get("usulan") or [] if isinstance(u, dict) and u.get("usulan") is not None]
+            if not items:
+                continue
+            todo = []
+            for u in items:
+                a = u["alamat"]
+                cur = (vals.get(a) or [None])[0] if isinstance(a, str) and a.startswith("/") else None
+                if cur is None or recs.item_state(a, u.get("sekarang"), u["usulan"], cur) != "selesai":
+                    todo.append({**u, "sekarang": cur if cur is not None else u.get("sekarang")})
+            if todo:
+                out.append({**f, "usulan": todo})
+        return out
 
     def eq_problems(self) -> list[dict]:
         """Analisis setting EQ mixer dan deteksi masalah: boomy, harsh, dll."""

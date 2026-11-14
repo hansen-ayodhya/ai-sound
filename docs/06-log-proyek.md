@@ -386,6 +386,15 @@
 - BELUM terbukti: pemasangan dari exe sungguhan (exe menutup, ditukar, terbuka lagi) baru teruji lewat skrip penukar di runner Windows dengan file tiruan, bukan dengan exe PyInstaller yang sedang berjalan. Pembaruan pertama oleh operator adalah uji nyatanya; exe lama tetap ada sebagai cadangan.
 - Tes: tests/test_pembaruan.py (GitHub tiruan: repo private, token, pengalihan tanpa token, unduhan rusak, skrip; khusus Windows: penukaran file sungguhan dan registry).
 
+## Update 2026-11-14: semi-otonom dan otonom menilai semua jenis temuan
+
+- Sumber temuan autopilot kini SEMUA: aturan konfigurasi (low cut, boost berlebih, kompresor, siaran), analisis EQ (boomy, harsh, berlumpur, ekstrem, tumpang tindih), mesin realtime, hasil Cek Balance, dan saran Gemini yang belum selesai (`App.autopilot_findings`; yang nilainya sudah sama dengan usulan dibuang, bagian dari setting dihitung ulang tiap 3 dtk, maks 15 usulan tampil).
+- Semi: semua temuan menjadi usulan dengan Setujui/Tolak. Langkah yang tidak ada di daftar putih (gate, kiriman, DSP, dll.) ditampilkan sebagai "ubah manual"; Setujui hanya menerapkan bagian yang bisa, dan riwayat mencatat sisanya. Temuan yang seluruhnya manual tidak punya tombol Setujui.
+- Otonom: kebijakan batas per jenis parameter (`batas_otonom`, dihitung dari nilai awal sesi): gain turun 9/naik 3 dB; fader turun 6/naik 3 dB (maks +5 dB, tidak sampai mati); low cut 40-250 Hz; hanya menyalakan low cut/EQ/kompresor (tidak pernah mematikan); EQ: mengecilkan efek tanpa batas, boost baru sampai +4, potongan sampai -9, selisih maks 6 dB, frekuensi dan Q maks 2x; kompresor: threshold -40..-5 dB, rasio sampai 5:1 (rentang mutlak, bukan jarak dari awal, supaya usulan standar "nyalakan kompresor" dari bawaan mixer tetap lolos). Saran Gemini dan `live-gain-*` (satu kejadian sesaat) tidak pernah otomatis. Perubahan sejak kebijakan lama ("hanya menurunkan gain/fader"): sekarang otonom boleh menaikkan dalam batas di atas dan mengubah EQ/low cut/kompresor.
+- Tidak berubah: tidak pernah menyentuh 48V, mute, routing, gate, kiriman, Main/bus, scene, DSP; satu tindakan pada satu waktu, jeda 20 dtk per channel, 30 tindakan per jam, channel yang diubah operator di M-AIR ditinggalkan 60 dtk, kembali ke manual bila Mode kontrol/live berhenti, tombol STOP dan Kembalikan.
+- BELUM terbukti di MR18 asli: penulisan OSC, pemetaan meter ke channel, konversi EQ/low cut/kompresor (perkiraan), dan tipe nilai rasio kompresor. Karena otonom kini mengubah EQ/kompresor, coba dulu di luar ibadah.
+- Tes: tests/test_otonom.py (tabel kebijakan 25 kasus; otonom menerapkan EQ, low cut + frekuensi, kompresor tiga parameter; yang di luar kebijakan tetap minta persetujuan; semi menerapkan saran Gemini sebagian; temuan aturan dan analisis EQ dari server sampai ke autopilot).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

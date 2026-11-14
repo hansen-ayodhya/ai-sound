@@ -338,7 +338,7 @@
       <button type="button" id="btnAcuanDel" class="abtn" hidden>Hapus acuan</button>
       <button type="button" id="autoRestore" class="abtn" hidden>↩ Kembalikan perubahan mode ini</button>
     </div>
-    <p class="note" style="margin:6px 0 0">Mesin menilai meter dan setting mixer dua kali per detik: sinyal terlalu panas, gain rendah dengan fader dipaksa, kompresor yang tidak bekerja, dugaan feedback, dan musik menutupi vokal. Mesin tidak mendengar isi suara, jadi warna suara tetap dinilai telinga Anda.</p>
+    <p class="note" style="margin:6px 0 0">Mesin menilai meter dan setting mixer dua kali per detik: sinyal terlalu panas, gain rendah dengan fader dipaksa, kompresor yang tidak bekerja, dugaan feedback, dan musik menutupi vokal. Mode Semi/Otonom juga memakai semua temuan lain: low cut, EQ (boomy, harsh, berlumpur, ekstrem), kompresor, siaran, hasil Cek Balance, dan saran Gemini. Mesin tidak mendengar isi suara, jadi warna suara tetap dinilai telinga Anda.</p>
   </div>
   <ul id="autoList"></ul>
 </section>
@@ -368,13 +368,14 @@
 </div></div>
 <div class="modal" id="otoModal" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="otoTitle">
   <h3 id="otoTitle">Nyalakan mode otonom</h3>
-  <p>Aplikasi akan bertindak sendiri tanpa menunggu Anda, hanya untuk tiga keadaan, dan hanya dengan menurunkan:</p>
+  <p>Aplikasi akan menilai semua temuan dan menerapkan sendiri yang lolos batas ini, tanpa menunggu Anda:</p>
   <ul>
-    <li>Sinyal terlalu panas selama beberapa detik: gain diturunkan (paling banyak 9 dB dari nilai awal).</li>
-    <li>Dugaan feedback pada mic vokal: fader diturunkan 3 dB (paling banyak 6 dB).</li>
-    <li>Musik menutupi vokal: fader sumber musik terkeras diturunkan 2 dB (paling banyak 6 dB).</li>
+    <li>Gain: turun sampai 9 dB atau naik sampai 3 dB dari nilai awal. Fader: turun sampai 6 dB atau naik sampai 3 dB (tidak melewati +5 dB, tidak sampai mati).</li>
+    <li>Low cut: frekuensi 40-250 Hz. Boleh menyalakan Low cut, EQ, dan Kompresor; tidak pernah mematikannya.</li>
+    <li>EQ: mengecilkan efek yang sudah ada tanpa batas; boost baru sampai +4 dB, potongan sampai -9 dB, selisih paling banyak 6 dB dari awal.</li>
+    <li>Kompresor: threshold -40 sampai -5 dB, rasio sampai 5:1.</li>
   </ul>
-  <p>Aplikasi tidak pernah menaikkan apa pun dan tidak menyentuh EQ, kompresor, 48V, mute, routing, Main, atau bus. Temuan lain tetap menunggu persetujuan Anda. Channel yang Anda ubah di M-AIR ditinggalkan selama 1 menit. Mode ini belum pernah diuji di mixer asli: coba dulu di luar ibadah.</p>
+  <p>Tetap menunggu persetujuan Anda: saran Gemini, satu kejadian clipping sesaat, dan semua yang melewati batas di atas. Tidak pernah disentuh: 48V, mute, routing, gate, kiriman, Main/bus, scene, dan DSP. Channel yang Anda ubah di M-AIR ditinggalkan 1 menit. Ini perubahan yang terdengar di speaker. Mode ini belum pernah diuji di mixer asli: coba dulu di luar ibadah.</p>
   <label><input type="checkbox" id="ckPeta"> Meter di aplikasi sudah saya cocokkan dengan M-AIR (channel yang bergerak sama).</label>
   <label><input type="checkbox" id="ckHadir"> Saya tetap di dekat mixer dan siap menekan STOP.</label>
   <p class="cmsg bad" id="otoErr"></p>
@@ -2058,8 +2059,8 @@ state.oto = { mode: "manual", pesan: "", usul: [], riwayat: [], jalan: null, bis
 state.mesin = null;
 const MODE_TXT = {
   manual: "Anda sendiri yang menerapkan tiap rekomendasi.",
-  semi: "Aplikasi mengusulkan, Anda menyetujui, aplikasi menerapkan perlahan.",
-  otonom: "Aplikasi menurunkan gain/fader sendiri untuk sinyal panas, dugaan feedback, dan musik menutupi vokal.",
+  semi: "Semua temuan (gain, fader, low cut, EQ, kompresor) menjadi usulan; Anda menyetujui, aplikasi menerapkan perlahan.",
+  otonom: "Temuan program yang lolos batas diterapkan sendiri (gain, fader, low cut, EQ, kompresor); sisanya menunggu persetujuan Anda.",
 };
 async function setMode(mode, extra) {
   state.oto = await api("/api/otonom/mode", Object.assign({ mode }, extra || {}));
@@ -2125,18 +2126,21 @@ function paintAuto(force) {
   if (o.pesan) rows.push(el("li", { class: "msg", text: o.pesan }));
   if (o.jalan) rows.push(el("li", { class: "run" }, el("span", { class: "tx", text: "⏳ Sedang menerapkan" + (o.jalan.otomatis ? " (otomatis)" : "") + ": " + o.jalan.masalah })));
   for (const u of o.usul) {
-    const yes = el("button", { type: "button", class: "abtn yes", text: u.status === "antre" ? "Antre…" : "✓ Setujui" });
+    const yes = el("button", { type: "button", class: "abtn yes", text: u.status === "antre" ? "Antre…" : u.manual.length ? "✓ Terapkan yang bisa" : "✓ Setujui" });
     yes.disabled = u.status === "antre";
     yes.addEventListener("click", () => decide(u.id, true));
     const no = el("button", { type: "button", class: "abtn", text: "Tolak", title: "Tidak diusulkan lagi selama 10 menit" });
     no.addEventListener("click", () => decide(u.id, false));
     rows.push(el("li", null, u.ch != null ? el("span", { class: "lb", text: "CH " + pad2(u.ch) }) : null,
-      el("span", { class: "tx", text: u.masalah.replace(/^CH \d\d[^:]*:\s*/, "") + " → " + u.teks.join("; ") }),
-      u.otomatis ? el("span", { class: "tag", text: "otomatis" }) : yes, u.otomatis ? null : no,
+      el("span", { class: "tx", text: u.masalah.replace(/^CH \d\d[^:]*:\s*/, "") + (u.teks.length ? " → " + u.teks.join("; ") : "") }),
+      u.sumber === "gemini" ? el("span", { class: "tag", style: "background:#10263f;color:#9be6fa", text: "saran AI" }) : null,
+      u.otomatis ? el("span", { class: "tag", text: "otomatis" }) : (u.bisa ? yes : null), u.otomatis || !u.bisa ? null : no,
+      !u.bisa ? el("button", { type: "button", class: "abtn", text: "Sembunyikan", onclick: () => decide(u.id, false) }) : null,
+      u.manual.length ? el("span", { class: "nt", text: "Ubah manual di M-AIR/DSP: " + u.manual.join("; ") }) : null,
       u.pesan || u.catatan ? el("span", { class: "nt", text: u.pesan ? "Gagal: " + u.pesan : u.catatan }) : null));
   }
   for (const h of o.riwayat.slice(0, 4)) rows.push(el("li", { class: "hist" + (h.ok ? "" : " bad") },
-    el("span", { text: h.waktu + " " + (h.ok ? "✓" : "⚠") + (h.pulih ? " dipulihkan" : h.otomatis ? " otomatis" : " disetujui") + " · " + (h.ch != null ? "CH " + pad2(h.ch) + " · " : "") + h.teks.join("; ") + (h.ok ? " · terbaca di mixer" : " · " + h.pesan) })));
+    el("span", { text: h.waktu + " " + (h.ok ? "✓" : "⚠") + (h.pulih ? " dipulihkan" : h.otomatis ? " otomatis" : " disetujui") + " · " + (h.ch != null ? "CH " + pad2(h.ch) + " · " : "") + h.teks.join("; ") + (h.ok ? " · terbaca di mixer" : " · " + h.pesan) + (h.manual && h.manual.length ? " · sisanya manual: " + h.manual.join("; ") : "") })));
   $("autoList").replaceChildren(...rows);
 }
 

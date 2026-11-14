@@ -1,13 +1,17 @@
-"""Mode kerja aplikasi terhadap temuan realtime: manual | semi | otonom.
+"""Mode kerja aplikasi terhadap SEMUA temuan: manual | semi | otonom.
+
+Sumber temuan: mesin realtime (panas, feedback, balance, kompresor, struktur gain), aturan konfigurasi (low cut, EQ boomy/harsh/muddy,
+kompresor, siaran), analisis EQ, hasil Cek Balance, dan saran Gemini yang belum selesai.
 
 manual  - seperti sebelumnya: operator menggeser slider Terapkan sendiri.
-semi    - tiap temuan realtime menjadi usulan; operator menekan Setujui, lalu aplikasi menerapkannya perlahan sampai selesai.
-otonom  - aplikasi menerapkan SENDIRI hanya tindakan penyelamatan yang sifatnya MENGURANGI (gain atau fader turun),
-          dalam batas ketat; selain itu tetap menunggu persetujuan seperti mode semi.
+semi    - tiap temuan menjadi usulan; operator menekan Setujui, lalu aplikasi menerapkannya perlahan sampai selesai.
+otonom  - aplikasi menerapkan SENDIRI temuan program (bukan Gemini, bukan satu kejadian clipping sesaat) yang lolos kebijakan batas
+          di bawah; selebihnya menunggu persetujuan seperti mode semi.
 
-Semua perubahan tetap lewat Controller (daftar putih, perubahan bertahap, baca balik). Pengaman tambahan di sini:
-- otonom tidak pernah menaikkan apa pun, tidak pernah menyalakan/mematikan sakelar;
-- batas jarak dari nilai awal sesi (gain 9 dB, fader 6 dB), satu tindakan pada satu waktu, jeda per channel, batas jumlah per jam;
+Semua perubahan tetap lewat Controller (daftar putih: gain, fader, low cut, EQ, kompresor pada channel 01-16; perubahan bertahap; baca balik).
+TIDAK PERNAH: 48V, mute, routing, gate, kiriman, Main/bus, scene. Pengaman tambahan di sini:
+- kebijakan batas per jenis parameter, dihitung dari nilai awal sesi (lihat `batas_otonom`); sakelar hanya boleh dinyalakan, tidak dimatikan;
+- satu tindakan pada satu waktu, jeda per channel, batas jumlah per jam;
 - channel yang disentuh operator di M-AIR ditinggalkan sementara (tidak berebut);
 - berhenti sendiri ke manual bila Mode kontrol mati atau pantau live berhenti.
 """
@@ -22,14 +26,12 @@ from collections import deque
 from pathlib import Path
 
 from . import convert, recs
-from .writer import WriteRefused
+from .writer import WriteRefused, spec_for
 
 MODES = ("manual", "semi", "otonom")
 TICK_S = 0.5
-# Hanya temuan mesin yang kondisinya terbukti bertahan beberapa detik; satu lonjakan sesaat (mis. mic terbentur) tidak cukup.
-AUTO_PREFIX = ("mesin-panas-", "mesin-feedback-", "mesin-tenggelam-")
-MAX_GAIN_CUT_DB = 9.0        # otonom: total penurunan gain dari nilai awal sesi
-MAX_FADER_CUT_DB = 6.0       # otonom: total penurunan fader dari nilai awal sesi
+NO_AUTO_PREFIX = ("live-gain-",)   # satu kejadian clipping sesaat (mis. mic terbentur) tidak cukup untuk bertindak sendiri; mesin-panas-* menggantikannya
+MAX_SHOWN = 15
 COOL_S = 20.0                # setelah satu tindakan, channel itu diamati dulu
 OPERATOR_HOLD_S = 60.0       # channel yang baru disentuh operator tidak diganggu
 REJECT_S = 600.0             # usulan yang ditolak tidak muncul lagi selama ini
@@ -37,6 +39,17 @@ AUTO_PER_HOUR = 30
 ACTION_TIMEOUT_S = 20.0
 OWN_ECHO_S = 3.0
 _CH_RE = re.compile(r"^/(?:headamp|ch)/(\d\d)/")
+_EQ_RE = re.compile(r"^/ch/\d\d/eq/[1-4]/([gfq])$")
+
+# Batas otonom (jarak dari NILAI AWAL SESI). Yang menjauhi 0 dB pada EQ dibatasi lebih ketat daripada yang mengecilkan efek EQ.
+LIMITS = {
+    "gain": "turun maks 9 dB, naik maks 3 dB dari nilai awal",
+    "fader": "turun maks 6 dB, naik maks 3 dB (tidak melewati +5 dB, tidak sampai mati)",
+    "hpf": "frekuensi 40-250 Hz",
+    "sakelar": "hanya menyalakan Low cut, EQ, atau Kompresor (tidak pernah mematikan)",
+    "eq": "gain maks 6 dB dari nilai awal (boost sampai +4, potongan sampai -9); mengecilkan efek EQ tidak dibatasi; frekuensi dan Q maks 2x",
+    "kompresor": "threshold -40 sampai -5 dB; rasio sampai 5:1",
+}
 
 
 def _ch_of(addr: str) -> int | None:
@@ -44,17 +57,49 @@ def _ch_of(addr: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def _cut_db(addr: str, a, b) -> float | None:
-    """Berapa dB nilai turun dari a ke b (positif = turun); None bila alamat bukan gain/fader."""
+def writable(addr) -> bool:
+    return isinstance(addr, str) and spec_for(addr) is not None
+
+
+def batas_otonom(addr: str, base, cur, tgt) -> str:
+    """"" bila perubahan cur -> tgt boleh dijalankan tanpa persetujuan; selain itu alasannya. `base` = nilai awal sesi."""
     try:
+        if not writable(addr):
+            return "bukan parameter yang boleh diubah dari aplikasi"
+        if base is None:
+            base = cur
         if addr.startswith("/headamp/") and addr.endswith("/gain"):
-            return convert.gain_db(a) - convert.gain_db(b)
+            d = convert.gain_db(tgt) - convert.gain_db(base)
+            return "" if -9.05 <= d <= 3.05 else f"batas gain otonom ({LIMITS['gain']})"
         if addr.endswith("/mix/fader"):
-            da, db = convert.fader_db(a), convert.fader_db(b)
-            return None if float("-inf") in (da, db) else da - db
+            t, b = convert.fader_db(tgt), convert.fader_db(base)
+            if float("-inf") in (t, b):
+                return "fader mati/tidak terbaca: perlu keputusan operator"
+            return "" if -6.05 <= t - b <= 3.05 and t <= 5.05 else f"batas fader otonom ({LIMITS['fader']})"
+        if addr.endswith("/preamp/hpf"):
+            return "" if 40.0 <= convert.hpf_hz(tgt) <= 250.0 else f"batas low cut otonom ({LIMITS['hpf']})"
+        if addr.endswith(("/hpon", "/eq/on", "/dyn/on")):
+            return "" if int(tgt) == 1 else "mematikan fitur perlu keputusan operator"
+        m = _EQ_RE.match(addr)
+        if m and m.group(1) == "g":
+            t, c, b = convert.eq_gain_db(tgt), convert.eq_gain_db(cur), convert.eq_gain_db(base)
+            if abs(t) <= abs(c) + 0.05:
+                return ""                                  # hanya mengecilkan efek EQ yang sudah ada
+            return "" if abs(t - b) <= 6.05 and -9.05 <= t <= 4.05 else f"batas EQ otonom ({LIMITS['eq']})"
+        if m and m.group(1) == "f":
+            r = convert.eq_hz(tgt) / convert.eq_hz(base)
+            return "" if 0.5 <= r <= 2.0 else f"batas EQ otonom ({LIMITS['eq']})"
+        if m:
+            q, qb = convert.eq_q(tgt), convert.eq_q(base)
+            return "" if 0.5 <= q <= 6.0 and 0.5 <= q / qb <= 2.0 else f"batas EQ otonom ({LIMITS['eq']})"
+        if addr.endswith("/dyn/thr"):
+            return "" if -40.05 <= convert.comp_thr_db(tgt) <= -4.95 else f"batas kompresor otonom ({LIMITS['kompresor']})"
+        if addr.endswith("/dyn/ratio"):
+            ti = convert.ratio_index(tgt)
+            return "" if ti is not None and ti <= 7 else f"batas kompresor otonom ({LIMITS['kompresor']})"
     except (TypeError, ValueError):
-        pass
-    return None
+        return "nilai tidak terbaca"
+    return "bukan parameter yang boleh diubah dari aplikasi"
 
 
 class Autopilot:
@@ -140,6 +185,8 @@ class Autopilot:
                 raise ValueError("Mode masih manual.")
             if fid not in self.usul:
                 raise ValueError("Usulan itu sudah tidak berlaku.")
+            if not self.usul[fid].get("bisa"):
+                raise ValueError("Tidak ada langkah yang bisa diterapkan dari aplikasi. Ubah manual di M-AIR.")
             self._approved.add(fid)
             self.usul[fid]["status"] = "antre"
             return self.view()
@@ -202,7 +249,7 @@ class Autopilot:
                     "jalan": None if not self._job else {"id": self._job["id"], "masalah": self._job["masalah"], "otomatis": self._job["auto"]},
                     "riwayat": list(self.riwayat)[::-1], "bisa_pulih": bool(self.baseline),
                     "ditahan": sorted(ch for ch, t in self._hold.items() if t > now),
-                    "batas": {"gain_db": MAX_GAIN_CUT_DB, "fader_db": MAX_FADER_CUT_DB, "per_jam": AUTO_PER_HOUR}}
+                    "batas": {**LIMITS, "per_jam": AUTO_PER_HOUR}}
 
     # ---------- kerja ----------
     def _run(self, until_job_done: bool = False) -> None:
@@ -219,8 +266,11 @@ class Autopilot:
 
     def _auto_ok(self, f: dict, now: float) -> tuple[bool, str]:
         """Bolehkah temuan ini dijalankan tanpa persetujuan (hanya di mode otonom)?"""
-        if not str(f.get("id", "")).startswith(AUTO_PREFIX):
-            return False, "perlu persetujuan (bukan tindakan penyelamatan)"
+        fid = str(f.get("id", ""))
+        if f.get("sumber") == "gemini":
+            return False, "saran Gemini selalu menunggu persetujuan Anda"
+        if fid.startswith(NO_AUTO_PREFIX):
+            return False, "baru satu kejadian sesaat; menunggu terbukti bertahan atau persetujuan Anda"
         ch = f.get("ch")
         if self._hold.get(ch, 0) > now:
             return False, "operator baru mengubah channel ini di M-AIR"
@@ -231,14 +281,12 @@ class Autopilot:
         if len(self._auto_times) >= AUTO_PER_HOUR:
             return False, f"batas {AUTO_PER_HOUR} tindakan otomatis per jam tercapai"
         for u in f.get("usulan") or []:
-            a, cur, tgt = u.get("alamat", ""), u.get("sekarang"), u.get("usulan")
-            cut = _cut_db(a, cur, tgt)
-            if cut is None or cut <= 0:
-                return False, "perlu persetujuan (bukan penurunan gain/fader)"
-            total = _cut_db(a, self.baseline.get(a, cur), tgt)
-            cap = MAX_GAIN_CUT_DB if a.startswith("/headamp/") else MAX_FADER_CUT_DB
-            if total is None or total > cap + 0.05:
-                return False, f"batas otonom tercapai (maks {cap:.0f} dB dari nilai awal); perlu keputusan operator"
+            a = u.get("alamat", "")
+            if not writable(a):
+                return False, "ada langkah yang harus Anda ubah manual di M-AIR"
+            why = batas_otonom(a, self.baseline.get(a), u.get("sekarang"), u.get("usulan"))
+            if why:
+                return False, why + "; perlu persetujuan Anda"
         return True, ""
 
     def tick(self) -> None:
@@ -255,27 +303,32 @@ class Autopilot:
             return
         now = self._clock()
         fnd = [f for f in self._get_findings() if f.get("usulan") and f.get("id") and not self._is_ignored(f)]
+        fnd.sort(key=lambda f: (f.get("severity") != "perhatian", f.get("sumber") == "gemini"))
         todo = None
         with self._lock:
             self._rejected = {k: t for k, t in self._rejected.items() if t > now}
             seen = {}
             for f in fnd:
                 fid = f["id"]
-                if fid in self._rejected:
+                if fid in self._rejected or len(seen) >= MAX_SHOWN:
                     continue
+                ok = [u for u in f["usulan"] if writable(u.get("alamat"))]
+                manual = [u.get("teks", "") for u in f["usulan"] if not writable(u.get("alamat"))]
                 auto, why = self._auto_ok(f, now) if self.mode == "otonom" else (False, "menunggu persetujuan")
                 old = self.usul.get(fid, {})
                 seen[fid] = {"id": fid, "ch": f.get("ch"), "masalah": f.get("masalah", ""), "severity": f.get("severity", "info"),
-                             "teks": [u.get("teks", "") for u in f["usulan"]], "otomatis": auto, "catatan": "" if auto else why,
+                             "sumber": f.get("sumber", "program"), "teks": [u.get("teks", "") for u in ok], "manual": manual,
+                             "bisa": bool(ok), "otomatis": auto, "catatan": "" if auto else why,
                              "status": "antre" if fid in self._approved else "usul", "pesan": old.get("pesan", "")}
-                if todo is None and (auto or fid in self._approved):
-                    todo = (f, auto)
+                if todo is None and ok and (auto or fid in self._approved):
+                    todo = (f, auto, ok, manual)
             self._approved &= set(seen)
             self.usul = seen
         if todo:
-            self._start({"id": todo[0]["id"], "ch": todo[0].get("ch"), "masalah": todo[0].get("masalah", ""),
-                         "items": [{"alamat": u["alamat"], "target": u["usulan"], "teks": u.get("teks", "")} for u in todo[0]["usulan"]]},
-                        auto=todo[1], confirmed=not todo[1])
+            f, auto, ok, manual = todo
+            self._start({"id": f["id"], "ch": f.get("ch"), "masalah": f.get("masalah", ""), "manual": manual,
+                         "items": [{"alamat": u["alamat"], "target": u["usulan"], "teks": u.get("teks", "")} for u in ok]},
+                        auto=auto, confirmed=True)   # persetujuan operator atau kebijakan batas_otonom sudah menjadi izinnya
 
     def _start(self, act: dict, auto: bool, confirmed: bool, restore: bool = False) -> str:
         """Baca nilai sekarang dari mixer, lalu mulai menggerakkan tiap parameter ke targetnya (bertahap oleh Controller).
@@ -289,7 +342,7 @@ class Autopilot:
                 cur = self._read(a)
                 if cur is None:
                     raise WriteRefused("Mixer tidak menjawab saat membaca nilai sekarang.")
-                if auto and (_cut_db(a, cur, it["target"]) or 0) <= 0:
+                if auto and batas_otonom(a, self.baseline.get(a), cur, it["target"]):
                     raise WriteRefused("Nilai di mixer sudah berubah; tindakan otomatis dibatalkan.")
                 self.control.arm(a, cur, it["target"], confirmed)
                 self.control.set_fraction(a, 1.0)
@@ -313,7 +366,7 @@ class Autopilot:
             if auto:
                 self._auto_times.append(now)
             self._job = {"id": act["id"], "ch": act["ch"], "masalah": act["masalah"], "auto": auto, "restore": restore, "items": armed,
-                         "addrs": {i["alamat"] for i in armed}, "t0": now, "pesan": err}
+                         "addrs": {i["alamat"] for i in armed}, "t0": now, "pesan": err, "manual": act.get("manual", [])}
             self.usul.pop(act["id"], None)
             self._log("mulai", id=act["id"], otomatis=auto, items=[{k: i[k] for k in ("alamat", "awal", "target")} for i in armed])
         return err
@@ -354,7 +407,7 @@ class Autopilot:
             if job["ch"] is not None:
                 self._cool[job["ch"]] = now + COOL_S
             entry = {"waktu": time.strftime("%H:%M:%S"), "id": job["id"], "ch": job["ch"], "masalah": job["masalah"],
-                     "teks": [i["teks"] for i in job["items"]], "otomatis": job["auto"], "pulih": job["restore"], "ok": not bad, "pesan": bad}
+                     "teks": [i["teks"] for i in job["items"]], "otomatis": job["auto"], "pulih": job["restore"], "manual": job["manual"], "ok": not bad, "pesan": bad}
             self.riwayat.append(entry)
             self._job = None
             self._log("selesai" if not bad else "bermasalah", **{k: entry[k] for k in ("id", "ch", "otomatis", "pesan", "teks")})
