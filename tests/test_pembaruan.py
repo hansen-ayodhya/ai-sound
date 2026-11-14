@@ -266,6 +266,98 @@ class Diagnose(Base):
         self.assertFalse(r["langkah"][-1]["ok"])
 
 
+def make_cert(folder: Path):
+    """Sertifikat buatan sendiri untuk localhost (None bila openssl tidak ada)."""
+    import shutil
+    if not shutil.which("openssl"):
+        return None
+    crt, key = folder / "c.pem", folder / "k.pem"
+    r = subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(key), "-out", str(crt), "-days", "2",
+                        "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1"], capture_output=True)
+    return (crt, key) if r.returncode == 0 else None
+
+
+class Sertifikat(Base):
+    def test_explain_and_why_do_not_misread_ssl_error_reason(self):
+        import ssl
+        from aise import tls
+        from aise.pembaruan import why
+        e = ssl.SSLCertVerificationError(1, "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed")
+        self.assertEqual(e.reason if hasattr(e, "reason") else "", getattr(e, "reason", ""))         # SSLError.reason adalah TEKS, bukan galat
+        for code, kata in [(20, "sertifikat induk"), (19, "antivirus"), (10, "tanggal"), (9, "terlalu mundur")]:
+            e.verify_code = code
+            self.assertIn(kata, tls.explain(e))
+            self.assertIn(kata, why(e))                                                              # tanpa "[str: ...]"
+            self.assertIn(kata, why(urllib.error.URLError(e)))
+        self.assertNotIn("str:", why(e))
+        self.assertEqual(tls.explain(ConnectionResetError("x")), "")
+
+    def test_context_trusts_system_plus_bundle_and_keeps_verification(self):
+        import ssl
+        from aise import tls
+        ctx = tls.context()
+        self.assertEqual((ctx.verify_mode, ctx.check_hostname), (ssl.CERT_REQUIRED, True))
+        self.assertGreaterEqual(len(ctx.get_ca_certs()), len(tls.system_context().get_ca_certs()))
+
+    def https_server(self, crt, key):
+        import ssl
+        gh = self.gh
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                body = json.dumps(gh.meta).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+        class Quiet(ThreadingHTTPServer):
+            def handle_error(self, request, client_address):             # klien yang menolak sertifikat memutus sambungan: wajar
+                pass
+        srv = Quiet(("127.0.0.1", 0), H)
+        c = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        c.load_cert_chain(str(crt), str(key))
+        srv.socket = c.wrap_socket(srv.socket, server_side=True)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
+        return srv.server_address[1]
+
+    def updater_https(self, port):
+        return Updater(self.dir / "data", self.dir, LOCAL, True, base=f"https://localhost:{port}", repo="o/r")
+
+    def test_untrusted_certificate_is_named_and_explained(self):
+        from aise import tls
+        cert = make_cert(self.dir)
+        if not cert:
+            self.skipTest("openssl tidak ada")
+        port = self.https_server(*cert)
+        tls.context.cache_clear()
+        u = self.updater_https(port)
+        self.assertIn("sertifikat HTTPS GitHub ditolak", u.check(force=True)["galat"])
+        r = u.diagnose()
+        names = {x["langkah"]: x["ok"] for x in r["langkah"]}
+        self.assertFalse(names["Sertifikat HTTPS (toko sertifikat Windows saja)"])
+        self.assertFalse(names["Sertifikat HTTPS (toko Windows + bundel program)"])
+        self.assertIn("antivirus", r["kesimpulan"])
+        self.assertIn("Windows Update", r["kesimpulan"])
+
+    def test_certificate_trusted_by_the_system_store_works(self):
+        from aise import tls
+        cert = make_cert(self.dir)
+        if not cert:
+            self.skipTest("openssl tidak ada")
+        port = self.https_server(*cert)
+        with mock.patch.dict(os.environ, {"SSL_CERT_FILE": str(cert[0])}):                           # meniru sertifikat yang dipasang antivirus di toko sistem
+            tls.context.cache_clear()
+            u = self.updater_https(port)
+            v = u.check(force=True)
+            self.assertEqual(v["galat"], "")
+            self.assertTrue(v["tersedia"])
+            self.assertTrue(all(x["ok"] for x in u.diagnose()["langkah"][:5]))
+        tls.context.cache_clear()
+
+
 class Script(unittest.TestCase):
     def test_shape(self):
         bat = make_bat(77, ["--lokal"])

@@ -28,6 +28,8 @@ import urllib.request
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
+
+from . import tls
 from pathlib import Path
 
 REPO = "hansen-ayodhya/ai-sound"
@@ -55,10 +57,12 @@ class UpdateError(ValueError):
 
 def why(exc: BaseException) -> str:
     """Penyebab gangguan koneksi dalam bahasa operator, plus teks teknisnya (supaya bisa dilaporkan)."""
-    r = getattr(exc, "reason", exc)
-    tech = f"{type(r).__name__}: {r}"[:160]
-    if isinstance(r, ssl.SSLCertVerificationError):
-        return f"sertifikat HTTPS GitHub ditolak (antivirus atau proxy yang memeriksa HTTPS? tanggal/jam komputer salah?) [{tech}]"
+    inner = getattr(exc, "reason", None)
+    r = inner if isinstance(inner, BaseException) else exc          # SSLError.reason berupa teks, URLError.reason berupa galat
+    tech = f"{type(r).__name__}: {getattr(r, 'verify_message', None) or r}"[:160]
+    sert = tls.explain(exc)
+    if sert:
+        return f"sertifikat HTTPS GitHub ditolak, {sert} [{tech}]"
     if isinstance(r, ssl.SSLError):
         return f"sambungan HTTPS gagal dinegosiasikan [{tech}]"
     if isinstance(r, socket.gaierror):
@@ -200,7 +204,7 @@ class Updater:
         tok = self.token() if auth else None
         if tok:
             headers["Authorization"] = "Bearer " + tok
-        opener = urllib.request.build_opener(_NoRedirect)
+        opener = urllib.request.build_opener(_NoRedirect, urllib.request.HTTPSHandler(context=tls.context()))
         try:
             return opener.open(urllib.request.Request(url, headers=headers), timeout=TIMEOUT_S)
         except urllib.error.HTTPError as exc:
@@ -287,6 +291,19 @@ class Updater:
         except OSError:
             return ""
 
+    @staticmethod
+    def _clock_skew(host: str) -> float | None:
+        """Selisih jam komputer dengan jam server (detik), dibaca dari kepala HTTP biasa (tanpa sertifikat). None bila tidak terbaca."""
+        import http.client
+        try:
+            c = http.client.HTTPConnection(host, 80, timeout=8)
+            c.request("HEAD", "/")
+            date = c.getresponse().getheader("Date")
+            c.close()
+            return abs((parsedate_to_datetime(date) - datetime.now(timezone.utc)).total_seconds()) if date else None
+        except (OSError, ValueError, TypeError):
+            return None
+
     # ---------- uji koneksi bertahap (untuk mencari tahu MENGAPA tidak bisa menghubungi GitHub) ----------
     def diagnose(self) -> dict:
         """DNS -> sambungan TCP -> sertifikat HTTPS -> unduh versi.json, masing-masing dengan hasil dan waktu. Hanya membaca."""
@@ -322,12 +339,24 @@ class Updater:
         if not first_ok:
             return {"langkah": steps, "kesimpulan": "Alamat GitHub ketemu, tetapi sambungan ditolak atau tidak dijawab: kemungkinan firewall/antivirus memblokir program ini, atau internet terputus."}
         if u.scheme == "https":
+            def handshake(ctx):
+                with socket.create_connection(first_ok[:2], timeout=8) as sk, ctx.wrap_socket(sk, server_hostname=host) as ss:
+                    return ss.version()
             try:
-                with socket.create_connection(first_ok[:2], timeout=8) as sk, ssl.create_default_context().wrap_socket(sk, server_hostname=host) as ss:
-                    add("Sertifikat HTTPS", True, f"sah ({ss.version()})")
+                add("Sertifikat HTTPS (toko sertifikat Windows saja)", True, f"sah ({handshake(tls.system_context())})")
             except (OSError, ssl.SSLError) as exc:
-                add("Sertifikat HTTPS", False, why(exc))
-                return {"langkah": steps, "kesimpulan": "Sambungan ke GitHub ada, tetapi sertifikat HTTPS-nya ditolak: biasanya antivirus/proxy yang memeriksa HTTPS, atau jam dan tanggal komputer salah."}
+                sys_err = exc
+                add("Sertifikat HTTPS (toko sertifikat Windows saja)", False, why(exc))
+                try:
+                    add("Sertifikat HTTPS (toko Windows + bundel program)", True, f"sah ({handshake(tls.context())}); program ini memakai bundel ini, jadi pembaruan bisa berjalan")
+                except (OSError, ssl.SSLError) as exc2:
+                    add("Sertifikat HTTPS (toko Windows + bundel program)", False, why(exc2))
+                    skew = self._clock_skew(host)
+                    if skew is not None:
+                        add("Jam komputer", skew < 300, "cocok dengan GitHub" if skew < 300 else f"selisih {int(skew // 60)} menit dari GitHub: perbaiki tanggal/jam Windows")
+                    sebab = tls.explain(exc2) or tls.explain(sys_err) or "antivirus/proxy yang memeriksa HTTPS, atau jam komputer salah"
+                    return {"langkah": steps, "kesimpulan": f"Sambungan ke GitHub ada, tetapi sertifikat HTTPS-nya ditolak ({sebab}). "
+                            "Coba: (1) jalankan Windows Update, (2) cek tanggal dan jam Windows, (3) matikan sementara fitur pemeriksaan HTTPS/web di antivirus."}
         t0 = time.monotonic()
         try:
             with self._open(f"{self.web}/{self.repo}/releases/download/{TAG}/{META_NAME}", "application/octet-stream", auth=False) as r:

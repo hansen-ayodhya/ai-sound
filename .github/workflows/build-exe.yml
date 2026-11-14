@@ -29,13 +29,14 @@ jobs:
         shell: bash
         run: git log -1 --format="%h %cd" --date=format:"%d-%m-%Y %H:%M" > src/aise/_build_version.txt
 
-      - name: Pasang PyInstaller
-        run: python -m pip install "pyinstaller==6.11.1"
+      - name: Pasang PyInstaller dan bundel sertifikat
+        run: python -m pip install "pyinstaller==6.11.1" certifi
 
       - name: Buat exe
         run: >
           python -m PyInstaller --onefile --name AI-Sound-Engineer
           --paths src
+          --collect-data certifi
           --add-data "viewer;viewer"
           --add-data "src/aise/_build_version.txt;aise"
           exe_main.py

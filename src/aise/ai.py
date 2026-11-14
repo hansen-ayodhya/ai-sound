@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from . import channels, convert
+from . import channels, convert, tls
 from . import dsp as dspmod
 
 API_BASE = "https://generativelanguage.googleapis.com/v1beta"
@@ -93,7 +93,7 @@ def _request_once(url: str, key: str, body: dict | None, base: str, key_in_query
         req.add_header("x-goog-api-key", key)
     req.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_S, context=tls.context()) as r:
             return json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         try:

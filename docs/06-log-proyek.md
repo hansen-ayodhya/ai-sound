@@ -416,6 +416,14 @@
 - Penyebab "tidak bisa menghubungi" di komputer gereja belum diketahui; dari lingkungan pengembangan semua langkah berhasil.
 - Tes: tests/test_otonom.py (GeminiTidakBerulang, GeminiHanyaAnalisisTerakhir), tests/test_pembaruan.py (Diagnose).
 
+## Update 2026-11-14: sertifikat HTTPS ditolak di komputer gereja
+
+- Hasil Uji koneksi dari komputer gereja: DNS dan sambungan berhasil, tetapi `CERTIFICATE_VERIFY_FAILED`. Python di Windows hanya membaca sertifikat induk dari toko Windows, dan toko itu bisa belum memuat sertifikat induk GitHub (Windows mengunduhnya sendiri hanya saat browser memerlukannya); penyebab lain: antivirus/proxy yang memeriksa HTTPS, atau jam komputer salah. Penyebab pasti di komputer itu belum diketahui.
+- Perbaikan: `src/aise/tls.py` membuat konteks HTTPS = toko sertifikat sistem + bundel Mozilla (certifi, ikut terbungkus di exe lewat `--collect-data certifi`); dipakai pembaruan dan panggilan Gemini (yang sebelumnya kena masalah yang sama). Sertifikat yang dipasang antivirus di toko Windows tetap dipercaya; pemeriksaan nama situs dan masa berlaku tidak dilonggarkan.
+- Diagnosis: langkah sertifikat dipecah (toko Windows saja vs dengan bundel program), galat diterjemahkan per kode OpenSSL (induk tidak dikenal, buatan sendiri/antivirus, kedaluwarsa, belum berlaku, nama tidak cocok), dan jam komputer dibandingkan lewat HTTP biasa. Bug lama: `why()` salah membaca `SSLError.reason` (teks) sehingga tampil `[str: CERTIFICATE_VERIFY_FAILED]`.
+- Bila yang menolak adalah antivirus yang MEMERIKSA HTTPS dengan sertifikat yang tidak ada di toko Windows, bundel program tidak menolong; pesan menyarankan Windows Update, cek jam, dan mematikan pemeriksaan HTTPS di antivirus.
+- Tes: tests/test_pembaruan.py (Sertifikat: server HTTPS lokal bersertifikat buatan sendiri, ditolak dan dijelaskan; dipercaya lewat toko sistem, berhasil).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.
