@@ -79,7 +79,7 @@ PARAM_FLUSH_S = 1.5  # jeda sebelum kabar perubahan digabung ke setting terbaru
 MAX_PIN_FAILS = 5
 PIN_LOCK_S = 300
 # Kunci Gemini boleh DITULIS dari perangkat yang sudah masuk (PIN); kunci tidak pernah dikirim balik.
-LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown", "/api/pembaruan/cek", "/api/pembaruan/token", "/api/pembaruan/pasang", "/api/autostart"}
+LOCAL_ONLY = {"/api/update", "/api/tests", "/api/shutdown", "/api/pembaruan/cek", "/api/pembaruan/token", "/api/pembaruan/pasang", "/api/pembaruan/uji", "/api/autostart"}
 
 LOGIN_PAGE = """<!doctype html><html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Masuk</title>
@@ -854,12 +854,18 @@ class App:
 
     def _gemini_findings(self) -> list[dict]:
         """Saran Gemini yang belum selesai, dalam bentuk temuan (alamat DSP ikut sebagai langkah manual)."""
-        out = []
-        for fid, t in recs.load(self.recs_path).get("tracked", {}).items():
-            if t.get("sumber") != "gemini" or t.get("done_at"):
-                continue
-            out.append({"id": fid, "ch": t.get("ch"), "sumber": "gemini", "severity": "info", "masalah": t.get("masalah", ""),
-                        "usulan": [{"alamat": i["alamat"], "sekarang": i.get("base"), "usulan": i["target"], "teks": i.get("teks", "")} for i in t.get("items", [])]})
+        tracked = [t for t in recs.load(self.recs_path).get("tracked", {}).values() if t.get("sumber") == "gemini" and not t.get("done_at")]
+        if not tracked:
+            return []
+        latest = max(t.get("dibuat", "") for t in tracked)            # hanya analisis TERAKHIR: saran dari analisis lama dianggap sudah digantikan
+        out, seen = [], set()
+        for t in sorted((t for t in tracked if t.get("dibuat", "") == latest), key=lambda t: t["id"]):
+            f = {"id": t["id"], "ch": t.get("ch"), "sumber": "gemini", "severity": "info", "masalah": t.get("masalah", ""),
+                 "usulan": [{"alamat": i["alamat"], "sekarang": i.get("base"), "usulan": i["target"], "teks": i.get("teks", "")} for i in t.get("items", [])]}
+            k = key_for(f)
+            if k not in seen:                                         # saran yang sama (channel + parameter) dalam satu analisis ditampilkan sekali
+                seen.add(k)
+                out.append(f)
         return out
 
     def autopilot_findings(self) -> list[dict]:
@@ -1446,6 +1452,8 @@ def make_handler(app: App, http_port: int):
                 if path == "/api/pembaruan/token":
                     app.updater.set_token(None if body.get("hapus") is True else str(body.get("token", "")))
                     return self._json(200, app.updater.check(force=True))
+                if path == "/api/pembaruan/uji":
+                    return self._json(200, app.updater.diagnose())
                 if path == "/api/pembaruan/pasang":
                     return self._json(200, app.update_install())
                 if path == "/api/autostart":

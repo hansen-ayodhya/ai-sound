@@ -25,7 +25,9 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from urllib.parse import urlparse
 from pathlib import Path
 
 REPO = "hansen-ayodhya/ai-sound"
@@ -284,6 +286,60 @@ class Updater:
             return res if res in ("ok", "gagal") else ""
         except OSError:
             return ""
+
+    # ---------- uji koneksi bertahap (untuk mencari tahu MENGAPA tidak bisa menghubungi GitHub) ----------
+    def diagnose(self) -> dict:
+        """DNS -> sambungan TCP -> sertifikat HTTPS -> unduh versi.json, masing-masing dengan hasil dan waktu. Hanya membaca."""
+        steps: list[dict] = []
+
+        def add(nama: str, ok: bool, detail: str) -> bool:
+            steps.append({"langkah": nama, "ok": ok, "detail": detail})
+            return ok
+
+        u = urlparse(self.web)
+        host, port = u.hostname or "github.com", u.port or (443 if u.scheme == "https" else 80)
+        px = {k: urlparse(v).hostname or "?" for k, v in urllib.request.getproxies().items() if k in ("http", "https")}
+        add("Proxy sistem", True, ("Dipakai: " + ", ".join(f"{k} → {v}" for k, v in px.items()) + ". Langkah 3-4 menyambung langsung dan mengabaikan proxy.") if px else "Tidak ada proxy.")
+        try:
+            infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        except OSError as exc:
+            add(f"Mencari alamat {host} (DNS)", False, why(exc))
+            return {"langkah": steps, "kesimpulan": "Komputer ini tidak bisa menemukan alamat GitHub: periksa sambungan internet atau pengaturan DNS."}
+        by_fam: dict[str, tuple] = {}
+        for fam, _, _, _, addr in infos:
+            by_fam.setdefault("IPv6" if fam == socket.AF_INET6 else "IPv4", addr)
+        add(f"Mencari alamat {host} (DNS)", True, ", ".join(f"{k} {v[0]}" for k, v in by_fam.items()))
+        first_ok = None
+        for fam, addr in by_fam.items():
+            t0 = time.monotonic()
+            try:
+                sk = socket.create_connection(addr[:2], timeout=8)
+                sk.close()
+                add(f"Menyambung ke GitHub lewat {fam}", True, f"{int((time.monotonic() - t0) * 1000)} md")
+                first_ok = first_ok or addr
+            except OSError as exc:
+                add(f"Menyambung ke GitHub lewat {fam}", False, why(exc))
+        if not first_ok:
+            return {"langkah": steps, "kesimpulan": "Alamat GitHub ketemu, tetapi sambungan ditolak atau tidak dijawab: kemungkinan firewall/antivirus memblokir program ini, atau internet terputus."}
+        if u.scheme == "https":
+            try:
+                with socket.create_connection(first_ok[:2], timeout=8) as sk, ssl.create_default_context().wrap_socket(sk, server_hostname=host) as ss:
+                    add("Sertifikat HTTPS", True, f"sah ({ss.version()})")
+            except (OSError, ssl.SSLError) as exc:
+                add("Sertifikat HTTPS", False, why(exc))
+                return {"langkah": steps, "kesimpulan": "Sambungan ke GitHub ada, tetapi sertifikat HTTPS-nya ditolak: biasanya antivirus/proxy yang memeriksa HTTPS, atau jam dan tanggal komputer salah."}
+        t0 = time.monotonic()
+        try:
+            with self._open(f"{self.web}/{self.repo}/releases/download/{TAG}/{META_NAME}", "application/octet-stream", auth=False) as r:
+                body, date = r.read(MAX_META + 1), r.headers.get("Date")
+            add("Mengunduh keterangan versi", True, f"{len(body)} byte, {int((time.monotonic() - t0) * 1000)} md")
+            if date:
+                skew = abs((parsedate_to_datetime(date) - datetime.now(timezone.utc)).total_seconds())
+                add("Jam komputer", skew < 300, "cocok dengan GitHub" if skew < 300 else f"selisih {int(skew // 60)} menit dari GitHub: perbaiki tanggal/jam Windows")
+        except (UpdateError, ValueError) as exc:
+            add("Mengunduh keterangan versi", False, str(exc))
+            return {"langkah": steps, "kesimpulan": "Sambungan dasar berhasil tetapi unduhan gagal: lihat pesan di langkah yang merah."}
+        return {"langkah": steps, "kesimpulan": "Semua langkah berhasil: komputer ini bisa menjangkau GitHub." if all(x["ok"] for x in steps) else "Terhubung, tetapi ada catatan di langkah yang merah."}
 
     # ---------- unduh dan pasang ----------
     def download(self, info: dict) -> Path:

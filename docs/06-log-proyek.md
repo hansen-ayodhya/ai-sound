@@ -409,6 +409,13 @@
 - Penyebab sebenarnya di komputer gereja belum diketahui: dari lingkungan pengembangan, cek dan unduh lewat jalur baru berhasil. Bila masih gagal, teks teknis di pesan menentukan langkah berikutnya.
 - Tes: tests/test_pembaruan.py (jalur langsung tidak menyentuh API; pesan penyebab per jenis galat).
 
+## Update 2026-11-14: saran Gemini tidak berulang di Semi/Otonom; uji koneksi pembaruan
+
+- Penyebab saran Gemini berulang: autopilot mengumpulkan saran Gemini dari SEMUA analisis lama yang belum selesai, dan tiap analisis memberi id baru, sehingga saran yang sama menumpuk dan muncul lagi setelah ditolak. Kini: hanya analisis TERAKHIR yang ditawarkan, saran kembar (channel + parameter) tampil sekali, dan Tolak menahan berdasarkan channel + parameter (bukan id): 10 menit untuk temuan program, 12 jam untuk saran Gemini.
+- Pembaruan: tombol "Uji koneksi ke GitHub" (Beranda > Perawatan) memeriksa proxy, DNS, sambungan IPv4/IPv6, sertifikat HTTPS, unduhan versi.json, dan selisih jam, lalu menyebut langkah yang gagal. Exe juga punya `--cek-pembaruan` (kode keluar 0 bila semua berhasil); build menjalankannya di runner Windows terhadap exe yang baru dibuat (continue-on-error, hasilnya dibaca di log) sebagai bukti exe PyInstaller bisa menjangkau GitHub.
+- Penyebab "tidak bisa menghubungi" di komputer gereja belum diketahui; dari lingkungan pengembangan semua langkah berhasil.
+- Tes: tests/test_otonom.py (GeminiTidakBerulang, GeminiHanyaAnalisisTerakhir), tests/test_pembaruan.py (Diagnose).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

@@ -59,6 +59,13 @@ jobs:
             Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Uji koneksi GitHub dari exe (bukti exe bisa menjangkau GitHub)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          dist\AI-Sound-Engineer.exe --cek-pembaruan
+          if ($LASTEXITCODE -ne 0) { throw "exe tidak bisa menjangkau GitHub (kode $LASTEXITCODE)" }
+
       - name: Sertakan petunjuk
         shell: bash
         run: cp PETUNJUK-EXE.txt Pasang-Alat-Siaran.bat dist/

@@ -294,6 +294,51 @@ class Semua(Base):
         self.assertEqual(self.ap.view()["riwayat"], [])
 
 
+class GeminiTidakBerulang(Base):
+    def gem(self, fid, tgt=-12):
+        return {"id": fid, "ch": 3, "masalah": "saran AI", "sumber": "gemini", "usulan": [
+            {"alamat": FADER, "sekarang": convert.fader_raw(0), "usulan": convert.fader_raw(tgt), "teks": f"Fader: 0 → {tgt} dB"}]}
+
+    def test_rejected_gemini_advice_stays_hidden_when_a_new_analysis_gives_it_a_new_id(self):
+        self.findings = [self.gem("g-091500")]
+        self.ap.set_mode("semi")
+        self.assertTrue(self.wait(lambda: [u["id"] for u in self.ap.view()["usul"]] == ["g-091500"]))
+        self.ap.reject("g-091500")
+        self.findings = [self.gem("g-092000")]                                   # analisis berikutnya: saran sama, id baru
+        time.sleep(1.5)
+        self.assertEqual(self.ap.view()["usul"], [])
+        self.findings = [self.gem("g-092500", tgt=-6)]                           # saran lain (nilai beda, parameter sama) tetap ikut tertahan
+        time.sleep(1.2)
+        self.assertEqual(self.ap.view()["usul"], [])
+        self.assertEqual(self.mixer.write_attempts, [])
+
+    def test_same_advice_twice_in_one_list_is_shown_once(self):
+        self.findings = [self.gem("g-1"), self.gem("g-2")]
+        self.ap.set_mode("semi")
+        self.assertTrue(self.wait(lambda: self.ap.view()["usul"]))
+        time.sleep(0.8)
+        self.assertEqual(len(self.ap.view()["usul"]), 1)
+
+
+class GeminiHanyaAnalisisTerakhir(unittest.TestCase):
+    def test_only_the_latest_analysis_is_offered(self):
+        import tempfile
+        from aise import recs
+        tmp = tempfile.TemporaryDirectory()
+        app = App(root=ROOT, data=Path(tmp.name) / "data")
+        it = lambda tgt: [{"alamat": FADER, "teks": "fader", "base": 0.7, "target": tgt}]
+        state = {"tracked": {
+            "g-lama": {"id": "g-lama", "ch": 3, "sumber": "gemini", "masalah": "lama", "dibuat": "2026-11-14T09:00:00", "done_at": None, "items": it(0.5)},
+            "g-baru-1": {"id": "g-baru-1", "ch": 3, "sumber": "gemini", "masalah": "baru", "dibuat": "2026-11-14T09:30:00", "done_at": None, "items": it(0.4)},
+            "g-baru-2": {"id": "g-baru-2", "ch": 3, "sumber": "gemini", "masalah": "baru kembar", "dibuat": "2026-11-14T09:30:00", "done_at": None, "items": it(0.4)},
+            "g-selesai": {"id": "g-selesai", "ch": 5, "sumber": "gemini", "masalah": "selesai", "dibuat": "2026-11-14T09:30:00", "done_at": "x", "items": it(0.4)},
+            "r-program": {"id": "r-program", "ch": 3, "sumber": "program", "masalah": "bukan gemini", "dibuat": "2026-11-14T09:30:00", "done_at": None, "items": it(0.4)}}}
+        recs.save(app.recs_path, state)
+        got = app._gemini_findings()
+        self.assertEqual([f["id"] for f in got], ["g-baru-1"])
+        tmp.cleanup()
+
+
 class ServerFlow(unittest.TestCase):
     """Dari meter sampai mixer: mesin menemukan sinyal panas, mode otonom menurunkan gain, operator memulihkan."""
 
@@ -422,10 +467,13 @@ class SemuaTemuanDariServer(unittest.TestCase):
         self.app.control.enable("127.0.0.1", self.mixer.port)
         self.app.otonom.set_mode("semi")
         self.assertTrue(self.wait(lambda: self.app.otonom.view()["usul"]))
-        fid = next(u["id"] for u in self.app.otonom.view()["usul"] if u["id"].startswith("eq-boomy"))
+        usul = self.app.otonom.view()["usul"]
+        eq = [u for u in usul if any("EQ band 1" in t or "gain ke" in t for t in u["teks"])]
+        self.assertEqual(len(eq), 1)                                                     # aturan boost dan analisis boomy menyentuh parameter sama: tampil sekali
+        fid = eq[0]["id"]
         self.assertEqual(self.mixer.write_attempts, [])
         self.app.otonom.approve(fid)
-        self.assertTrue(self.wait(lambda: convert.eq_gain_db(self.mixer.state["/ch/01/eq/1/g"][0]) < 3.0))
+        self.assertTrue(self.wait(lambda: convert.eq_gain_db(self.mixer.state["/ch/01/eq/1/g"][0]) < 3.5))
         self.assertTrue(self.wait(lambda: self.app.otonom.view()["riwayat"]))
         self.app.otonom.set_mode("manual")
         self.app._static_findings = None

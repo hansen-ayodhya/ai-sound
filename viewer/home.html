@@ -173,6 +173,7 @@
       <div class="btns">
         <button id="btnUpdInstall" class="primary" hidden>Perbarui sekarang</button>
         <button id="btnUpdCheck">Cek versi baru</button>
+        <button id="btnUpdTest" title="Memeriksa langkah demi langkah mengapa komputer ini tidak bisa menjangkau GitHub">Uji koneksi ke GitHub</button>
       </div>
       <details class="advanced" id="updTokenBox" style="margin-top:8px"><summary>Token GitHub (hanya perlu bila repo proyek private)</summary>
         <p class="sub" style="margin:8px 0">GitHub tidak mengizinkan unduhan dari repo private tanpa izin. Buat token baca-saja: GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token; Repository access: hanya repo <b>ai-sound</b>; Permissions → Contents: <b>Read-only</b>. Token disimpan di folder data komputer ini, tidak ditampilkan lagi, dan hanya dikirim ke GitHub. (Nama menu di GitHub bisa berubah.)</p>
@@ -364,6 +365,7 @@ function showUpdate(u) {
   else t = "Belum diperiksa.";
   $("updTxt").textContent = t;
   $("updTxt").className = u.galat && u.tahap !== "unduh" ? "warn" : u.tersedia ? "ok" : "";
+  if (u.galat && u.tahap !== "unduh" && !/tidak ditemukan|ditolak GitHub|menolak sementara/.test(u.galat)) $("updTxt").textContent += " → klik \"Uji koneksi ke GitHub\" untuk melihat penyebabnya.";
   if (u.galat && !u.token_ada && /private/.test(u.galat)) $("updTokenBox").open = true;
   if (u.tahap === "gagal") say("updOut", "Pembaruan gagal: " + u.pesan + "\nAplikasi tetap memakai versi sekarang.", "bad");
   else if (u.hasil_terakhir === "ok") say("updOut", "Pembaruan terakhir berhasil. Exe lama disimpan sebagai AI-Sound-Engineer.lama.exe (boleh dihapus bila versi ini sudah terbukti baik).", "ok");
@@ -373,6 +375,14 @@ async function loadUpdate(force) {
   try { showUpdate(await api("/api/pembaruan" + (force ? "/cek" : ""), force ? {} : undefined)); } catch (e) { $("updBox").hidden = false; $("updTxt").textContent = e.message; }
 }
 $("btnUpdCheck").addEventListener("click", async () => { $("updTxt").textContent = "Memeriksa…"; say("updOut", ""); await loadUpdate(true); });
+$("btnUpdTest").addEventListener("click", async () => {
+  $("btnUpdTest").disabled = true; say("updOut", "Menguji koneksi ke GitHub (bisa sampai 30 detik)…");
+  try {
+    const r = await api("/api/pembaruan/uji", {});
+    say("updOut", r.langkah.map((x) => (x.ok ? "✓ " : "✗ ") + x.langkah + ": " + x.detail).join("\n") + "\n\n" + r.kesimpulan, r.langkah.every((x) => x.ok) ? "ok" : "bad");
+  } catch (e) { say("updOut", e.message, "bad"); }
+  $("btnUpdTest").disabled = false;
+});
 $("btnUpdToken").addEventListener("click", async () => {
   const t = $("updToken").value.trim();
   if (!t) return;

@@ -239,6 +239,33 @@ class DownloadInstall(Base):
         self.assertFalse((self.dir / BAT_NAME).exists())
 
 
+class Diagnose(Base):
+    def test_all_steps_ok_against_reachable_server(self):
+        r = self.updater().diagnose()
+        self.assertTrue(all(x["ok"] for x in r["langkah"]), r)
+        names = [x["langkah"] for x in r["langkah"]]
+        self.assertTrue(any("DNS" in n for n in names) and any("Menyambung" in n for n in names) and any("keterangan versi" in n for n in names))
+        self.assertIn("bisa menjangkau", r["kesimpulan"])
+
+    def test_names_the_failing_step(self):
+        u = Updater(self.dir / "data", self.dir, LOCAL, True, base="http://127.0.0.1:9", repo="o/r")
+        r = u.diagnose()
+        bad = [x for x in r["langkah"] if not x["ok"]]
+        self.assertEqual(len(bad), 1)
+        self.assertIn("Menyambung", bad[0]["langkah"])
+        self.assertIn("firewall", r["kesimpulan"])
+        self.gh.private = True                                                         # tersambung, tetapi unduhan 404
+        r2 = self.updater().diagnose()
+        self.assertFalse(r2["langkah"][-1]["ok"])
+        self.assertIn("unduhan gagal", r2["kesimpulan"])
+
+    def test_dns_failure(self):
+        u = Updater(self.dir / "data", self.dir, LOCAL, True, base="http://tidak-ada.invalid", repo="o/r")
+        r = u.diagnose()
+        self.assertIn("DNS", r["kesimpulan"] + r["langkah"][-1]["langkah"])
+        self.assertFalse(r["langkah"][-1]["ok"])
+
+
 class Script(unittest.TestCase):
     def test_shape(self):
         bat = make_bat(77, ["--lokal"])

@@ -26,6 +26,7 @@ from collections import deque
 from pathlib import Path
 
 from . import convert, recs
+from .ignored import key_for
 from .writer import WriteRefused, spec_for
 
 MODES = ("manual", "semi", "otonom")
@@ -34,7 +35,8 @@ NO_AUTO_PREFIX = ("live-gain-",)   # satu kejadian clipping sesaat (mis. mic ter
 MAX_SHOWN = 15
 COOL_S = 20.0                # setelah satu tindakan, channel itu diamati dulu
 OPERATOR_HOLD_S = 60.0       # channel yang baru disentuh operator tidak diganggu
-REJECT_S = 600.0             # usulan yang ditolak tidak muncul lagi selama ini
+REJECT_S = 600.0             # usulan program yang ditolak tidak muncul lagi selama ini
+REJECT_GEMINI_S = 12 * 3600  # saran Gemini yang ditolak: Gemini mengulang saran yang sama tiap analisis, jadi ditahan lebih lama
 AUTO_PER_HOUR = 30
 ACTION_TIMEOUT_S = 20.0
 OWN_ECHO_S = 3.0
@@ -193,9 +195,10 @@ class Autopilot:
 
     def reject(self, fid: str) -> dict:
         with self._lock:
-            self._rejected[fid] = self._clock() + REJECT_S
+            u = self.usul.pop(fid, None)
+            if u:                                      # ditahan berdasarkan channel + parameter, bukan id: saran Gemini mendapat id baru tiap analisis
+                self._rejected[u["kunci"]] = self._clock() + (REJECT_GEMINI_S if u.get("sumber") == "gemini" else REJECT_S)
             self._approved.discard(fid)
-            self.usul.pop(fid, None)
             self._log("tolak", id=fid)
             return self.view()
 
@@ -309,14 +312,14 @@ class Autopilot:
             self._rejected = {k: t for k, t in self._rejected.items() if t > now}
             seen = {}
             for f in fnd:
-                fid = f["id"]
-                if fid in self._rejected or len(seen) >= MAX_SHOWN:
+                fid, kunci = f["id"], key_for(f)
+                if kunci in self._rejected or len(seen) >= MAX_SHOWN or any(v["kunci"] == kunci for v in seen.values()):
                     continue
                 ok = [u for u in f["usulan"] if writable(u.get("alamat"))]
                 manual = [u.get("teks", "") for u in f["usulan"] if not writable(u.get("alamat"))]
                 auto, why = self._auto_ok(f, now) if self.mode == "otonom" else (False, "menunggu persetujuan")
                 old = self.usul.get(fid, {})
-                seen[fid] = {"id": fid, "ch": f.get("ch"), "masalah": f.get("masalah", ""), "severity": f.get("severity", "info"),
+                seen[fid] = {"id": fid, "kunci": kunci, "ch": f.get("ch"), "masalah": f.get("masalah", ""), "severity": f.get("severity", "info"),
                              "sumber": f.get("sumber", "program"), "teks": [u.get("teks", "") for u in ok], "manual": manual,
                              "bisa": bool(ok), "otomatis": auto, "catatan": "" if auto else why,
                              "status": "antre" if fid in self._approved else "usul", "pesan": old.get("pesan", "")}
@@ -326,7 +329,7 @@ class Autopilot:
             self.usul = seen
         if todo:
             f, auto, ok, manual = todo
-            self._start({"id": f["id"], "ch": f.get("ch"), "masalah": f.get("masalah", ""), "manual": manual,
+            self._start({"id": f["id"], "kunci": key_for(f), "ch": f.get("ch"), "masalah": f.get("masalah", ""), "manual": manual,
                          "items": [{"alamat": u["alamat"], "target": u["usulan"], "teks": u.get("teks", "")} for u in ok]},
                         auto=auto, confirmed=True)   # persetujuan operator atau kebijakan batas_otonom sudah menjadi izinnya
 
@@ -360,7 +363,7 @@ class Autopilot:
                 if "sama dengan rekomendasi" not in err:
                     if act["id"] in self.usul:
                         self.usul[act["id"]]["pesan"] = err
-                    self._rejected[act["id"]] = now + 30.0      # jangan diulang terus-menerus
+                    self._rejected[act.get("kunci", act["id"])] = now + 30.0      # jangan diulang terus-menerus
                     self._log("gagal", id=act["id"], pesan=err)
                 return err
             if auto:

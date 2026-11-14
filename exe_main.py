@@ -16,6 +16,17 @@ if __name__ == "__main__":
     except (AttributeError, ValueError):
         pass
     args = sys.argv[1:]
+    if "--cek-pembaruan" in args:
+        # Uji koneksi ke GitHub dari exe ini (dipakai build untuk membuktikan exe bisa menjangkau GitHub): kode keluar 0 bila semua langkah berhasil.
+        import json
+        import tempfile
+        from pathlib import Path
+
+        from aise.pembaruan import Updater
+
+        res = Updater(Path(tempfile.mkdtemp()), Path.cwd(), "?", True).diagnose()
+        print(json.dumps(res, ensure_ascii=False, indent=1))
+        sys.exit(0 if all(x["ok"] for x in res["langkah"]) else 1)
     if "--lokal" in args:
         args.remove("--lokal")
     elif "--lan" not in args:
