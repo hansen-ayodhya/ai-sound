@@ -18,6 +18,8 @@ import hashlib
 import json
 import os
 import re
+import socket
+import ssl
 import subprocess
 import threading
 import time
@@ -28,6 +30,7 @@ from pathlib import Path
 
 REPO = "hansen-ayodhya/ai-sound"
 API_BASE = "https://api.github.com"
+WEB_BASE = "https://github.com"           # unduhan langsung rilis public: tanpa api.github.com, tanpa batas permintaan API
 TAG = "terbaru"
 EXE_NAME = "AI-Sound-Engineer.exe"
 NEW_NAME = "AI-Sound-Engineer.baru"
@@ -38,7 +41,7 @@ META_NAME = "versi.json"
 MAX_EXE = 300_000_000
 MAX_META = 20_000
 CHECK_EVERY_S = 6 * 3600
-TIMEOUT_S = 20
+TIMEOUT_S = 30
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_]{20,255}$")
 ARG_RE = re.compile(r"^[A-Za-z0-9_\-=.:]{1,40}$")
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -46,6 +49,23 @@ SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 
 class UpdateError(ValueError):
     """Pembaruan tidak bisa dilanjutkan (pesan untuk operator)."""
+
+
+def why(exc: BaseException) -> str:
+    """Penyebab gangguan koneksi dalam bahasa operator, plus teks teknisnya (supaya bisa dilaporkan)."""
+    r = getattr(exc, "reason", exc)
+    tech = f"{type(r).__name__}: {r}"[:160]
+    if isinstance(r, ssl.SSLCertVerificationError):
+        return f"sertifikat HTTPS GitHub ditolak (antivirus atau proxy yang memeriksa HTTPS? tanggal/jam komputer salah?) [{tech}]"
+    if isinstance(r, ssl.SSLError):
+        return f"sambungan HTTPS gagal dinegosiasikan [{tech}]"
+    if isinstance(r, socket.gaierror):
+        return f"nama github.com tidak bisa dicari (DNS/internet mati?) [{tech}]"
+    if isinstance(r, (socket.timeout, TimeoutError)):
+        return f"GitHub tidak menjawab dalam {TIMEOUT_S} detik (internet lambat atau diblokir firewall) [{tech}]"
+    if isinstance(r, ConnectionError):
+        return f"sambungan ditolak/terputus (firewall, antivirus, atau proxy?) [{tech}]"
+    return f"[{tech}]"
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -139,7 +159,8 @@ def launch_bat(bat: Path) -> None:
 
 class Updater:
     def __init__(self, data: Path, app_dir: Path, version: str, frozen: bool, base: str = API_BASE, repo: str = REPO,
-                 windows: bool = os.name == "nt", launch=launch_bat, clock=time.monotonic):
+                 windows: bool = os.name == "nt", launch=launch_bat, clock=time.monotonic, web_base: str | None = None):
+        self.web = (web_base or (WEB_BASE if base == API_BASE else base)).rstrip("/")
         self.data, self.app_dir, self.version, self.frozen = Path(data), Path(app_dir), version, frozen
         self.base, self.repo, self.windows, self._launch, self._clock = base.rstrip("/"), repo, windows, launch, clock
         self.token_path = self.data / "github-token.txt"
@@ -171,10 +192,10 @@ class Updater:
         self._checked = None
 
     # ---------- jaringan ----------
-    def _open(self, url: str, accept: str):
-        """Buka URL API. Token hanya dikirim ke alamat API; pengalihan ke penyimpanan file diikuti TANPA token."""
+    def _open(self, url: str, accept: str, auth: bool = True):
+        """Buka URL. Token (bila ada dan auth=True) hanya dikirim ke alamat yang diminta; pengalihan diikuti TANPA token."""
         headers = {"Accept": accept, "User-Agent": "AI-Sound-Engineer", "X-GitHub-Api-Version": "2022-11-28"}
-        tok = self.token()
+        tok = self.token() if auth else None
         if tok:
             headers["Authorization"] = "Bearer " + tok
         opener = urllib.request.build_opener(_NoRedirect)
@@ -187,27 +208,43 @@ class Updater:
                     raise UpdateError("GitHub mengalihkan ke alamat yang tidak aman; unduhan dibatalkan.") from exc
                 try:
                     return opener.open(urllib.request.Request(loc, headers={"User-Agent": "AI-Sound-Engineer"}), timeout=TIMEOUT_S)
-                except urllib.error.URLError as exc2:
-                    raise UpdateError(f"Gagal mengunduh dari GitHub: {exc2}") from exc2
+                except urllib.error.HTTPError as exc2:
+                    raise UpdateError(f"Gagal mengunduh file dari GitHub (kesalahan {exc2.code}).") from exc2
+                except (urllib.error.URLError, OSError) as exc2:
+                    raise UpdateError(f"Gagal mengunduh file dari GitHub: {why(exc2)}") from exc2
             if exc.code == 401:
                 raise UpdateError("Token ditolak GitHub (salah ketik atau sudah kedaluwarsa). Buat token baru lalu isi ulang.") from exc
             if exc.code == 404:
-                raise UpdateError("Rilis tidak ditemukan. Repo GitHub ini private: isi token baca-saja, atau jadikan repo public." if not tok else
+                raise UpdateError("Rilis 'terbaru' tidak ditemukan: build terakhir belum selesai, atau repo ini private (isi token baca-saja, atau jadikan repo public)." if not tok else
                                   "Rilis 'terbaru' tidak ditemukan: build terakhir mungkin belum selesai, atau token tidak diberi akses ke repo ini.") from exc
             if exc.code in (403, 429):
                 raise UpdateError("GitHub menolak sementara (batas permintaan atau izin token). Coba lagi beberapa menit lagi.") from exc
             raise UpdateError(f"GitHub menjawab kesalahan {exc.code}.") from exc
         except (urllib.error.URLError, OSError) as exc:
-            raise UpdateError("Tidak bisa menghubungi GitHub. Periksa sambungan internet komputer ini.") from exc
+            raise UpdateError(f"Tidak bisa menghubungi GitHub: {why(exc)}") from exc
+
+    def _read(self, url: str, limit: int, auth: bool = True) -> bytes:
+        try:
+            with self._open(url, "application/octet-stream", auth) as r:
+                return r.read(limit)
+        except (OSError, ValueError) as exc:               # terputus saat membaca isi
+            raise UpdateError(f"Unduhan terputus: {why(exc)}") from exc
 
     def _release(self) -> dict:
-        with self._open(f"{self.base}/repos/{self.repo}/releases/tags/{TAG}", "application/vnd.github+json") as r:
-            rel = json.loads(r.read(2_000_000))
-        assets = {a.get("name"): a for a in rel.get("assets", []) if isinstance(a, dict)}
-        if EXE_NAME not in assets or META_NAME not in assets:
-            raise UpdateError("Rilis belum lengkap (build sedang berjalan). Coba lagi beberapa menit lagi.")
-        with self._open(assets[META_NAME]["url"], "application/octet-stream") as r:
-            raw = r.read(MAX_META + 1)
+        tok = self.token()
+        if tok:                                            # repo private: lewat API dengan token
+            try:
+                with self._open(f"{self.base}/repos/{self.repo}/releases/tags/{TAG}", "application/vnd.github+json") as r:
+                    rel = json.loads(r.read(2_000_000))
+            except (OSError, ValueError) as exc:
+                raise UpdateError(f"Daftar rilis tidak terbaca: {why(exc)}") from exc
+            assets = {a.get("name"): a for a in rel.get("assets", []) if isinstance(a, dict)}
+            if EXE_NAME not in assets or META_NAME not in assets:
+                raise UpdateError("Rilis belum lengkap (build sedang berjalan). Coba lagi beberapa menit lagi.")
+            raw, exe_url = self._read(assets[META_NAME]["url"], MAX_META + 1), assets[EXE_NAME]["url"]
+        else:                                              # repo public: alamat unduhan langsung, tidak lewat api.github.com
+            d = f"{self.web}/{self.repo}/releases/download/{TAG}"
+            raw, exe_url = self._read(f"{d}/{META_NAME}", MAX_META + 1, auth=False), f"{d}/{EXE_NAME}"
         try:
             meta = json.loads(raw.decode("utf-8-sig"))
             versi, sha, size = str(meta["versi"]), str(meta["sha256"]).lower(), int(meta["ukuran"])
@@ -215,7 +252,7 @@ class Updater:
             raise UpdateError("Keterangan versi di rilis tidak terbaca.") from exc
         if not SHA_RE.match(sha) or not 0 < size <= MAX_EXE:
             raise UpdateError("Keterangan versi di rilis tidak wajar; pembaruan dibatalkan.")
-        return {"versi": versi, "sha256": sha, "ukuran": size, "catatan": str(meta.get("catatan", ""))[:200], "url": assets[EXE_NAME]["url"]}
+        return {"versi": versi, "sha256": sha, "ukuran": size, "catatan": str(meta.get("catatan", ""))[:200], "url": exe_url, "auth": bool(tok)}
 
     # ---------- cek ----------
     def check(self, force: bool = False) -> dict:
@@ -254,7 +291,7 @@ class Updater:
         dest = self.app_dir / NEW_NAME
         h, got = hashlib.sha256(), 0
         try:
-            with self._open(info["url"], "application/octet-stream") as r, dest.open("wb") as fh:
+            with self._open(info["url"], "application/octet-stream", info.get("auth", True)) as r, dest.open("wb") as fh:
                 while True:
                     chunk = r.read(262144)
                     if not chunk:
@@ -276,7 +313,7 @@ class Updater:
             raise
         except OSError as exc:
             dest.unlink(missing_ok=True)
-            raise UpdateError(f"Gagal menyimpan unduhan: {exc}") from exc
+            raise UpdateError(f"Unduhan gagal atau tidak bisa disimpan: {why(exc)}") from exc
         return dest
 
     def install(self, args: list[str], pid: int, on_ready) -> dict:

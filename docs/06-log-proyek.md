@@ -402,6 +402,13 @@
 - Tidak diubah: nomor di strip fader, judul panel detail channel, daftar pilihan channel, dan label Peringatan live (itu bukan rekomendasi).
 - Tes: tests/test_names.py (RecommendationNames).
 
+## Update 2026-11-14: pembaruan aplikasi tidak bergantung pada api.github.com
+
+- Laporan operator: pembaruan "tidak dapat menghubungi GitHub". Pesan lama menutupi penyebab (DNS, sertifikat HTTPS, waktu habis, firewall semuanya jadi satu kalimat). Kini pesan menyebut penyebabnya dan teks teknisnya (`pembaruan.why`).
+- Repo public: cek dan unduh lewat alamat langsung `github.com/<repo>/releases/download/terbaru/...` (tanpa token, tanpa batas permintaan API, tanpa `api.github.com`); API hanya dipakai bila token diisi (repo private). Batas waktu 20 -> 30 detik.
+- Penyebab sebenarnya di komputer gereja belum diketahui: dari lingkungan pengembangan, cek dan unduh lewat jalur baru berhasil. Bila masih gagal, teks teknis di pesan menentukan langkah berikutnya.
+- Tes: tests/test_pembaruan.py (jalur langsung tidak menyentuh API; pesan penyebab per jenis galat).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

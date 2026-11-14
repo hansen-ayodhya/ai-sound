@@ -32,6 +32,7 @@ class FakeGitHub:
         self.exe, self.private, self.token = EXE, False, "github_pat_" + "x" * 30
         self.meta = {"versi": REMOTE, "sha256": hashlib.sha256(EXE).hexdigest(), "ukuran": len(EXE), "catatan": "uji"}
         self.seen: list[tuple[str, str | None]] = []
+        self.direct: list[str] = []
         self.assets = [EXE_NAME, "versi.json"]
         gh = self
 
@@ -52,6 +53,12 @@ class FakeGitHub:
                 gh.seen.append((self.path, auth))
                 if self.path.startswith("/blob/"):
                     return self._send(200, gh.exe if self.path == "/blob/1" else json.dumps(gh.meta).encode())
+                if self.path.startswith("/o/r/releases/download/terbaru/"):         # unduhan langsung (repo public): tanpa API
+                    gh.direct.append(self.path)
+                    name = self.path.rsplit("/", 1)[1]
+                    if gh.private or name not in gh.assets:
+                        return self._send(404)
+                    return self._send(302, headers={"Location": f"http://127.0.0.1:{gh.port}/blob/{gh.assets.index(name) + 1}"})
                 if gh.private and auth != "Bearer " + gh.token:
                     return self._send(401 if auth else 404)
                 if self.path == "/repos/o/r/releases/tags/terbaru":
@@ -138,16 +145,37 @@ class Check(Base):
         u.set_token(None)
         self.assertFalse(u.view()["token_ada"])
 
+    def test_public_repo_uses_direct_download_not_the_api(self):
+        u = self.updater()
+        v = u.check()
+        self.assertTrue(v["tersedia"])
+        self.assertFalse(any(p.startswith("/repos/") for p, _ in self.gh.seen))      # api.github.com tidak disentuh
+        self.assertEqual(len(self.gh.direct), 1)
+        self.assertEqual(u.download(u._info).read_bytes(), EXE)
+        self.assertEqual(len(self.gh.direct), 2)
+
     def test_incomplete_release_and_bad_meta(self):
         self.gh.assets = [EXE_NAME]
-        self.assertIn("belum lengkap", self.updater().check()["galat"])
+        self.assertIn("belum selesai", self.updater().check()["galat"])
+        u = self.updater(); u.set_token(self.gh.token)                              # lewat API (token): rilis tanpa versi.json
+        self.assertIn("belum lengkap", u.check()["galat"])
         self.gh.assets = [EXE_NAME, "versi.json"]
         self.gh.meta = {"versi": REMOTE, "sha256": "zz", "ukuran": 5}
         self.assertIn("tidak wajar", self.updater().check()["galat"])
 
-    def test_no_internet(self):
+    def test_connection_failures_name_the_cause(self):
+        import socket
+        import ssl
+        from aise.pembaruan import why
         u = Updater(self.dir / "data", self.dir, LOCAL, True, base="http://127.0.0.1:9", repo="o/r")
-        self.assertIn("internet", u.check()["galat"])
+        g = u.check()["galat"]
+        self.assertIn("Tidak bisa menghubungi GitHub", g)
+        self.assertIn("ConnectionRefusedError", g)                                  # penyebab teknis ikut tampil
+        for exc, kata in [(urllib.error.URLError(ssl.SSLCertVerificationError(1, "bad")), "sertifikat"),
+                          (urllib.error.URLError(socket.gaierror(11001, "getaddrinfo failed")), "DNS"),
+                          (urllib.error.URLError(socket.timeout("timed out")), "tidak menjawab"),
+                          (ConnectionResetError("reset"), "terputus")]:
+            self.assertIn(kata, why(exc))
 
     def test_previous_result_is_reported_once(self):
         (self.dir / "data" / RESULT_NAME).write_text("ok \r\n")
