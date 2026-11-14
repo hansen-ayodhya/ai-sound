@@ -100,7 +100,7 @@ def findings(dump: dict | None, bus: int, profile: dict | None = None) -> list[d
     if over:
         out.append(_finding("siaran-kiriman", "perhatian", bus, f"Kiriman ke {nm} di atas 0 dB pada {len(over)} channel",
                             "Banyak sinyal dijumlahkan di bus; kiriman di atas 0 dB cepat membuat bus over.",
-                            "; ".join(f"CH {x['ch']:02d} {x['nama']}: {x['db']:+.1f} dB" for x in over),
+                            "; ".join(f"{x['nama'] or 'CH %02d' % x['ch']}: {x['db']:+.1f} dB" for x in over),
                             "Putar semua sumber bersamaan, lalu lihat meter Bus di M-AIR.", "Turunkan kiriman channel tersebut (manual di M-AIR)."))
     voice = [x for x in active if channels.TYPES.get(x["jenis"], {}).get("voice")]
     other = [x for x in active if x["jenis"] and not channels.TYPES.get(x["jenis"], {}).get("voice")]

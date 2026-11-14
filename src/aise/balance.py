@@ -127,8 +127,7 @@ def findings(result: dict, rec: dict, profile: dict | None, values: dict) -> lis
         if cur == float("-inf"):
             continue
         tgt = max(-60.0, round(cur - rec["db"], 1))
-        src = channels.source_for(profile, n) or {}
-        nm = src.get("nama") or f"CH {n:02d}"
+        nm = channels.display_name(profile, (values.get(f"/ch/{n:02d}/config/name") or [None])[0], n)
         out.append({
             "id": f"balance-{rec['turunkan']}-ch{n}", "ch": n, "sumber": "program", "severity": "perhatian", "channel": f"CH {n:02d}",
             "masalah": f"{nm}: {'musik' if rec['turunkan'] == 'musik' else 'vokal'} terlalu keras di posisi mic ruangan",

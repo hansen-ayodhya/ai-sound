@@ -177,8 +177,8 @@ class Engine:
 
         def name(ch):
             src = channels.source_for(profile, ch)
-            nm = channels.clean_name(first(f"/ch/{ch:02d}/config/name") or "")
-            return f"CH {ch:02d}" + (f" {nm}" if nm else "") + (f" ({src['nama']})" if src else "")
+            nm = channels.display_name(profile, first(f"/ch/{ch:02d}/config/name"), ch)
+            return nm + (f" ({src['nama']})" if src and src["nama"].strip().lower() != nm.lower() else "")
 
         st: dict[int, dict] = {}
         cfg: dict[int, dict] = {}

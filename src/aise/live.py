@@ -22,7 +22,7 @@ from collections import deque
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from . import convert
+from . import channels, convert
 from .client import ReadOnlyClient
 from .meters import MeterError, parse_blob
 
@@ -257,7 +257,7 @@ def make_gain_findings(events: dict, dump: dict | None, labels: dict[int, str] |
         tgt = max(-12.0, round(cur + (CLIP_STEP_DB if kind == "clip" else HOT_STEP_DB)))
         if tgt >= cur:
             continue
-        name = (labels or {}).get(i, f"CH {ch:02d}")
+        name = channels.strip_ch((labels or {}).get(i, f"CH {ch:02d}"))
         clip = kind == "clip"
         out.append({
             "id": f"live-gain-ch{ch}", "ch": ch, "sumber": "program", "severity": "perhatian" if clip else "info",

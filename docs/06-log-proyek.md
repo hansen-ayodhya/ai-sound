@@ -395,6 +395,13 @@
 - BELUM terbukti di MR18 asli: penulisan OSC, pemetaan meter ke channel, konversi EQ/low cut/kompresor (perkiraan), dan tipe nilai rasio kompresor. Karena otonom kini mengubah EQ/kompresor, coba dulu di luar ibadah.
 - Tes: tests/test_otonom.py (tabel kebijakan 25 kasus; otonom menerapkan EQ, low cut + frekuensi, kompresor tiga parameter; yang di luar kebijakan tetap minta persetujuan; semi menerapkan saran Gemini sebagian; temuan aturan dan analisis EQ dari server sampai ke autopilot).
 
+## Update 2026-11-14: rekomendasi menyebut nama channel, bukan nomor
+
+- Teks rekomendasi (aturan konfigurasi, mesin realtime, Cek Balance, usulan gain dari clipping, temuan siaran, usulan Mode kerja, riwayat, daftar diabaikan, gambaran usulan) kini menyebut channel dengan nama: nama di mixer (tanpa akhiran _nn), lalu nama di Daftar Channel; "CH nn" hanya untuk channel tanpa nama sama sekali (`channels.display_name`, `channels.strip_ch`, `chDisplay` di tampilan).
+- Prompt Gemini diberi aturan menyebut channel dengan nama (nomor hanya di field `ch`). Belum terbukti Gemini selalu patuh.
+- Tidak diubah: nomor di strip fader, judul panel detail channel, daftar pilihan channel, dan label Peringatan live (itu bukan rekomendasi).
+- Tes: tests/test_names.py (RecommendationNames).
+
 ## Catatan
 
 Sejak 2026-11-06 proyek ini punya repo sendiri: `hansen-ayodhya/ai-sound` (branch `main`). Sebelumnya berada di folder `ai-sound-engineer/` pada repo `hansen-ayodhya/wtc` (branch `claude/ai-sound-engineer-church-audit-r81rqp`); riwayat commit ikut dipindahkan. Pengembangan selanjutnya hanya di repo ini.

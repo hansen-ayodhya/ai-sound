@@ -74,7 +74,7 @@ def _db_txt(raw, fn) -> str:
 def _label(values: dict, n: int) -> tuple[str, str]:
     name = _first(values, f"/ch/{n:02d}/config/name")
     name = channels.clean_name(name) if name not in (None, "") else ""
-    return name, f"Ch {n:02d}" + (f" '{name}'" if name else "")
+    return name, name or f"CH {n:02d}"
 
 
 def analyze(dump: dict, profile: dict | None = None) -> list[Finding]:
@@ -98,7 +98,7 @@ def analyze(dump: dict, profile: dict | None = None) -> list[Finding]:
         if src:
             # Daftar Channel dari operator lebih dipercaya daripada tebakan nama.
             t = channels.TYPES[src["jenis"]]
-            label = f"{label} — {src['nama']}"
+            label = f"{label} — {src['nama']}" if name and src["nama"].strip().lower() != name.lower() else (label if name else src["nama"])
             is_voice, is_speech = t["voice"], t["speech"]
             line_src = src["koneksi"] in ("line langsung", "USB") or (src["koneksi"] == "" and t["line"])
             other = channels.mismatch(src, name)

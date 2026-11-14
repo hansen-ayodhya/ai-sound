@@ -806,6 +806,13 @@ function badgesFor(ch) {
     info ? el("span", { class: "badge info", text: "💡 " + info, title: info + " saran" }) : null,
     done ? el("span", { class: "badge done", text: "✓ " + done, title: done + " rekomendasi sudah dilakukan (terverifikasi dari mixer)" }) : null);
 }
+// Nama channel untuk rekomendasi: nama di mixer, lalu nama di Daftar Channel; "CH nn" hanya bila channel tidak punya nama.
+function chDisplay(n) {
+  const nm = cleanName(raw("/ch/" + pad2(n) + "/config/name"));
+  if (nm) return nm;
+  const r = roleFor(n);
+  return r ? r.replace(/ \([LR]\)$/, "") : "CH " + pad2(n);
+}
 function roleFor(n) {
   if (!state.profile) return "";
   const src = state.profile.sources.find((x) => x.ch.includes(n));
@@ -1295,7 +1302,7 @@ async function openSiaran() {
     parts.push(el("p", { class: "note", text: "Ini seberapa banyak tiap channel dikirim ke bus (bukan seberapa keras suaranya). Merah = di atas 0 dB." }));
     const pct = (db) => (db == null ? 0 : Math.max(0, Math.min(100, ((Math.max(-60, Math.min(10, db)) + 60) / 70) * 100)));
     for (const k of s.kiriman) parts.push(el("div", { class: "sendrow", style: k.aktif ? "" : "opacity:.5" },
-      el("span", { class: "lbl", title: k.peran, text: "CH " + pad2(k.ch) }),
+      el("span", { class: "lbl", title: k.peran, text: k.nama || k.peran || "CH " + pad2(k.ch) }),
       el("div", { class: "sendbar" }, el("div", { class: "now" + (k.db > 0 ? " over" : ""), style: `width:${pct(k.db)}%` })),
       el("span", { class: "val", text: (k.db == null ? "?" : k.db + " dB") + " " + (k.nama || k.peran) + (k.aktif ? "" : " (mute)") })));
     if (!s.kiriman.length) parts.push(el("p", { class: "note", text: "Kiriman channel ke bus ini belum terbaca." }));
@@ -1384,7 +1391,7 @@ function openIgnored() {
     ...(list.length ? list.map((i) => {
       const b = el("button", { type: "button", text: "Kembalikan", style: "font:inherit;font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid var(--line);background:var(--strip);color:var(--text);cursor:pointer" });
       b.addEventListener("click", async () => { try { await api("/api/ignore/restore", { key: i.key }); await refreshRecs(); mergeFindings(); state.keepDrawer = true; try { render(); } finally { state.keepDrawer = false; } openIgnored(); } catch (err) { alert(err.message); } });
-      return el("div", { class: "donebox", style: "border-color:var(--line);background:var(--strip)" }, el("b", { text: (i.ch != null ? "CH " + String(i.ch).padStart(2, "0") + " · " : "") + (i.masalah || i.id) }), el("div", { class: "note", text: "Diabaikan " + String(i.ts).slice(0, 16).replace("T", " ") }), b);
+      return el("div", { class: "donebox", style: "border-color:var(--line);background:var(--strip)" }, el("b", { text: (i.ch != null && !String(i.masalah || "").includes(chDisplay(i.ch)) ? chDisplay(i.ch) + " · " : "") + (i.masalah || i.id) }), el("div", { class: "note", text: "Diabaikan " + String(i.ts).slice(0, 16).replace("T", " ") }), b);
     }) : [el("p", { class: "note", text: "Belum ada." })]));
 }
 function mergeFindings() {
@@ -1426,14 +1433,14 @@ function aiVisual(f) {
   if (!f.ch || !f.usulan || !f.usulan.length || !state.dump || !state.showAI) return null;
   const addrs = f.usulan.map((u) => u.alamat);
   const has = (re) => addrs.some((a) => re.test(a));
-  const parts = [el("h4", { text: "Gambaran usulan · CH " + pad2(f.ch) + " " + cleanName(raw("/ch/" + pad2(f.ch) + "/config/name")) }),
+  const parts = [el("h4", { text: "Gambaran usulan · " + chDisplay(f.ch) }),
     legendEl(hasProposalRe(f.ch, /./, "rule"), true)];
   if (has(/\/(eq\/|preamp\/hp)/)) parts.push(eqChart(f.ch));
   if (has(/\/(dyn|gate)\//)) parts.push(...dynSection(f.ch).slice(2, 3));
   if (has(/\/(headamp\/\d\d\/gain|mix\/fader)/)) parts.push(...levelSection(f.ch).slice(2, -1));
   if (has(/\/mix\/\d\d\/level/)) parts.push(...sendSection(f.ch).slice(2, -1));
   if (parts.length === 2) parts.push(el("ul", { class: "usulan" }, ...f.usulan.map((u) => el("li", { text: u.teks }))));
-  parts.push(el("button", { class: "open", type: "button", text: "Buka detail CH " + pad2(f.ch),
+  parts.push(el("button", { class: "open", type: "button", text: "Buka detail " + chDisplay(f.ch),
     onclick: () => { openChannel(f.ch, state.stripEls["ch" + f.ch]).catch((e) => console.error("Error opening channel:", e)); } }));
   return el("div", { class: "aivis" }, ...parts);
 }
@@ -2131,8 +2138,8 @@ function paintAuto(force) {
     yes.addEventListener("click", () => decide(u.id, true));
     const no = el("button", { type: "button", class: "abtn", text: "Tolak", title: "Tidak diusulkan lagi selama 10 menit" });
     no.addEventListener("click", () => decide(u.id, false));
-    rows.push(el("li", null, u.ch != null ? el("span", { class: "lb", text: "CH " + pad2(u.ch) }) : null,
-      el("span", { class: "tx", text: u.masalah.replace(/^CH \d\d[^:]*:\s*/, "") + (u.teks.length ? " → " + u.teks.join("; ") : "") }),
+    rows.push(el("li", null, u.ch != null && !u.masalah.toLowerCase().includes(chDisplay(u.ch).toLowerCase()) ? el("span", { class: "lb", text: chDisplay(u.ch) }) : null,
+      el("span", { class: "tx", text: u.masalah + (u.teks.length ? " → " + u.teks.join("; ") : "") }),
       u.sumber === "gemini" ? el("span", { class: "tag", style: "background:#10263f;color:#9be6fa", text: "saran AI" }) : null,
       u.otomatis ? el("span", { class: "tag", text: "otomatis" }) : (u.bisa ? yes : null), u.otomatis || !u.bisa ? null : no,
       !u.bisa ? el("button", { type: "button", class: "abtn", text: "Sembunyikan", onclick: () => decide(u.id, false) }) : null,
@@ -2140,7 +2147,7 @@ function paintAuto(force) {
       u.pesan || u.catatan ? el("span", { class: "nt", text: u.pesan ? "Gagal: " + u.pesan : u.catatan }) : null));
   }
   for (const h of o.riwayat.slice(0, 4)) rows.push(el("li", { class: "hist" + (h.ok ? "" : " bad") },
-    el("span", { text: h.waktu + " " + (h.ok ? "✓" : "⚠") + (h.pulih ? " dipulihkan" : h.otomatis ? " otomatis" : " disetujui") + " · " + (h.ch != null ? "CH " + pad2(h.ch) + " · " : "") + h.teks.join("; ") + (h.ok ? " · terbaca di mixer" : " · " + h.pesan) + (h.manual && h.manual.length ? " · sisanya manual: " + h.manual.join("; ") : "") })));
+    el("span", { text: h.waktu + " " + (h.ok ? "✓" : "⚠") + (h.pulih ? " dipulihkan" : h.otomatis ? " otomatis" : " disetujui") + " · " + (h.ch != null ? chDisplay(h.ch) + " · " : "") + h.teks.join("; ") + (h.ok ? " · terbaca di mixer" : " · " + h.pesan) + (h.manual && h.manual.length ? " · sisanya manual: " + h.manual.join("; ") : "") })));
   $("autoList").replaceChildren(...rows);
 }
 

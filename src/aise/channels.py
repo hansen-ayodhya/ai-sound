@@ -20,6 +20,21 @@ def clean_name(name) -> str:
     return re.sub(r"_\d{1,3}$", "", str(name if name is not None else "").strip()).strip()
 
 
+def display_name(profile: dict | None, mixer_name, ch: int) -> str:
+    """Nama channel untuk ditampilkan di rekomendasi: nama di mixer, lalu nama di Daftar Channel; 'CH nn' hanya bila tidak ada nama sama sekali."""
+    nm = clean_name(mixer_name)
+    if nm:
+        return nm
+    src = source_for(profile, ch)
+    return src["nama"] if src and src.get("nama") else f"CH {ch:02d}"
+
+
+def strip_ch(label: str) -> str:
+    """'CH 03 WL Pdt (Vokal)' -> 'WL Pdt (Vokal)'; label tanpa nama ('CH 03') dibiarkan."""
+    out = re.sub(r"^CH \d{2}\s+", "", str(label)).strip()
+    return out or str(label)
+
+
 # Jenis sumber dan sifatnya untuk aturan AI.
 #   voice: channel suara manusia; speech: bicara (khotbah); hpf: usulan low cut (Hz);
 #   line: sumber line-level yang tidak butuh 48V bila koneksinya belum diisi.
